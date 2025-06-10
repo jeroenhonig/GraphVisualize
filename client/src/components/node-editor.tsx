@@ -119,6 +119,21 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
     }));
   };
 
+  const handlePropertyKeyChange = (oldKey: string, newKey: string) => {
+    if (newKey === oldKey) return;
+    
+    setEditedNode(prev => {
+      const newData = { ...prev.data };
+      const value = newData[oldKey];
+      delete newData[oldKey];
+      newData[newKey] = value;
+      return {
+        ...prev,
+        data: newData
+      };
+    });
+  };
+
   return (
     <Card className="w-full">
       <CardHeader className="pb-3">
@@ -224,9 +239,7 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
             {Object.entries(editedNode.data).map(([key, value]) => (
               <div key={key} className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor={`prop-${key}`} className="text-sm font-medium capitalize">
-                    {key}
-                  </Label>
+                  <Label className="text-sm font-medium">Eigenschap</Label>
                   {isEditing && (
                     <Button
                       onClick={() => handleRemoveProperty(key)}
@@ -238,13 +251,22 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
                     </Button>
                   )}
                 </div>
-                <Input
-                  id={`prop-${key}`}
-                  value={String(value)}
-                  onChange={(e) => handlePropertyValueChange(key, e.target.value)}
-                  disabled={!isEditing}
-                  className="text-sm"
-                />
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Naam van eigenschap"
+                    value={key}
+                    onChange={(e) => handlePropertyKeyChange(key, e.target.value)}
+                    disabled={!isEditing}
+                    className="text-sm font-medium"
+                  />
+                  <Input
+                    placeholder="Waarde"
+                    value={String(value)}
+                    onChange={(e) => handlePropertyValueChange(key, e.target.value)}
+                    disabled={!isEditing}
+                    className="text-sm"
+                  />
+                </div>
               </div>
             ))}
 

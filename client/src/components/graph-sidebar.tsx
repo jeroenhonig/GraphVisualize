@@ -228,9 +228,7 @@ export default function GraphSidebar({
                           {Object.entries(editForm.data).map(([key, value]) => (
                             <div key={key} className="space-y-2">
                               <div className="flex items-center justify-between">
-                                <Label htmlFor={`edit-prop-${key}`} className="text-sm font-medium capitalize">
-                                  {key}
-                                </Label>
+                                <Label className="text-sm font-medium">Eigenschap</Label>
                                 <Button
                                   onClick={() => {
                                     const newData = { ...editForm.data };
@@ -244,17 +242,31 @@ export default function GraphSidebar({
                                   <Trash2 className="h-3 w-3" />
                                 </Button>
                               </div>
-                              <Input
-                                id={`edit-prop-${key}`}
-                                value={String(value)}
-                                onChange={(e) => {
-                                  setEditForm({
-                                    ...editForm,
-                                    data: { ...editForm.data, [key]: e.target.value }
-                                  });
-                                }}
-                                className="text-sm"
-                              />
+                              <div className="space-y-2">
+                                <Input
+                                  placeholder="Naam van eigenschap"
+                                  value={key}
+                                  onChange={(e) => {
+                                    const newData = { ...editForm.data };
+                                    const value = newData[key];
+                                    delete newData[key];
+                                    newData[e.target.value] = value;
+                                    setEditForm({ ...editForm, data: newData });
+                                  }}
+                                  className="text-sm font-medium"
+                                />
+                                <Input
+                                  placeholder="Waarde"
+                                  value={String(value)}
+                                  onChange={(e) => {
+                                    setEditForm({
+                                      ...editForm,
+                                      data: { ...editForm.data, [key]: e.target.value }
+                                    });
+                                  }}
+                                  className="text-sm"
+                                />
+                              </div>
                             </div>
                           ))}
                           
