@@ -100,6 +100,119 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
   return layoutNodes;
 }
 
+// Extended node type with physics properties
+interface PhysicsNode extends VisualizationNode {
+  vx?: number;
+  vy?: number;
+}
+
+// Real-time physics simulation for particle-like behavior
+export function simulatePhysicsStep(
+  nodes: VisualizationNode[], 
+  edges: VisualizationEdge[],
+  bounds: { width: number; height: number }
+): VisualizationNode[] {
+  const updatedNodes: PhysicsNode[] = nodes.map(node => ({ 
+    ...node, 
+    vx: (node as PhysicsNode).vx || 0, 
+    vy: (node as PhysicsNode).vy || 0 
+  }));
+  const dt = 0.016; // 60fps simulation
+  
+  // Apply forces to each node
+  updatedNodes.forEach((node, i) => {
+    let fx = 0, fy = 0;
+    
+    // Repulsion from other nodes (particle physics)
+    updatedNodes.forEach((other, j) => {
+      if (i === j) return;
+      
+      const dx = node.x - other.x;
+      const dy = node.y - other.y;
+      const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+      
+      // Strong repulsion force (inverse square law)
+      const repulsionStrength = 5000;
+      const force = repulsionStrength / (distance * distance);
+      const normalizedFx = (dx / distance) * force;
+      const normalizedFy = (dy / distance) * force;
+      
+      fx += normalizedFx;
+      fy += normalizedFy;
+    });
+    
+    // Attraction along edges (spring forces)
+    edges.forEach(edge => {
+      let isConnected = false;
+      let connectedNode = null;
+      
+      if (edge.source === node.id) {
+        connectedNode = updatedNodes.find(n => n.id === edge.target);
+        isConnected = true;
+      } else if (edge.target === node.id) {
+        connectedNode = updatedNodes.find(n => n.id === edge.source);
+        isConnected = true;
+      }
+      
+      if (isConnected && connectedNode) {
+        const dx = connectedNode.x - node.x;
+        const dy = connectedNode.y - node.y;
+        const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+        
+        // Spring force with optimal length
+        const springLength = 120;
+        const springStrength = 0.08;
+        const displacement = distance - springLength;
+        const force = displacement * springStrength;
+        
+        fx += (dx / distance) * force;
+        fy += (dy / distance) * force;
+      }
+    });
+    
+    // Center attraction (weak gravity)
+    const centerX = bounds.width / 2;
+    const centerY = bounds.height / 2;
+    const centerDx = centerX - node.x;
+    const centerDy = centerY - node.y;
+    fx += centerDx * 0.0005;
+    fy += centerDy * 0.0005;
+    
+    // Boundary forces (keep nodes on screen)
+    const margin = 80;
+    if (node.x < margin) fx += (margin - node.x) * 0.05;
+    if (node.x > bounds.width - margin) fx -= (node.x - (bounds.width - margin)) * 0.05;
+    if (node.y < margin) fy += (margin - node.y) * 0.05;
+    if (node.y > bounds.height - margin) fy -= (node.y - (bounds.height - margin)) * 0.05;
+    
+    // Update velocity and position
+    node.vx = (node.vx || 0) + fx * dt;
+    node.vy = (node.vy || 0) + fy * dt;
+    
+    // Apply damping
+    node.vx *= 0.98;
+    node.vy *= 0.98;
+    
+    // Limit maximum velocity
+    const maxVelocity = 80;
+    const velocity = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
+    if (velocity > maxVelocity) {
+      node.vx = (node.vx / velocity) * maxVelocity;
+      node.vy = (node.vy / velocity) * maxVelocity;
+    }
+    
+    // Update position
+    node.x += node.vx * dt;
+    node.y += node.vy * dt;
+    
+    // Keep within bounds
+    node.x = Math.max(margin, Math.min(bounds.width - margin, node.x));
+    node.y = Math.max(margin, Math.min(bounds.height - margin, node.y));
+  });
+  
+  return updatedNodes;
+}
+
 export function renderGraph(
   svg: SVGSVGElement,
   nodes: VisualizationNode[],

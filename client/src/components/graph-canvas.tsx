@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FileSpreadsheet, Upload, Plus } from "lucide-react";
-import { createGraphLayout, renderGraph, type GraphTransform } from "@/lib/graph-utils";
+import { createGraphLayout, renderGraph, simulatePhysicsStep, type GraphTransform } from "@/lib/graph-utils";
 import type { GraphData, VisualizationNode, VisualizationEdge } from "@shared/schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -47,6 +47,10 @@ export default function GraphCanvas({
   
   // Real-time node positions for immediate visual feedback
   const [localNodePositions, setLocalNodePositions] = useState<Record<string, { x: number; y: number }>>({});
+  
+  // Physics simulation state
+  const [physicsEnabled, setPhysicsEnabled] = useState(true);
+  const [animationId, setAnimationId] = useState<number | null>(null);
   
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ 
@@ -326,6 +330,60 @@ export default function GraphCanvas({
       }
     );
   }, [graph, visibleNodes, selectedNode, transform, onNodeSelect, onNodeExpand, localNodePositions, handleNodeContextMenu]);
+
+  // Physics simulation loop
+  useEffect(() => {
+    if (!physicsEnabled || !graph?.nodes || !containerRef.current) return;
+
+    const animate = () => {
+      const bounds = {
+        width: containerRef.current?.clientWidth || 1200,
+        height: containerRef.current?.clientHeight || 800
+      };
+
+      const visibleNodesArray = graph.nodes?.filter(node => visibleNodes.has(node.id)) || [];
+      const visibleEdges = graph.edges?.filter(
+        edge => visibleNodes.has(edge.source) && visibleNodes.has(edge.target)
+      ) || [];
+
+      if (visibleNodesArray.length > 0) {
+        // Apply local positions from dragging
+        const nodesWithLocalPositions = visibleNodesArray.map(node => {
+          const localPos = localNodePositions[node.id];
+          return localPos ? { ...node, x: localPos.x, y: localPos.y } : node;
+        });
+
+        // Run physics simulation
+        const updatedNodes = simulatePhysicsStep(nodesWithLocalPositions, visibleEdges, bounds);
+        
+        // Update local positions with physics results (unless node is being dragged)
+        if (!isNodeDragging) {
+          const newLocalPositions: Record<string, { x: number; y: number }> = {};
+          updatedNodes.forEach(node => {
+            newLocalPositions[node.id] = { x: node.x, y: node.y };
+          });
+          setLocalNodePositions(newLocalPositions);
+        }
+      }
+
+      const id = requestAnimationFrame(animate);
+      setAnimationId(id);
+    };
+
+    const id = requestAnimationFrame(animate);
+    setAnimationId(id);
+
+    return () => {
+      if (id) cancelAnimationFrame(id);
+    };
+  }, [graph, visibleNodes, physicsEnabled, localNodePositions, isNodeDragging]);
+
+  // Cleanup animation on unmount
+  useEffect(() => {
+    return () => {
+      if (animationId) cancelAnimationFrame(animationId);
+    };
+  }, [animationId]);
 
   // Enhanced mouse handlers for both panning and node dragging
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
