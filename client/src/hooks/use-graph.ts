@@ -48,7 +48,11 @@ export function useGraph() {
   }, [allGraphs, currentGraphId]);
 
   const expandNode = useCallback((nodeId: string) => {
-    if (!currentGraph || !currentGraph.edges) return;
+    console.log('expandNode called with nodeId:', nodeId);
+    if (!currentGraph || !currentGraph.edges) {
+      console.log('No graph or edges available');
+      return;
+    }
 
     // Add connected nodes to visible set
     const connectedNodeIds = new Set<string>();
@@ -56,14 +60,25 @@ export function useGraph() {
     currentGraph.edges.forEach((edge: any) => {
       if (edge.source === nodeId && !visibleNodes.has(edge.target)) {
         connectedNodeIds.add(edge.target);
+        console.log('Found connected target node:', edge.target);
       }
       if (edge.target === nodeId && !visibleNodes.has(edge.source)) {
         connectedNodeIds.add(edge.source);
+        console.log('Found connected source node:', edge.source);
       }
     });
 
+    console.log('Total connected nodes found:', connectedNodeIds.size);
+    console.log('Connected node IDs:', Array.from(connectedNodeIds));
+
     if (connectedNodeIds.size > 0) {
-      setVisibleNodes(prev => new Set([...Array.from(prev), ...Array.from(connectedNodeIds)]));
+      setVisibleNodes(prev => {
+        const newSet = new Set([...Array.from(prev), ...Array.from(connectedNodeIds)]);
+        console.log('Updated visible nodes:', Array.from(newSet));
+        return newSet;
+      });
+    } else {
+      console.log('No new connected nodes to add');
     }
   }, [currentGraph, visibleNodes]);
 
