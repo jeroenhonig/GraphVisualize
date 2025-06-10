@@ -2,6 +2,7 @@ import { useState } from "react";
 import GraphSidebar from "./graph-sidebar";
 import GraphCanvas from "./graph-canvas";
 import SparqlQueryPanel from "./sparql-query-panel";
+import GraphStatistics from "./graph-statistics";
 import FileUpload from "./file-upload";
 import GraphCreator from "./graph-creator";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Minus, RotateCcw, Download, Settings, Maximize, Search, Upload, FileText } from "lucide-react";
+import { Plus, Minus, RotateCcw, Download, Settings, Maximize, Search, Upload, FileText, BarChart3, Database, Network } from "lucide-react";
 import { useGraph } from "@/hooks/use-graph";
 
 export default function GraphVisualizer() {
@@ -128,11 +129,22 @@ export default function GraphVisualizer() {
         {/* Sidebar with Tabs */}
         <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
           <Tabs defaultValue="nodes" className="flex-1 flex flex-col">
-            <TabsList className="grid w-full grid-cols-2 mx-4 mt-4">
-              <TabsTrigger value="nodes">Knopen</TabsTrigger>
-              <TabsTrigger value="sparql">
-                <Search className="h-4 w-4 mr-1" />
+            <TabsList className="grid w-full grid-cols-4 mx-4 mt-4">
+              <TabsTrigger value="nodes" className="text-xs">
+                <Network className="h-3 w-3 mr-1" />
+                Knopen
+              </TabsTrigger>
+              <TabsTrigger value="sparql" className="text-xs">
+                <Search className="h-3 w-3 mr-1" />
                 SPARQL
+              </TabsTrigger>
+              <TabsTrigger value="statistics" className="text-xs">
+                <BarChart3 className="h-3 w-3 mr-1" />
+                Stats
+              </TabsTrigger>
+              <TabsTrigger value="data" className="text-xs">
+                <Database className="h-3 w-3 mr-1" />
+                Data
               </TabsTrigger>
             </TabsList>
             
@@ -157,6 +169,62 @@ export default function GraphVisualizer() {
                   }}
                 />
               )}
+            </TabsContent>
+            
+            <TabsContent value="statistics" className="flex-1 overflow-hidden p-4">
+              <GraphStatistics graphData={currentGraph} />
+            </TabsContent>
+            
+            <TabsContent value="data" className="flex-1 overflow-hidden p-4">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">RDF Data Browser</h3>
+                {currentGraph && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded">
+                        <div className="font-medium">Total Triples</div>
+                        <div className="text-2xl font-bold text-blue-600">
+                          {currentGraph.nodeCount + currentGraph.edgeCount}
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded">
+                        <div className="font-medium">Unique Types</div>
+                        <div className="text-2xl font-bold text-green-600">
+                          {new Set(currentGraph.nodes.map(n => n.type)).size}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="border rounded-lg p-3">
+                      <h4 className="font-medium mb-2">Node Types</h4>
+                      <div className="space-y-1 text-sm">
+                        {Array.from(new Set(currentGraph.nodes.map((n: any) => n.type))).map((type: string) => (
+                          <div key={type} className="flex justify-between">
+                            <span>{type}</span>
+                            <span className="text-gray-500">
+                              {currentGraph.nodes.filter((n: any) => n.type === type).length}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="border rounded-lg p-3">
+                      <h4 className="font-medium mb-2">Relation Types</h4>
+                      <div className="space-y-1 text-sm">
+                        {Array.from(new Set(currentGraph.edges.map(e => e.type))).map(type => (
+                          <div key={type} className="flex justify-between">
+                            <span>{type}</span>
+                            <span className="text-gray-500">
+                              {currentGraph.edges.filter(e => e.type === type).length}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </TabsContent>
           </Tabs>
         </div>

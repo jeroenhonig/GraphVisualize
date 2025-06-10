@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertGraphSchema, insertRdfTripleSchema, insertVisibilitySetSchema } from "@shared/schema";
 import { nanoid } from "nanoid";
+import multer from "multer";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Create empty graph
