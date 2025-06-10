@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import GraphSidebar from "./graph-sidebar";
 import GraphCanvas from "./graph-canvas";
 import SparqlQueryPanel from "./sparql-query-panel";
@@ -6,14 +6,16 @@ import GraphStatistics from "./graph-statistics";
 import FileUpload from "./file-upload";
 import GraphCreator from "./graph-creator";
 import SaveViewDialog from "./save-view-dialog";
+import DraggablePanel from "./draggable-panel";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RotateCcw, Download, Settings, Maximize, Search, Upload, FileText, BarChart3, Database, Network, TrendingUp, ChevronDown, ChevronRight, Save, Eye, Trash2 } from "lucide-react";
+import { RotateCcw, Download, Settings, Maximize, Search, Upload, FileText, BarChart3, Database, Network, TrendingUp, ChevronDown, ChevronRight, Save, Eye, Trash2, Layout, RotateCw } from "lucide-react";
 import { useGraph } from "@/hooks/use-graph";
+import { useLayoutPreferences } from "@/hooks/use-layout-preferences";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +46,28 @@ export default function GraphVisualizer() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Layout preferences for draggable sidebars
+  const {
+    preferences,
+    toggleLeftSidebar,
+    toggleRightSidebar,
+    updateLeftPosition,
+    updateRightPosition,
+    updateLeftWidth,
+    updateRightWidth,
+    resetToDefault,
+  } = useLayoutPreferences();
+
+  // Set initial right sidebar position based on window width
+  useEffect(() => {
+    if (preferences.rightSidebarPosition.x === 0) {
+      updateRightPosition({ 
+        x: window.innerWidth - preferences.rightSidebarWidth - 20, 
+        y: 80 
+      });
+    }
+  }, []);
 
   // Fetch saved views for current graph
   const { data: savedViews = [] } = useQuery({
@@ -158,6 +182,15 @@ export default function GraphVisualizer() {
               </Button>
               <Button
                 variant="ghost"
+                onClick={resetToDefault}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                title="Layout resetten"
+              >
+                <Layout className="h-4 w-4 mr-2" />
+                Reset Layout
+              </Button>
+              <Button
+                variant="ghost"
                 onClick={() => setExportModalOpen(true)}
                 className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               >
@@ -185,10 +218,50 @@ export default function GraphVisualizer() {
         </div>
       </header>
 
-      <div className="flex h-screen pt-16">
-        {/* Sidebar with Tabs */}
-        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-          <Tabs defaultValue="tree" className="flex-1 flex flex-col">
+      <div className="h-screen pt-16 relative bg-graph-background">
+        {/* Main Graph Area - Full Screen */}
+        <GraphCanvas
+          graph={currentGraph}
+          selectedNode={selectedNode}
+          onNodeSelect={setSelectedNode}
+          onNodeExpand={expandNode}
+          visibleNodes={visibleNodes}
+          onVisibleNodesChange={setVisibleNodes}
+          transform={transform}
+          onTransformChange={setTransform}
+          editMode={editMode}
+        />
+
+        {/* Graph Controls Overlay */}
+        <div className="absolute bottom-6 right-6 flex flex-col space-y-2 z-20">
+          <Button
+            onClick={resetView}
+            className="p-3 bg-white shadow-lg rounded-lg hover:shadow-xl transition-shadow text-gray-600 hover:text-gray-900"
+            size="sm"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+          <Button
+            onClick={fitToScreen}
+            className="p-3 bg-white shadow-lg rounded-lg hover:shadow-xl transition-shadow text-gray-600 hover:text-gray-900"
+            size="sm"
+          >
+            <Maximize className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Left Draggable Sidebar - Graph Navigation */}
+        <DraggablePanel
+          title="Graph Navigatie"
+          position={preferences.leftSidebarPosition}
+          width={preferences.leftSidebarWidth}
+          collapsed={preferences.leftSidebarCollapsed}
+          side="left"
+          onPositionChange={updateLeftPosition}
+          onWidthChange={updateLeftWidth}
+          onToggleCollapse={toggleLeftSidebar}
+        >
+          <Tabs defaultValue="tree" className="flex-1 flex flex-col h-full">
             <TabsList className="grid w-full grid-cols-2 mx-4 mt-4">
               <TabsTrigger value="tree">
                 <Network className="h-4 w-4 mr-2" />
@@ -412,51 +485,29 @@ export default function GraphVisualizer() {
             
 
           </Tabs>
-        </div>
+        </DraggablePanel>
 
-        {/* Main Graph Area */}
-        <div className="flex-1 relative bg-graph-background">
-          <GraphCanvas
-            graph={currentGraph}
+        {/* Right Draggable Sidebar - Node Details & Edit */}
+        <DraggablePanel
+          title="Node Details"
+          position={preferences.rightSidebarPosition}
+          width={preferences.rightSidebarWidth}
+          collapsed={preferences.rightSidebarCollapsed}
+          side="right"
+          onPositionChange={updateRightPosition}
+          onWidthChange={updateRightWidth}
+          onToggleCollapse={toggleRightSidebar}
+        >
+          <GraphSidebar
+            currentGraph={currentGraph}
             selectedNode={selectedNode}
             onNodeSelect={setSelectedNode}
             onNodeExpand={expandNode}
-            visibleNodes={visibleNodes}
-            onVisibleNodesChange={setVisibleNodes}
-            transform={transform}
-            onTransformChange={setTransform}
+            onNodeCollapse={collapseNode}
             editMode={editMode}
+            onEditModeChange={setEditMode}
           />
-
-          {/* Graph Controls Overlay */}
-          <div className="absolute bottom-6 right-6 flex flex-col space-y-2">
-            <Button
-              onClick={resetView}
-              className="p-3 bg-white shadow-lg rounded-lg hover:shadow-xl transition-shadow text-gray-600 hover:text-gray-900"
-              size="sm"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-            <Button
-              onClick={fitToScreen}
-              className="p-3 bg-white shadow-lg rounded-lg hover:shadow-xl transition-shadow text-gray-600 hover:text-gray-900"
-              size="sm"
-            >
-              <Maximize className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Right Sidebar - Node Details & Edit */}
-        <GraphSidebar
-          currentGraph={currentGraph}
-          selectedNode={selectedNode}
-          onNodeSelect={setSelectedNode}
-          onNodeExpand={expandNode}
-          onNodeCollapse={collapseNode}
-          editMode={editMode}
-          onEditModeChange={setEditMode}
-        />
+        </DraggablePanel>
       </div>
 
       {/* Import Modal */}
