@@ -378,54 +378,56 @@ export class DatabaseStorage implements IStorage {
     for (const [subject, subjectTripleList] of Array.from(subjectTriples.entries())) {
       const typeTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.TYPE);
       
-      if (typeTriple?.object === RDF_TYPES.NODE) {
-        // This is a node
-        const labelTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.LABEL);
-        const nodeTypeTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.NODE_TYPE);
-        const xTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.POSITION_X);
-        const yTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.POSITION_Y);
+      // Treat any subject with properties as a node (not just RDF_TYPES.NODE)
+      const labelTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.LABEL);
+      const xTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.POSITION_X);
+      const yTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.POSITION_Y);
 
-        // Collect data properties (all predicates that are not system predicates)
-        const systemPredicates = [
-          RDF_PREDICATES.TYPE,
-          RDF_PREDICATES.LABEL,
-          RDF_PREDICATES.NODE_TYPE,
-          RDF_PREDICATES.POSITION_X,
-          RDF_PREDICATES.POSITION_Y,
-          RDF_PREDICATES.CONNECTS_TO
-        ];
-        
-        const data: Record<string, any> = {};
-        subjectTripleList
-          .filter((t: any) => !systemPredicates.includes(t.predicate))
-          .forEach((t: any) => {
-            try {
-              data[t.predicate] = JSON.parse(t.object);
-            } catch {
-              data[t.predicate] = t.object;
-            }
-          });
-
-        nodes.push({
-          id: subject,
-          label: labelTriple?.object || subject,
-          type: nodeTypeTriple?.object || "unknown",
-          data,
-          x: parseInt(xTriple?.object || "0"),
-          y: parseInt(yTriple?.object || "0"),
-          visible: true
+      // Collect data properties (all predicates that are not system predicates)
+      const systemPredicates = [
+        RDF_PREDICATES.TYPE,
+        RDF_PREDICATES.LABEL,
+        RDF_PREDICATES.POSITION_X,
+        RDF_PREDICATES.POSITION_Y,
+        RDF_PREDICATES.CONNECTS_TO
+      ];
+      
+      const data: Record<string, any> = {};
+      subjectTripleList
+        .filter((t: any) => !systemPredicates.includes(t.predicate))
+        .forEach((t: any) => {
+          try {
+            data[t.predicate] = JSON.parse(t.object);
+          } catch {
+            data[t.predicate] = t.object;
+          }
         });
 
-        // Find connections from this node
-        const connections = subjectTripleList.filter((t: any) => t.predicate === RDF_PREDICATES.CONNECTS_TO);
-        for (const conn of connections) {
-          const edgeId = `${subject}-${conn.object}`;
+      nodes.push({
+        id: subject,
+        label: labelTriple?.object || subject,
+        type: typeTriple?.object || "unknown",
+        data,
+        x: parseInt(xTriple?.object || "400"),
+        y: parseInt(yTriple?.object || "300"),
+        visible: true
+      });
+
+      // Find relationships to other nodes (edges)
+      for (const triple of subjectTripleList) {
+        // Skip system predicates and literal values
+        if (systemPredicates.includes(triple.predicate)) continue;
+        
+        // Check if this is a relationship to another node
+        if (subjectTriples.has(triple.object)) {
+          const edgeId = `${subject}-${triple.predicate}-${triple.object}`;
           if (!processedEdges.has(edgeId)) {
             edges.push({
               id: edgeId,
               source: subject,
-              target: conn.object,
-              type: "connects",
+              target: triple.object,
+              label: triple.predicate,
+              type: triple.predicate,
               data: {}
             });
             processedEdges.add(edgeId);
