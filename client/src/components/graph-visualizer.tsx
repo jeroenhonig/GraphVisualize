@@ -239,6 +239,12 @@ export default function GraphVisualizer() {
           collapsed={preferences.collapsed.view}
           onToggleCollapse={() => togglePanelCollapse('view')}
           onRotateLayout={rotateLayout}
+          graphInfo={currentGraph ? {
+            name: currentGraph.name,
+            description: currentGraph.description,
+            nodeCount: currentGraph.nodeCount,
+            visibleCount: visibleNodes.size
+          } : undefined}
         >
           <GraphCanvas
             graph={currentGraph}

@@ -19,22 +19,22 @@ export interface LayoutPreferences {
 // Define the three layout configurations - navigation, details, and view panels
 export const LAYOUT_POSITIONS = {
   1: {
-    // Navigatie links, view midden, details rechts
-    navigation: { x: 20, y: 100, width: 320, height: 'calc(100vh - 140px)' },
-    view: { x: 'center', y: 100, width: 'calc(100vw - 680px)', height: 'calc(100vh - 140px)' },
-    details: { x: 'right', y: 100, width: 320, height: 'calc(100vh - 140px)' }
+    // Navigatie links, view midden, details rechts - volledige schermbenutting
+    navigation: { x: 0, y: 80, width: 320, height: 'calc(100vh - 80px)' },
+    view: { x: 320, y: 80, width: 'calc(100vw - 640px)', height: 'calc(100vh - 80px)' },
+    details: { x: 'calc(100vw - 320px)', y: 80, width: 320, height: 'calc(100vh - 80px)' }
   },
   2: {
-    // Navigatie links boven, details links onder, view rechts
-    navigation: { x: 20, y: 100, width: 320, height: 'calc(50vh - 90px)' },
-    details: { x: 20, y: 'bottom-half', width: 320, height: 'calc(50vh - 90px)' },
-    view: { x: 'right', y: 100, width: 'calc(100vw - 360px)', height: 'calc(100vh - 140px)' }
+    // Navigatie links boven, details links onder, view rechts - volledige schermbenutting
+    navigation: { x: 0, y: 80, width: 320, height: 'calc(50vh - 40px)' },
+    details: { x: 0, y: 'calc(50vh + 40px)', width: 320, height: 'calc(50vh - 40px)' },
+    view: { x: 320, y: 80, width: 'calc(100vw - 320px)', height: 'calc(100vh - 80px)' }
   },
   3: {
-    // View links, navigatie rechts boven, details rechts onder
-    view: { x: 20, y: 100, width: 'calc(100vw - 360px)', height: 'calc(100vh - 140px)' },
-    navigation: { x: 'right', y: 100, width: 320, height: 'calc(50vh - 90px)' },
-    details: { x: 'right', y: 'bottom-half', width: 320, height: 'calc(50vh - 90px)' }
+    // View links, navigatie rechts boven, details rechts onder - volledige schermbenutting
+    view: { x: 0, y: 80, width: 'calc(100vw - 320px)', height: 'calc(100vh - 80px)' },
+    navigation: { x: 'calc(100vw - 320px)', y: 80, width: 320, height: 'calc(50vh - 40px)' },
+    details: { x: 'calc(100vw - 320px)', y: 'calc(50vh + 40px)', width: 320, height: 'calc(50vh - 40px)' }
   }
 } as const;
 

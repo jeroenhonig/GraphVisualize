@@ -802,18 +802,7 @@ export default function GraphCanvas({
         </div>
       )}
 
-      {/* Graph Info Overlay */}
-      {graph && !isLoading && (
-        <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 text-sm">
-          <div className="font-medium text-gray-900">{graph.name}</div>
-          {graph.description && (
-            <div className="text-gray-600 mt-1">{graph.description}</div>
-          )}
-          <div className="text-xs text-gray-500 mt-2">
-            {visibleNodes.size} van {graph.nodeCount} Nodes zichtbaar
-          </div>
-        </div>
-      )}
+
 
 
 

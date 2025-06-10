@@ -16,6 +16,12 @@ interface LayoutPanelProps {
   onToggleCollapse: () => void;
   onRotateLayout: () => void;
   className?: string;
+  graphInfo?: {
+    name: string;
+    description?: string;
+    nodeCount: number;
+    visibleCount: number;
+  };
 }
 
 export default function LayoutPanel({
@@ -26,7 +32,8 @@ export default function LayoutPanel({
   collapsed,
   onToggleCollapse,
   onRotateLayout,
-  className = ""
+  className = "",
+  graphInfo
 }: LayoutPanelProps) {
   const getCollapseIcon = () => {
     return collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />;
@@ -41,22 +48,34 @@ export default function LayoutPanel({
     let actualY = position.y;
     let actualWidth = position.width;
     
-    if (position.x === 'center') {
-      actualX = 360; // Leave space for left panel
-    } else if (position.x === 'right') {
-      actualX = windowWidth - (typeof position.width === 'string' ? 320 : position.width) - 20;
+    // Handle calc() expressions for x position
+    if (typeof position.x === 'string') {
+      if (position.x === 'calc(100vw - 320px)') {
+        actualX = windowWidth - 320;
+      } else if (position.x.includes('calc')) {
+        // Parse other calc expressions if needed
+        actualX = position.x;
+      }
     }
     
-    if (position.y === 'bottom-half') {
-      actualY = (windowHeight / 2) + 10;
+    // Handle calc() expressions for y position
+    if (typeof position.y === 'string') {
+      if (position.y === 'calc(50vh + 40px)') {
+        actualY = (windowHeight / 2) + 40;
+      } else if (position.y.includes('calc')) {
+        actualY = position.y;
+      }
     }
     
-    // Calculate width for view panel based on available space
+    // Handle calc() expressions for width
     if (typeof actualWidth === 'string' && actualWidth.includes('calc')) {
-      if (actualWidth === 'calc(100vw - 680px)') {
-        actualWidth = windowWidth - 680;
-      } else if (actualWidth === 'calc(100vw - 360px)') {
-        actualWidth = windowWidth - 360;
+      if (actualWidth === 'calc(100vw - 640px)') {
+        actualWidth = windowWidth - 640;
+      } else if (actualWidth === 'calc(100vw - 320px)') {
+        actualWidth = windowWidth - 320;
+      } else {
+        // For other calc expressions, keep as string for CSS
+        actualWidth = actualWidth;
       }
     }
     
@@ -67,7 +86,7 @@ export default function LayoutPanel({
 
   return (
     <div
-      className={`fixed bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-30 transition-all duration-300 ${className}`}
+      className={`fixed bg-white dark:bg-gray-900 z-30 transition-all duration-300 ${className}`}
       style={{
         left: actualPosition.x,
         top: actualPosition.y,
@@ -76,13 +95,30 @@ export default function LayoutPanel({
       }}
     >
       {/* Header with controls */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-t-lg">
-        <div className="flex items-center space-x-2">
+      <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+        <div className="flex items-center space-x-2 flex-1">
           <Layout className="h-4 w-4 text-gray-400" />
           {!collapsed && (
-            <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
-              {title}
-            </span>
+            <div className="flex-1">
+              <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                {title}
+              </span>
+              {panelType === 'view' && graphInfo && (
+                <div className="mt-1">
+                  <div className="text-xs font-medium text-gray-900 dark:text-white">
+                    {graphInfo.name}
+                  </div>
+                  {graphInfo.description && (
+                    <div className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                      {graphInfo.description}
+                    </div>
+                  )}
+                  <div className="text-xs text-gray-500 dark:text-gray-500">
+                    {graphInfo.visibleCount} van {graphInfo.nodeCount} nodes zichtbaar
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
         
@@ -110,7 +146,7 @@ export default function LayoutPanel({
 
       {/* Content */}
       {!collapsed && (
-        <div className="h-full overflow-y-auto overflow-x-hidden" style={{ height: 'calc(100% - 56px)', maxHeight: 'calc(100vh - 200px)' }}>
+        <div className="h-full overflow-y-auto overflow-x-hidden" style={{ height: 'calc(100% - 56px)' }}>
           {children}
         </div>
       )}
