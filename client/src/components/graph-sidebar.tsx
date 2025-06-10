@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ExpandIcon, EyeOff, Info, Edit3, Save, X } from "lucide-react";
+import { ExpandIcon, EyeOff, Info, Edit3, Save, X, Plus, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
@@ -205,20 +205,65 @@ export default function GraphSidebar({
                       </div>
 
                       <div>
-                        <Label>Eigenschappen</Label>
-                        <Textarea
-                          value={JSON.stringify(editForm.data, null, 2)}
-                          onChange={(e) => {
-                            try {
-                              const parsed = JSON.parse(e.target.value);
-                              setEditForm({ ...editForm, data: parsed });
-                            } catch {
-                              // Invalid JSON, keep current data
-                            }
-                          }}
-                          placeholder='{"eigenschap": "waarde"}'
-                          rows={6}
-                        />
+                        <div className="flex items-center justify-between mb-2">
+                          <Label>Eigenschappen</Label>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const newKey = `eigenschap${Object.keys(editForm.data).length + 1}`;
+                              setEditForm({
+                                ...editForm,
+                                data: { ...editForm.data, [newKey]: "" }
+                              });
+                            }}
+                            className="h-7 px-2"
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            Toevoegen
+                          </Button>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          {Object.entries(editForm.data).map(([key, value]) => (
+                            <div key={key} className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <Label htmlFor={`edit-prop-${key}`} className="text-sm font-medium capitalize">
+                                  {key}
+                                </Label>
+                                <Button
+                                  onClick={() => {
+                                    const newData = { ...editForm.data };
+                                    delete newData[key];
+                                    setEditForm({ ...editForm, data: newData });
+                                  }}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <Input
+                                id={`edit-prop-${key}`}
+                                value={String(value)}
+                                onChange={(e) => {
+                                  setEditForm({
+                                    ...editForm,
+                                    data: { ...editForm.data, [key]: e.target.value }
+                                  });
+                                }}
+                                className="text-sm"
+                              />
+                            </div>
+                          ))}
+                          
+                          {Object.keys(editForm.data).length === 0 && (
+                            <p className="text-sm text-gray-500 italic">
+                              Geen eigenschappen. Klik op 'Toevoegen' om een eigenschap toe te voegen.
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
