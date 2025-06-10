@@ -9,6 +9,7 @@ import SaveViewDialog from "./save-view-dialog";
 import LayoutPanel from "./layout-panel";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -45,6 +46,7 @@ export default function GraphVisualizer() {
   const [expandedTreeItems, setExpandedTreeItems] = useState<Set<string>>(new Set(['nodes', 'relations', 'saved-views']));
   const [saveViewDialogOpen, setSaveViewDialogOpen] = useState(false);
   const [nodeDetailsModalOpen, setNodeDetailsModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -244,19 +246,21 @@ export default function GraphVisualizer() {
           />
         </LayoutPanel>
 
-        {/* Graph Controls Overlay */}
-        <div className="absolute bottom-6 right-6 flex flex-col space-y-2 z-20">
+        {/* Graph Controls Overlay - Fixed positioning to be always visible */}
+        <div className="fixed bottom-6 right-6 flex flex-col space-y-2 z-50">
           <Button
             onClick={resetView}
-            className="p-3 bg-white shadow-lg rounded-lg hover:shadow-xl transition-shadow text-gray-600 hover:text-gray-900"
+            className="p-3 bg-white dark:bg-gray-800 shadow-lg rounded-lg hover:shadow-xl transition-shadow text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white border border-gray-200 dark:border-gray-700"
             size="sm"
+            title="Reset weergave"
           >
             <RotateCcw className="h-4 w-4" />
           </Button>
           <Button
             onClick={fitToScreen}
-            className="p-3 bg-white shadow-lg rounded-lg hover:shadow-xl transition-shadow text-gray-600 hover:text-gray-900"
+            className="p-3 bg-white dark:bg-gray-800 shadow-lg rounded-lg hover:shadow-xl transition-shadow text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white border border-gray-200 dark:border-gray-700"
             size="sm"
+            title="Centreer alle nodes"
           >
             <Maximize className="h-4 w-4" />
           </Button>
