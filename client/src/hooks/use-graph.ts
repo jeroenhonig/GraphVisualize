@@ -17,7 +17,10 @@ export function useGraph() {
   // Fetch current graph
   const { data: currentGraph } = useQuery({
     queryKey: ['/api/graphs', currentGraphId],
-    queryFn: () => apiRequest(`/api/graphs/${currentGraphId}`, "GET"),
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/graphs/${currentGraphId}`);
+      return res.json();
+    },
     enabled: !!currentGraphId,
   });
 
@@ -45,12 +48,12 @@ export function useGraph() {
   }, [allGraphs, currentGraphId]);
 
   const expandNode = useCallback((nodeId: string) => {
-    if (!currentGraph) return;
+    if (!currentGraph || !currentGraph.edges) return;
 
     // Add connected nodes to visible set
     const connectedNodeIds = new Set<string>();
     
-    currentGraph.edges?.forEach((edge: any) => {
+    currentGraph.edges.forEach((edge: any) => {
       if (edge.source === nodeId && !visibleNodes.has(edge.target)) {
         connectedNodeIds.add(edge.target);
       }
@@ -65,7 +68,7 @@ export function useGraph() {
   }, [currentGraph, visibleNodes]);
 
   const collapseNode = useCallback((nodeId: string) => {
-    if (!currentGraph) return;
+    if (!currentGraph || !currentGraph.edges) return;
 
     // Remove node from visible set, but keep nodes that have other connections
     const nodesToKeep = new Set(visibleNodes);
@@ -73,16 +76,16 @@ export function useGraph() {
 
     // Check which connected nodes should remain visible
     const connectedNodes = currentGraph.edges
-      ?.filter((edge: any) => edge.source === nodeId || edge.target === nodeId)
+      .filter((edge: any) => edge.source === nodeId || edge.target === nodeId)
       .flatMap((edge: any) => [edge.source, edge.target])
-      .filter((id: any) => id !== nodeId) || [];
+      .filter((id: any) => id !== nodeId);
 
     connectedNodes.forEach((connectedNodeId: any) => {
       // Check if this connected node has other visible connections
-      const hasOtherConnections = currentGraph.edges?.some((edge: any) => 
+      const hasOtherConnections = currentGraph.edges.some((edge: any) => 
         (edge.source === connectedNodeId && nodesToKeep.has(edge.target)) ||
         (edge.target === connectedNodeId && nodesToKeep.has(edge.source))
-      ) || false;
+      );
 
       if (!hasOtherConnections) {
         nodesToKeep.delete(connectedNodeId);
@@ -102,9 +105,9 @@ export function useGraph() {
   }, []);
 
   const fitToScreen = useCallback(() => {
-    if (!currentGraph || visibleNodes.size === 0) return;
+    if (!currentGraph || !currentGraph.nodes || visibleNodes.size === 0) return;
 
-    const visibleNodesArray = currentGraph.nodes?.filter((node: any) => visibleNodes.has(node.id)) || [];
+    const visibleNodesArray = currentGraph.nodes.filter((node: any) => visibleNodes.has(node.id));
     
     if (visibleNodesArray.length === 0) return;
 
