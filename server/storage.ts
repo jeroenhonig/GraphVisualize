@@ -631,7 +631,7 @@ export class DatabaseStorage implements IStorage {
         graphId,
         subject: "building:KantoorgebouwCentrum",
         predicate: RDF_PREDICATES.POSITION_X,
-        object: "400",
+        object: "500",
         objectType: "literal" as const
       },
       {
@@ -682,14 +682,14 @@ export class DatabaseStorage implements IStorage {
         graphId,
         subject: "element:Foundation001",
         predicate: RDF_PREDICATES.POSITION_X,
-        object: "200",
+        object: "300",
         objectType: "literal" as const
       },
       {
         graphId,
         subject: "element:Foundation001",
         predicate: RDF_PREDICATES.POSITION_Y,
-        object: "500",
+        object: "520",
         objectType: "literal" as const
       },
 
@@ -726,14 +726,14 @@ export class DatabaseStorage implements IStorage {
         graphId,
         subject: "element:Structure001",
         predicate: RDF_PREDICATES.POSITION_X,
-        object: "600",
+        object: "750",
         objectType: "literal" as const
       },
       {
         graphId,
         subject: "element:Structure001",
         predicate: RDF_PREDICATES.POSITION_Y,
-        object: "300",
+        object: "320",
         objectType: "literal" as const
       },
 
@@ -770,14 +770,14 @@ export class DatabaseStorage implements IStorage {
         graphId,
         subject: "element:Facade001",
         predicate: RDF_PREDICATES.POSITION_X,
-        object: "400",
+        object: "500",
         objectType: "literal" as const
       },
       {
         graphId,
         subject: "element:Facade001",
         predicate: RDF_PREDICATES.POSITION_Y,
-        object: "100",
+        object: "120",
         objectType: "literal" as const
       },
 
@@ -814,14 +814,14 @@ export class DatabaseStorage implements IStorage {
         graphId,
         subject: "material:Concrete_C30_37",
         predicate: RDF_PREDICATES.POSITION_X,
-        object: "100",
+        object: "150",
         objectType: "literal" as const
       },
       {
         graphId,
         subject: "material:Concrete_C30_37",
         predicate: RDF_PREDICATES.POSITION_Y,
-        object: "400",
+        object: "450",
         objectType: "literal" as const
       },
 
@@ -857,14 +857,14 @@ export class DatabaseStorage implements IStorage {
         graphId,
         subject: "material:Steel_S355",
         predicate: RDF_PREDICATES.POSITION_X,
-        object: "700",
+        object: "850",
         objectType: "literal" as const
       },
       {
         graphId,
         subject: "material:Steel_S355",
         predicate: RDF_PREDICATES.POSITION_Y,
-        object: "500",
+        object: "480",
         objectType: "literal" as const
       },
 
@@ -901,14 +901,14 @@ export class DatabaseStorage implements IStorage {
         graphId,
         subject: "doc:ArchitecturalDrawings",
         predicate: RDF_PREDICATES.POSITION_X,
-        object: "800",
+        object: "750",
         objectType: "literal" as const
       },
       {
         graphId,
         subject: "doc:ArchitecturalDrawings",
         predicate: RDF_PREDICATES.POSITION_Y,
-        object: "200",
+        object: "150",
         objectType: "literal" as const
       },
 

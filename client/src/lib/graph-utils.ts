@@ -14,7 +14,7 @@ export interface RenderOptions {
   transform: GraphTransform;
 }
 
-// Simple force-directed layout simulation
+// Enhanced force-directed layout with collision detection
 export function createGraphLayout(nodes: VisualizationNode[], edges: VisualizationEdge[]): VisualizationNode[] {
   const layoutNodes = nodes.map(node => ({
     ...node,
@@ -24,9 +24,29 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
     vy: 0,
   }));
 
+  // Calculate label dimensions for collision detection
+  function getNodeBounds(node: any) {
+    const labelLength = node.label?.length || 10;
+    const width = Math.max(80, labelLength * 8 + 20); // Minimum 80px, scale with text
+    const height = 60; // Fixed height for nodes + label space
+    return { width, height };
+  }
+
+  // Check if two nodes overlap (including label space)
+  function nodesOverlap(node1: any, node2: any) {
+    const bounds1 = getNodeBounds(node1);
+    const bounds2 = getNodeBounds(node2);
+    
+    const dx = Math.abs(node1.x - node2.x);
+    const dy = Math.abs(node1.y - node2.y);
+    
+    return dx < (bounds1.width + bounds2.width) / 2 + 20 && 
+           dy < (bounds1.height + bounds2.height) / 2 + 20;
+  }
+
   // Enhanced force simulation with better spacing
-  for (let i = 0; i < 200; i++) {
-    // Stronger repulsion between nodes to reduce overlap
+  for (let i = 0; i < 300; i++) {
+    // Stronger repulsion between nodes to prevent overlap
     for (let j = 0; j < layoutNodes.length; j++) {
       for (let k = j + 1; k < layoutNodes.length; k++) {
         const node1 = layoutNodes[j];
@@ -36,17 +56,20 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
         const dy = node2.y - node1.y;
         const distance = Math.sqrt(dx * dx + dy * dy) || 1;
         
-        // Increased repulsion force and minimum distance
-        const minDistance = 150;
+        // Calculate minimum distance based on label sizes
+        const bounds1 = getNodeBounds(node1);
+        const bounds2 = getNodeBounds(node2);
+        const minDistance = Math.max(bounds1.width, bounds1.height, bounds2.width, bounds2.height) + 40;
+        
         if (distance < minDistance) {
-          const force = (minDistance - distance) * 3;
+          const force = (minDistance - distance) * 4;
           const fx = (dx / distance) * force;
           const fy = (dy / distance) * force;
           
-          node1.vx -= fx * 0.1;
-          node1.vy -= fy * 0.1;
-          node2.vx += fx * 0.1;
-          node2.vy += fy * 0.1;
+          node1.vx -= fx * 0.15;
+          node1.vy -= fy * 0.15;
+          node2.vx += fx * 0.15;
+          node2.vy += fy * 0.15;
         }
       }
     }
@@ -355,12 +378,64 @@ export function renderGraph(
       nodeGroup.appendChild(circle);
     }
 
-    // Node label
+    // Calculate optimal label position to avoid overlap
+    const labelPositions = [
+      { x: 0, y: 35, anchor: 'middle' },    // Below (default)
+      { x: 0, y: -30, anchor: 'middle' },   // Above
+      { x: 30, y: 5, anchor: 'start' },     // Right
+      { x: -30, y: 5, anchor: 'end' }       // Left
+    ];
+
+    // Find best position by checking for overlaps with other nodes
+    let bestPosition = labelPositions[0];
+    let minConflicts = Infinity;
+
+    for (const pos of labelPositions) {
+      let conflicts = 0;
+      const labelX = node.x + pos.x;
+      const labelY = node.y + pos.y;
+
+      // Check conflicts with other nodes
+      for (const otherNode of nodes) {
+        if (otherNode.id === node.id) continue;
+        
+        const dx = Math.abs(labelX - otherNode.x);
+        const dy = Math.abs(labelY - otherNode.y);
+        
+        // Consider both node circle and label area
+        if (dx < 50 && dy < 25) {
+          conflicts++;
+        }
+      }
+
+      if (conflicts < minConflicts) {
+        minConflicts = conflicts;
+        bestPosition = pos;
+      }
+    }
+
+    // Create label background for better readability
+    const textBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    const labelText = node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label;
+    const textWidth = labelText.length * 7 + 8;
+    
+    textBg.setAttribute('x', (bestPosition.x - textWidth/2).toString());
+    textBg.setAttribute('y', (bestPosition.y - 10).toString());
+    textBg.setAttribute('width', textWidth.toString());
+    textBg.setAttribute('height', '16');
+    textBg.setAttribute('rx', '3');
+    textBg.setAttribute('fill', 'rgba(255, 255, 255, 0.9)');
+    textBg.setAttribute('stroke', 'rgba(0, 0, 0, 0.1)');
+    textBg.setAttribute('stroke-width', '0.5');
+    nodeGroup.appendChild(textBg);
+
+    // Node label with optimized position
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    text.setAttribute('y', '35');
-    text.setAttribute('text-anchor', 'middle');
-    text.setAttribute('class', 'text-xs font-mono fill-gray-700 pointer-events-none');
-    text.textContent = node.label.length > 12 ? node.label.substring(0, 12) + '...' : node.label;
+    text.setAttribute('x', bestPosition.x.toString());
+    text.setAttribute('y', (bestPosition.y - 2).toString());
+    text.setAttribute('text-anchor', bestPosition.anchor);
+    text.setAttribute('class', 'text-xs font-medium fill-gray-800 pointer-events-none');
+    text.textContent = labelText;
     nodeGroup.appendChild(text);
 
     // Event handlers
