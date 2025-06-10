@@ -638,11 +638,11 @@ export class DatabaseStorage implements IStorage {
         graphId,
         subject: "building:KantoorgebouwCentrum",
         predicate: RDF_PREDICATES.POSITION_Y,
-        object: "300",
+        object: "350",
         objectType: "literal" as const
       },
 
-      // Foundation element
+      // Foundation element - positioned far left bottom
       {
         graphId,
         subject: "element:Foundation001",
@@ -682,18 +682,18 @@ export class DatabaseStorage implements IStorage {
         graphId,
         subject: "element:Foundation001",
         predicate: RDF_PREDICATES.POSITION_X,
-        object: "300",
+        object: "200",
         objectType: "literal" as const
       },
       {
         graphId,
         subject: "element:Foundation001",
         predicate: RDF_PREDICATES.POSITION_Y,
-        object: "520",
+        object: "600",
         objectType: "literal" as const
       },
 
-      // Structure element
+      // Structure element - positioned far right
       {
         graphId,
         subject: "element:Structure001",
@@ -726,18 +726,18 @@ export class DatabaseStorage implements IStorage {
         graphId,
         subject: "element:Structure001",
         predicate: RDF_PREDICATES.POSITION_X,
-        object: "750",
+        object: "900",
         objectType: "literal" as const
       },
       {
         graphId,
         subject: "element:Structure001",
         predicate: RDF_PREDICATES.POSITION_Y,
-        object: "320",
+        object: "350",
         objectType: "literal" as const
       },
 
-      // Facade element
+      // Facade element - positioned top center
       {
         graphId,
         subject: "element:Facade001",
@@ -777,11 +777,11 @@ export class DatabaseStorage implements IStorage {
         graphId,
         subject: "element:Facade001",
         predicate: RDF_PREDICATES.POSITION_Y,
-        object: "120",
+        object: "150",
         objectType: "literal" as const
       },
 
-      // Materials
+      // Materials - positioned bottom far apart
       {
         graphId,
         subject: "material:Concrete_C30_37",
@@ -814,14 +814,14 @@ export class DatabaseStorage implements IStorage {
         graphId,
         subject: "material:Concrete_C30_37",
         predicate: RDF_PREDICATES.POSITION_X,
-        object: "150",
+        object: "100",
         objectType: "literal" as const
       },
       {
         graphId,
         subject: "material:Concrete_C30_37",
         predicate: RDF_PREDICATES.POSITION_Y,
-        object: "450",
+        object: "500",
         objectType: "literal" as const
       },
 
@@ -857,18 +857,18 @@ export class DatabaseStorage implements IStorage {
         graphId,
         subject: "material:Steel_S355",
         predicate: RDF_PREDICATES.POSITION_X,
-        object: "850",
+        object: "1000",
         objectType: "literal" as const
       },
       {
         graphId,
         subject: "material:Steel_S355",
         predicate: RDF_PREDICATES.POSITION_Y,
-        object: "480",
+        object: "550",
         objectType: "literal" as const
       },
 
-      // Documents
+      // Documents - positioned top right
       {
         graphId,
         subject: "doc:ArchitecturalDrawings",
@@ -901,7 +901,7 @@ export class DatabaseStorage implements IStorage {
         graphId,
         subject: "doc:ArchitecturalDrawings",
         predicate: RDF_PREDICATES.POSITION_X,
-        object: "750",
+        object: "800",
         objectType: "literal" as const
       },
       {

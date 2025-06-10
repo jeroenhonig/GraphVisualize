@@ -290,11 +290,13 @@ export function renderGraph(
     
     // Try different curvature values to find best position for label
     const curvatureOptions = [
-      distance * 0.15,  // Less curved
-      distance * 0.25,  // Default
-      distance * 0.35,  // More curved
-      -distance * 0.15, // Curve other direction
-      -distance * 0.25
+      distance * 0.2,   // Less curved
+      distance * 0.4,   // More curved
+      distance * 0.6,   // Very curved
+      -distance * 0.2,  // Curve other direction
+      -distance * 0.4,  // More curved other direction
+      -distance * 0.6,  // Very curved other direction
+      0                 // Straight line
     ];
     
     let bestCurvature = distance * 0.25;
@@ -318,10 +320,11 @@ export function renderGraph(
         }
         
         // Check conflicts with other edge labels
-        for (const [otherEdgeId, otherPos] of edgeLabelPositions) {
+        const labelPositionsArray = Array.from(edgeLabelPositions.values());
+        for (const otherPos of labelPositionsArray) {
           const edgeDx = Math.abs(testX - otherPos.x);
           const edgeDy = Math.abs(testY - otherPos.y);
-          if (edgeDx < 60 && edgeDy < 25) conflicts++;
+          if (edgeDx < 80 && edgeDy < 35) conflicts += 2;
         }
         
         if (conflicts < minConflicts) {
