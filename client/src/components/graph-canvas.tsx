@@ -86,14 +86,47 @@ export default function GraphCanvas({
   
   // New node form state
   const [newNodeLabel, setNewNodeLabel] = useState("");
-  const [newNodeType, setNewNodeType] = useState("default");
+  const [newNodeType, setNewNodeType] = useState("");
+  const [customNodeType, setCustomNodeType] = useState("");
   
   // New relation form state
   const [newRelationLabel, setNewRelationLabel] = useState("");
-  const [newRelationType, setNewRelationType] = useState("relationship");
+  const [newRelationType, setNewRelationType] = useState("");
+  const [customRelationType, setCustomRelationType] = useState("");
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Extract existing node types from graph data
+  const getExistingNodeTypes = useCallback(() => {
+    if (!graph?.nodes) return [];
+    
+    const types = new Set<string>();
+    graph.nodes.forEach(node => {
+      if (node.type && node.type !== 'default') {
+        types.add(node.type);
+      }
+    });
+    
+    return Array.from(types).sort();
+  }, [graph?.nodes]);
+
+  // Extract existing edge types from graph data
+  const getExistingEdgeTypes = useCallback(() => {
+    if (!graph?.edges) return [];
+    
+    const types = new Set<string>();
+    graph.edges.forEach(edge => {
+      if (edge.type && edge.type !== 'relationship') {
+        types.add(edge.type);
+      }
+    });
+    
+    return Array.from(types).sort();
+  }, [graph?.edges]);
+
+  const existingNodeTypes = getExistingNodeTypes();
+  const existingEdgeTypes = getExistingEdgeTypes();
 
   // Calculate available canvas area excluding panels
   const getCanvasConstraints = useCallback(() => {
@@ -289,6 +322,9 @@ export default function GraphCanvas({
       queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
       setShowCreateRelationDialog(false);
       setRelationSourceNode(null);
+      setNewRelationLabel("");
+      setNewRelationType("");
+      setCustomRelationType("");
       toast({
         title: "Relatie aangemaakt",
         description: "Nieuwe relatie is succesvol toegevoegd",
@@ -352,13 +388,21 @@ export default function GraphCanvas({
       return;
     }
 
+    // Determine the final type to use
+    let finalType = newNodeType;
+    if (newNodeType === "custom" && customNodeType.trim()) {
+      finalType = customNodeType.trim();
+    } else if (!finalType) {
+      finalType = "Entity"; // Default fallback
+    }
+
     try {
       const newNodeId = nanoid();
       const newNode = await createNodeMutation.mutateAsync({
         graphId: graph.graphId || graph.id,
         nodeId: newNodeId,
         label: newNodeLabel,
-        type: newNodeType,
+        type: finalType,
         x: nodePosition.x,
         y: nodePosition.y,
         data: {},
@@ -369,7 +413,8 @@ export default function GraphCanvas({
 
       setShowCreateNodeDialog(false);
       setNewNodeLabel("");
-      setNewNodeType("default");
+      setNewNodeType("");
+      setCustomNodeType("");
     } catch (error) {
       console.error("Error creating node:", error);
     }
@@ -838,16 +883,33 @@ export default function GraphCanvas({
               <Label htmlFor="nodeType">Node Type</Label>
               <Select value={newNodeType} onValueChange={setNewNodeType}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecteer type" />
+                  <SelectValue placeholder="Selecteer of voer nieuw type in" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="default">Standaard</SelectItem>
-                  <SelectItem value="Person">Persoon</SelectItem>
-                  <SelectItem value="Organization">Organisatie</SelectItem>
-                  <SelectItem value="Event">Gebeurtenis</SelectItem>
-                  <SelectItem value="Location">Locatie</SelectItem>
+                  {existingNodeTypes.length > 0 && (
+                    <>
+                      {existingNodeTypes.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="custom">Nieuw type...</SelectItem>
+                    </>
+                  )}
+                  {existingNodeTypes.length === 0 && (
+                    <SelectItem value="custom">Nieuw type maken</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
+              {newNodeType === "custom" && (
+                <div className="mt-2">
+                  <Input
+                    value={customNodeType}
+                    onChange={(e) => setCustomNodeType(e.target.value)}
+                    placeholder="Voer nieuw node type in..."
+                  />
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-2">
               <Button 
@@ -903,17 +965,33 @@ export default function GraphCanvas({
               <Label htmlFor="relationType">Relatie Type</Label>
               <Select value={newRelationType} onValueChange={setNewRelationType}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecteer type" />
+                  <SelectValue placeholder="Selecteer of voer nieuw type in" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="relationship">Relatie</SelectItem>
-                  <SelectItem value="works_at">Werkt bij</SelectItem>
-                  <SelectItem value="knows">Kent</SelectItem>
-                  <SelectItem value="located_in">Gevestigd in</SelectItem>
-                  <SelectItem value="part_of">Onderdeel van</SelectItem>
-                  <SelectItem value="connected_to">Verbonden met</SelectItem>
+                  {existingEdgeTypes.length > 0 && (
+                    <>
+                      {existingEdgeTypes.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="custom">Nieuw type...</SelectItem>
+                    </>
+                  )}
+                  {existingEdgeTypes.length === 0 && (
+                    <SelectItem value="custom">Nieuw type maken</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
+              {newRelationType === "custom" && (
+                <div className="mt-2">
+                  <Input
+                    value={customRelationType}
+                    onChange={(e) => setCustomRelationType(e.target.value)}
+                    placeholder="Voer nieuw relatie type in..."
+                  />
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-2">
               <Button 
@@ -921,6 +999,9 @@ export default function GraphCanvas({
                 onClick={() => {
                   setShowCreateRelationDialog(false);
                   setRelationSourceNode(null);
+                  setNewRelationLabel("");
+                  setNewRelationType("");
+                  setCustomRelationType("");
                 }}
               >
                 Annuleren
@@ -928,11 +1009,19 @@ export default function GraphCanvas({
               <Button 
                 onClick={() => {
                   if (relationSourceNode && contextMenu.nodeId) {
+                    // Determine the final type to use
+                    let finalType = newRelationType;
+                    if (newRelationType === "custom" && customRelationType.trim()) {
+                      finalType = customRelationType.trim();
+                    } else if (!finalType) {
+                      finalType = "relates_to"; // Default fallback
+                    }
+
                     createRelationMutation.mutate({
                       sourceId: relationSourceNode,
                       targetId: contextMenu.nodeId,
-                      label: newRelationLabel || "relates_to",
-                      type: newRelationType
+                      label: newRelationLabel || finalType,
+                      type: finalType
                     });
                   }
                 }}
