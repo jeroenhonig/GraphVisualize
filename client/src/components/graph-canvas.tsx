@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FileSpreadsheet, Upload, Plus, RotateCcw } from "lucide-react";
+import { FileSpreadsheet, Upload, Plus } from "lucide-react";
 import { createGraphLayout, renderGraph, simulatePhysicsStep, type GraphTransform } from "@/lib/graph-utils";
 import type { GraphData, VisualizationNode, VisualizationEdge } from "@shared/schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -278,34 +278,6 @@ export default function GraphCanvas({
     }
   };
 
-  const handleResetView = useCallback(() => {
-    // Reset transform to center view
-    onTransformChange({
-      scale: 1,
-      translateX: 0,
-      translateY: 0
-    });
-
-    // Reset visible nodes to initial set (first 20 nodes)
-    if (graph?.nodes && graph.nodes.length > 0) {
-      const initialVisible = new Set(graph.nodes.slice(0, Math.min(20, graph.nodes.length)).map(n => n.id));
-      onVisibleNodesChange(initialVisible);
-    }
-
-    // Clear any local positions
-    setLocalNodePositions({});
-
-    // Re-enable physics briefly for repositioning
-    setPhysicsEnabled(true);
-    setTimeout(() => {
-      setPhysicsEnabled(false);
-    }, 2000);
-
-    toast({
-      title: "View Reset",
-      description: "Camera en zichtbare nodes zijn teruggezet naar de beginpositie",
-    });
-  }, [onTransformChange, onVisibleNodesChange, graph?.nodes, toast]);
 
   // Close context menu when clicking elsewhere
   useEffect(() => {
@@ -698,20 +670,7 @@ export default function GraphCanvas({
         </div>
       )}
 
-      {/* Reset View Button */}
-      {graph && !isLoading && (
-        <div className="absolute top-4 right-4">
-          <Button
-            onClick={handleResetView}
-            variant="outline"
-            size="sm"
-            className="bg-white shadow-lg hover:bg-gray-50"
-          >
-            <RotateCcw className="w-4 h-4 mr-2" />
-            Reset View
-          </Button>
-        </div>
-      )}
+
 
       {/* Context Menu */}
       {contextMenu.visible && (
