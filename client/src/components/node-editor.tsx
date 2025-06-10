@@ -74,25 +74,30 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
   };
 
   const handleAddProperty = () => {
-    if (!newPropertyKey.trim() || !newPropertyValue.trim()) {
-      toast({
-        title: "Onvolledige Property",
-        description: "Voer zowel een sleutel als waarde in",
-        variant: "destructive",
-      });
+    // If we have pending new property values, add them
+    if (newPropertyKey.trim() && newPropertyValue.trim()) {
+      setEditedNode(prev => ({
+        ...prev,
+        data: {
+          ...prev.data,
+          [newPropertyKey]: newPropertyValue
+        }
+      }));
+
+      setNewPropertyKey("");
+      setNewPropertyValue("");
       return;
     }
 
+    // Otherwise add a default property to start editing
+    const defaultKey = `eigenschap${Object.keys(editedNode.data).length + 1}`;
     setEditedNode(prev => ({
       ...prev,
       data: {
         ...prev.data,
-        [newPropertyKey]: newPropertyValue
+        [defaultKey]: ""
       }
     }));
-
-    setNewPropertyKey("");
-    setNewPropertyValue("");
   };
 
   const handleRemoveProperty = (key: string) => {
@@ -203,48 +208,59 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
           <div className="flex items-center justify-between">
             <Label className="text-base font-medium">Eigenschappen</Label>
             {isEditing && (
-              <Badge variant="outline" className="text-xs">
-                {Object.keys(editedNode.data).length} items
-              </Badge>
+              <Button
+                onClick={handleAddProperty}
+                variant="outline"
+                size="sm"
+                className="h-7 px-2"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Toevoegen
+              </Button>
             )}
           </div>
 
-          <div className="space-y-2 max-h-40 overflow-y-auto">
+          <div className="space-y-3">
             {Object.entries(editedNode.data).map(([key, value]) => (
-              <div key={key} className="flex items-center space-x-2 p-2 bg-gray-50 rounded">
-                <div className="flex-1 grid grid-cols-2 gap-2">
-                  <Input
-                    value={key}
-                    disabled
-                    className="text-sm font-mono"
-                  />
-                  <Input
-                    value={String(value)}
-                    onChange={(e) => handlePropertyValueChange(key, e.target.value)}
-                    disabled={!isEditing}
-                    className="text-sm"
-                  />
+              <div key={key} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor={`prop-${key}`} className="text-sm font-medium capitalize">
+                    {key}
+                  </Label>
+                  {isEditing && (
+                    <Button
+                      onClick={() => handleRemoveProperty(key)}
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
-                {isEditing && (
-                  <Button
-                    onClick={() => handleRemoveProperty(key)}
-                    variant="ghost"
-                    size="sm"
-                    className="p-1 h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                )}
+                <Input
+                  id={`prop-${key}`}
+                  value={String(value)}
+                  onChange={(e) => handlePropertyValueChange(key, e.target.value)}
+                  disabled={!isEditing}
+                  className="text-sm"
+                />
               </div>
             ))}
+
+            {Object.keys(editedNode.data).length === 0 && (
+              <p className="text-sm text-gray-500 italic">
+                Geen eigenschappen. {isEditing && "Klik op 'Toevoegen' om een eigenschap toe te voegen."}
+              </p>
+            )}
           </div>
 
           {isEditing && (
             <div className="space-y-2 p-3 bg-blue-50 rounded border border-blue-200">
-              <Label className="text-sm font-medium text-blue-800">Nieuwe Eigenschap Toevoegen</Label>
-              <div className="flex space-x-2">
+              <Label className="text-sm font-medium text-blue-800">Nieuwe Eigenschap</Label>
+              <div className="space-y-2">
                 <Input
-                  placeholder="Sleutel"
+                  placeholder="Eigenschap naam (bijv. leeftijd, stad)"
                   value={newPropertyKey}
                   onChange={(e) => setNewPropertyKey(e.target.value)}
                   className="text-sm"
@@ -258,9 +274,11 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
                 <Button
                   onClick={handleAddProperty}
                   size="sm"
-                  className="px-3"
+                  className="w-full"
+                  disabled={!newPropertyKey.trim() || !newPropertyValue.trim()}
                 >
-                  <Plus className="h-3 w-3" />
+                  <Plus className="h-3 w-3 mr-1" />
+                  Eigenschap Toevoegen
                 </Button>
               </div>
             </div>
