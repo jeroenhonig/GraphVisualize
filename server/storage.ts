@@ -381,16 +381,24 @@ export class DatabaseStorage implements IStorage {
         const xTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.POSITION_X);
         const yTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.POSITION_Y);
 
-        // Collect data properties
+        // Collect data properties (all predicates that are not system predicates)
+        const systemPredicates = [
+          RDF_PREDICATES.TYPE,
+          RDF_PREDICATES.LABEL,
+          RDF_PREDICATES.NODE_TYPE,
+          RDF_PREDICATES.POSITION_X,
+          RDF_PREDICATES.POSITION_Y,
+          RDF_PREDICATES.CONNECTS_TO
+        ];
+        
         const data: Record<string, any> = {};
         subjectTripleList
-          .filter((t: any) => t.predicate.startsWith(RDF_PREDICATES.DATA_PROPERTY))
+          .filter((t: any) => !systemPredicates.includes(t.predicate))
           .forEach((t: any) => {
-            const key = t.predicate.split(':').pop() || 'unknown';
             try {
-              data[key] = JSON.parse(t.object);
+              data[t.predicate] = JSON.parse(t.object);
             } catch {
-              data[key] = t.object;
+              data[t.predicate] = t.object;
             }
           });
 
