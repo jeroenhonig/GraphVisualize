@@ -231,7 +231,7 @@ export class DatabaseStorage implements IStorage {
 
       // Update data properties if provided
       if (properties.data !== undefined) {
-        // First, get the graphId for this node
+        // Get the graphId for this node
         const nodeTriples = await db
           .select({ graphId: rdfTriples.graphId })
           .from(rdfTriples)
@@ -240,19 +240,33 @@ export class DatabaseStorage implements IStorage {
         
         const graphId = nodeTriples[0]?.graphId || '';
 
-        // Delete existing data properties (except built-in ones)
-        await db
-          .delete(rdfTriples)
-          .where(
-            and(
-              eq(rdfTriples.subject, nodeId),
-              // Delete properties that are not system properties
-              eq(rdfTriples.predicate, RDF_PREDICATES.LABEL).not(),
-              eq(rdfTriples.predicate, RDF_PREDICATES.TYPE).not(),
-              eq(rdfTriples.predicate, RDF_PREDICATES.POSITION_X).not(),
-              eq(rdfTriples.predicate, RDF_PREDICATES.POSITION_Y).not()
-            )
-          );
+        // Delete existing custom data properties (keep system properties)
+        const systemPredicates = [
+          RDF_PREDICATES.LABEL,
+          RDF_PREDICATES.TYPE,
+          RDF_PREDICATES.POSITION_X,
+          RDF_PREDICATES.POSITION_Y
+        ];
+
+        // Get all existing triples for this node
+        const existingTriples = await db
+          .select()
+          .from(rdfTriples)
+          .where(eq(rdfTriples.subject, nodeId));
+
+        // Delete non-system properties
+        for (const triple of existingTriples) {
+          if (!systemPredicates.includes(triple.predicate)) {
+            await db
+              .delete(rdfTriples)
+              .where(
+                and(
+                  eq(rdfTriples.subject, nodeId),
+                  eq(rdfTriples.predicate, triple.predicate)
+                )
+              );
+          }
+        }
 
         // Insert new data properties
         for (const [key, value] of Object.entries(properties.data)) {
@@ -260,7 +274,7 @@ export class DatabaseStorage implements IStorage {
             subject: nodeId,
             predicate: key,
             object: String(value),
-            graphId: (await db.select({ graphId: rdfTriples.graphId }).from(rdfTriples).where(eq(rdfTriples.subject, nodeId)).limit(1))[0]?.graphId || '',
+            graphId: graphId,
           });
         }
       }
