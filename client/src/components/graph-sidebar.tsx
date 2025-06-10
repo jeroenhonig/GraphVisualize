@@ -166,7 +166,7 @@ export default function GraphSidebar({
 
       {/* Node Details Panel */}
       <div className="flex-1 p-6 overflow-y-auto">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">Knoop Details</h3>
+        <h3 className="text-sm font-medium text-gray-900 mb-3">Node Details</h3>
         
         {selectedNode ? (
           <div className="space-y-4">
@@ -384,7 +384,7 @@ export default function GraphSidebar({
             <CardContent className="p-6 text-center">
               <Info className="h-8 w-8 text-gray-400 mx-auto mb-3" />
               <p className="text-sm text-gray-600">
-                Selecteer een node om details te bekijken
+                Selecteer een Node om details te bekijken
               </p>
             </CardContent>
           </Card>

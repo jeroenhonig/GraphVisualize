@@ -582,7 +582,7 @@ export default function GraphCanvas({
             <div className="text-gray-600 mt-1">{graph.description}</div>
           )}
           <div className="text-xs text-gray-500 mt-2">
-            {visibleNodes.size} van {graph.nodeCount} nodes zichtbaar
+            {visibleNodes.size} van {graph.nodeCount} Nodes zichtbaar
           </div>
         </div>
       )}
@@ -604,7 +604,7 @@ export default function GraphCanvas({
               className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Nieuwe node maken
+              Nieuwe Node maken
             </button>
           )}
           

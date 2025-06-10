@@ -132,7 +132,7 @@ export default function GraphVisualizer() {
             <TabsList className="grid w-full grid-cols-4 mx-4 mt-4">
               <TabsTrigger value="nodes" className="text-xs">
                 <Network className="h-3 w-3 mr-1" />
-                Knopen
+                Nodes
               </TabsTrigger>
               <TabsTrigger value="sparql" className="text-xs">
                 <Search className="h-3 w-3 mr-1" />
