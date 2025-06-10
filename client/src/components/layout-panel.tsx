@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Layout } from "lucide-react";
 interface LayoutPanelProps {
   children: ReactNode;
   title: string;
-  panelType: 'navigation' | 'view' | 'details';
+  panelType: 'navigation' | 'details';
   position: {
     x: number | string;
     y: number | string;
@@ -29,9 +29,6 @@ export default function LayoutPanel({
   className = ""
 }: LayoutPanelProps) {
   const getCollapseIcon = () => {
-    if (panelType === 'view') {
-      return collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />;
-    }
     return collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />;
   };
 

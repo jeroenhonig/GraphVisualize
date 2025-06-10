@@ -473,21 +473,7 @@ export default function GraphVisualizer() {
           </div>
         </LayoutPanel>
 
-        {/* View Panel */}
-        <LayoutPanel
-          title="Graph Weergave"
-          panelType="view"
-          position={positions.view}
-          collapsed={preferences.collapsed.view}
-          onToggleCollapse={() => togglePanelCollapse('view')}
-          onRotateLayout={rotateLayout}
-        >
-          <div className="p-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Graph visualisatie in het hoofdvenster
-            </p>
-          </div>
-        </LayoutPanel>
+
 
         {/* Details Panel */}
         <LayoutPanel
