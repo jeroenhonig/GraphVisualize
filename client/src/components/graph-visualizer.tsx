@@ -1,0 +1,208 @@
+import { useState } from "react";
+import GraphSidebar from "./graph-sidebar";
+import GraphCanvas from "./graph-canvas";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Plus, Minus, RotateCcw, Download, Settings, Maximize } from "lucide-react";
+import { useGraph } from "@/hooks/use-graph";
+
+export default function GraphVisualizer() {
+  const {
+    currentGraph,
+    selectedNode,
+    setSelectedNode,
+    transform,
+    setTransform,
+    visibleNodes,
+    setVisibleNodes,
+    expandNode,
+    collapseNode,
+    resetView,
+    fitToScreen
+  } = useGraph();
+
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState("png");
+  const [exportQuality, setExportQuality] = useState("standard");
+
+  const handleZoomIn = () => {
+    setTransform(prev => ({
+      ...prev,
+      scale: Math.min(prev.scale * 1.2, 3)
+    }));
+  };
+
+  const handleZoomOut = () => {
+    setTransform(prev => ({
+      ...prev,
+      scale: Math.max(prev.scale / 1.2, 0.1)
+    }));
+  };
+
+  const handleExport = () => {
+    // Implementation would depend on the selected format
+    console.log(`Exporting as ${exportFormat} with ${exportQuality} quality`);
+    setExportModalOpen(false);
+  };
+
+  return (
+    <div className="h-screen bg-gray-50 font-sans">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 fixed w-full top-0 z-40">
+        <div className="flex items-center justify-between px-6 py-4">
+          <div className="flex items-center space-x-4">
+            <h1 className="text-xl font-semibold text-gray-900">Graph Visualizer</h1>
+            <span className="text-sm text-gray-500 font-mono">v1.0.0</span>
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            {/* Graph controls */}
+            <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleZoomIn}
+                className="p-2 hover:bg-white rounded text-gray-600 hover:text-gray-900"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetView}
+                className="p-2 hover:bg-white rounded text-gray-600 hover:text-gray-900"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleZoomOut}
+                className="p-2 hover:bg-white rounded text-gray-600 hover:text-gray-900"
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <Button
+              variant="ghost"
+              onClick={() => setExportModalOpen(true)}
+              className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Exporteren
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex h-screen pt-16">
+        {/* Sidebar */}
+        <GraphSidebar
+          currentGraph={currentGraph}
+          selectedNode={selectedNode}
+          onNodeSelect={setSelectedNode}
+          onNodeExpand={expandNode}
+          onNodeCollapse={collapseNode}
+        />
+
+        {/* Main Graph Area */}
+        <div className="flex-1 relative bg-graph-background">
+          <GraphCanvas
+            graph={currentGraph}
+            selectedNode={selectedNode}
+            onNodeSelect={setSelectedNode}
+            onNodeExpand={expandNode}
+            visibleNodes={visibleNodes}
+            onVisibleNodesChange={setVisibleNodes}
+            transform={transform}
+            onTransformChange={setTransform}
+          />
+
+          {/* Graph Controls Overlay */}
+          <div className="absolute bottom-6 right-6 flex flex-col space-y-2">
+            <Button
+              onClick={resetView}
+              className="p-3 bg-white shadow-lg rounded-lg hover:shadow-xl transition-shadow text-gray-600 hover:text-gray-900"
+              size="sm"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+            <Button
+              onClick={fitToScreen}
+              className="p-3 bg-white shadow-lg rounded-lg hover:shadow-xl transition-shadow text-gray-600 hover:text-gray-900"
+              size="sm"
+            >
+              <Maximize className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Export Modal */}
+      <Dialog open={exportModalOpen} onOpenChange={setExportModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Grafiek Exporteren</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                Export Formaat
+              </Label>
+              <Select value={exportFormat} onValueChange={setExportFormat}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="png">PNG Afbeelding</SelectItem>
+                  <SelectItem value="svg">SVG Vector</SelectItem>
+                  <SelectItem value="pdf">PDF Document</SelectItem>
+                  <SelectItem value="json">JSON Data</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                Kwaliteit
+              </Label>
+              <RadioGroup value={exportQuality} onValueChange={setExportQuality}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="standard" id="standard" />
+                  <Label htmlFor="standard">Standaard</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="high" id="high" />
+                  <Label htmlFor="high">Hoge kwaliteit</Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </div>
+          
+          <div className="flex justify-end space-x-3 mt-6">
+            <Button variant="ghost" onClick={() => setExportModalOpen(false)}>
+              Annuleren
+            </Button>
+            <Button onClick={handleExport}>
+              <Download className="h-4 w-4 mr-2" />
+              Exporteren
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
