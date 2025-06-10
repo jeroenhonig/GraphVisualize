@@ -12,8 +12,8 @@ export interface LayoutPreferences {
 const DEFAULT_PREFERENCES: LayoutPreferences = {
   leftSidebarCollapsed: false,
   rightSidebarCollapsed: false,
-  leftSidebarPosition: { x: 0, y: 80 }, // Below header
-  rightSidebarPosition: { x: 0, y: 80 }, // Will be calculated based on window width
+  leftSidebarPosition: { x: 20, y: 100 }, // Below header with margin
+  rightSidebarPosition: { x: typeof window !== 'undefined' ? window.innerWidth - 340 : 800, y: 100 }, // Right side with margin
   leftSidebarWidth: 320,
   rightSidebarWidth: 320,
 };
