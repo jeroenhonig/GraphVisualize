@@ -335,7 +335,7 @@ export default function GraphCanvas({
 
   // Physics simulation loop
   useEffect(() => {
-    if (!physicsEnabled || editMode || !graph?.nodes || !containerRef.current) return;
+    if (!physicsEnabled || editMode || isNodeDragging || !graph?.nodes || !containerRef.current) return;
 
     const animate = () => {
       const bounds = {
@@ -393,60 +393,69 @@ export default function GraphCanvas({
     const nodeElement = target.closest('[data-node-id]');
     
     if (nodeElement && e.button === 0) {
-      // Node dragging
+      // Node interaction
       const nodeId = nodeElement.getAttribute('data-node-id');
       const node = graph?.nodes.find(n => n.id === nodeId);
       
       if (node) {
-        setDraggedNode(node);
-        setIsNodeDragging(true);
-        setNodeDragStart({ x: e.clientX, y: e.clientY });
+        e.preventDefault();
         e.stopPropagation();
+        
+        // Select node first for edit mode
+        onNodeSelect(node);
+        
+        // Set up dragging with proper coordinate calculation
+        const rect = svgRef.current?.getBoundingClientRect();
+        if (rect) {
+          const currentPos = localNodePositions[node.id] || { x: node.x, y: node.y };
+          const svgX = (e.clientX - rect.left - transform.translateX) / transform.scale;
+          const svgY = (e.clientY - rect.top - transform.translateY) / transform.scale;
+          
+          setDraggedNode(node);
+          setIsNodeDragging(true);
+          setNodeDragStart({ 
+            x: svgX - currentPos.x, 
+            y: svgY - currentPos.y 
+          });
+        }
         return;
       }
     }
     
     if (e.button === 0) { // Left mouse button - canvas panning
       setIsDragging(true);
-      setDragStart({ x: e.clientX, y: e.clientY });
+      setDragStart({ x: e.clientX - transform.translateX, y: e.clientY - transform.translateY });
     }
-  }, [graph?.nodes]);
+  }, [graph?.nodes, localNodePositions, transform, onNodeSelect]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isNodeDragging && draggedNode) {
-      // Node dragging with real-time visual feedback
-      const deltaX = e.clientX - nodeDragStart.x;
-      const deltaY = e.clientY - nodeDragStart.y;
-      
-      const newX = draggedNode.x + deltaX / transform.scale;
-      const newY = draggedNode.y + deltaY / transform.scale;
-      
-      // Update local position for immediate visual feedback
-      setLocalNodePositions(prev => ({
-        ...prev,
-        [draggedNode.id]: { x: newX, y: newY }
-      }));
-      
-      // Update node drag start for continuous dragging
-      setNodeDragStart({ x: e.clientX, y: e.clientY });
-      
-      // Update the dragged node position
-      setDraggedNode({ ...draggedNode, x: newX, y: newY });
-      
+      // Node dragging with proper coordinate transformation
+      const rect = svgRef.current?.getBoundingClientRect();
+      if (rect) {
+        const svgX = (e.clientX - rect.left - transform.translateX) / transform.scale;
+        const svgY = (e.clientY - rect.top - transform.translateY) / transform.scale;
+        
+        const newX = svgX - nodeDragStart.x;
+        const newY = svgY - nodeDragStart.y;
+        
+        // Update local position for immediate visual feedback
+        setLocalNodePositions(prev => ({
+          ...prev,
+          [draggedNode.id]: { x: newX, y: newY }
+        }));
+      }
     } else if (isDragging) {
       // Canvas panning
       const deltaX = e.clientX - dragStart.x;
       const deltaY = e.clientY - dragStart.y;
-
       onTransformChange({
         ...transform,
-        translateX: transform.translateX + deltaX,
-        translateY: transform.translateY + deltaY,
+        translateX: deltaX,
+        translateY: deltaY
       });
-
-      setDragStart({ x: e.clientX, y: e.clientY });
     }
-  }, [isDragging, isNodeDragging, draggedNode, dragStart, nodeDragStart, transform, onTransformChange]);
+  }, [isNodeDragging, draggedNode, nodeDragStart, isDragging, dragStart, transform, onTransformChange]);
 
   const handleMouseUp = useCallback(() => {
     if (isNodeDragging && draggedNode) {
