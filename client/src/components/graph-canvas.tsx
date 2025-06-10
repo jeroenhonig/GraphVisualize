@@ -22,6 +22,7 @@ interface GraphCanvasProps {
   onVisibleNodesChange: (nodes: Set<string>) => void;
   transform: GraphTransform;
   onTransformChange: (transform: GraphTransform) => void;
+  editMode?: boolean;
 }
 
 export default function GraphCanvas({
@@ -51,6 +52,7 @@ export default function GraphCanvas({
   // Physics simulation state
   const [physicsEnabled, setPhysicsEnabled] = useState(true);
   const [animationId, setAnimationId] = useState<number | null>(null);
+  const [editMode, setEditMode] = useState(false);
   
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ 
@@ -333,7 +335,7 @@ export default function GraphCanvas({
 
   // Physics simulation loop
   useEffect(() => {
-    if (!physicsEnabled || !graph?.nodes || !containerRef.current) return;
+    if (!physicsEnabled || editMode || !graph?.nodes || !containerRef.current) return;
 
     const animate = () => {
       const bounds = {

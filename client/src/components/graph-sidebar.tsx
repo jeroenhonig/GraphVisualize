@@ -152,7 +152,7 @@ export default function GraphSidebar({
             <Card>
               <CardContent className="p-4">
                 {isEditing ? (
-                  <>
+                  <div>
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="font-medium text-gray-900">Node Bewerken</h4>
                       <div className="flex gap-2">
@@ -221,9 +221,9 @@ export default function GraphSidebar({
                         />
                       </div>
                     </div>
-                  </>
+                  </div>
                 ) : (
-                  <>
+                  <div>
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center">
                         <div 
@@ -274,72 +274,32 @@ export default function GraphSidebar({
                         </div>
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
               </CardContent>
             </Card>
 
             {!isEditing && (
-              <>
-                {/* Connected Nodes */}
-                {(nodeConnections as any)?.connections && (nodeConnections as any).connections.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
-                      Verbonden Knopen
-                    </h4>
-                    
-                    <div className="space-y-2">
-                      {(nodeConnections as any).connections.slice(0, 8).map((connection: any) => (
-                        <Card key={connection.id} className="hover:bg-gray-50 cursor-pointer">
-                          <CardContent className="p-2">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center">
-                                <div 
-                                  className={`w-3 h-3 ${getNodeColor(connection.type)} ${getNodeShape(connection.type)} mr-2`}
-                                />
-                                <span className="text-sm font-mono truncate max-w-32" title={connection.label}>
-                                  {connection.label}
-                                </span>
-                              </div>
-                              <Badge variant="outline" className="text-xs">
-                                {connection.relationship}
-                              </Badge>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                      
-                      {(nodeConnections as any).connections.length > 8 && (
-                        <div className="text-xs text-gray-500 text-center py-2">
-                          +{(nodeConnections as any).connections.length - 8} meer...
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="space-y-2">
-                  <Button
-                    onClick={() => onNodeExpand(selectedNode.id)}
-                    className="w-full"
-                    variant="outline"
-                    size="sm"
-                  >
-                    <ExpandIcon className="h-4 w-4 mr-2" />
-                    Uitklappen
-                  </Button>
-                  <Button
-                    onClick={() => onNodeCollapse(selectedNode.id)}
-                    className="w-full"
-                    variant="outline"
-                    size="sm"
-                  >
-                    <EyeOff className="h-4 w-4 mr-2" />
-                    Verbergen
-                  </Button>
-                </div>
-              </>
+              <div className="space-y-2">
+                <Button
+                  onClick={() => onNodeExpand(selectedNode.id)}
+                  className="w-full"
+                  variant="outline"
+                  size="sm"
+                >
+                  <ExpandIcon className="h-4 w-4 mr-2" />
+                  Uitklappen
+                </Button>
+                <Button
+                  onClick={() => onNodeCollapse(selectedNode.id)}
+                  className="w-full"
+                  variant="outline"
+                  size="sm"
+                >
+                  <EyeOff className="h-4 w-4 mr-2" />
+                  Verbergen
+                </Button>
+              </div>
             )}
           </div>
         ) : (

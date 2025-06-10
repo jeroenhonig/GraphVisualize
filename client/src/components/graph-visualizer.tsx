@@ -32,6 +32,7 @@ export default function GraphVisualizer() {
   const [exportFormat, setExportFormat] = useState("png");
   const [exportQuality, setExportQuality] = useState("standard");
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [editMode, setEditMode] = useState(false);
 
   const handleZoomIn = () => {
     setTransform(prev => ({
@@ -142,6 +143,8 @@ export default function GraphVisualizer() {
                 onNodeSelect={setSelectedNode}
                 onNodeExpand={expandNode}
                 onNodeCollapse={collapseNode}
+                editMode={editMode}
+                onEditModeChange={setEditMode}
               />
             </TabsContent>
             
