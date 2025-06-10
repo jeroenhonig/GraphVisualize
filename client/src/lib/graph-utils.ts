@@ -117,7 +117,7 @@ export function simulatePhysicsStep(
     vx: (node as PhysicsNode).vx || 0, 
     vy: (node as PhysicsNode).vy || 0 
   }));
-  const dt = 0.016; // 60fps simulation
+  const dt = 0.032; // Faster simulation timestep
   
   // Apply forces to each node
   updatedNodes.forEach((node, i) => {
@@ -132,10 +132,10 @@ export function simulatePhysicsStep(
       const distance = Math.sqrt(dx * dx + dy * dy) || 1;
       
       // Strong repulsion force (inverse square law)
-      const repulsionStrength = 15000;
-      const minDistance = 100;
+      const repulsionStrength = 25000;
+      const minDistance = 120;
       const force = distance < minDistance ? 
-        repulsionStrength / (distance * distance) + (minDistance - distance) * 5 :
+        repulsionStrength / (distance * distance) + (minDistance - distance) * 10 :
         repulsionStrength / (distance * distance);
       const normalizedFx = (dx / distance) * force;
       const normalizedFy = (dy / distance) * force;
@@ -164,7 +164,7 @@ export function simulatePhysicsStep(
         
         // Spring force with optimal length
         const springLength = 200;
-        const springStrength = 0.05;
+        const springStrength = 0.12;
         const displacement = distance - springLength;
         const force = displacement * springStrength;
         
@@ -192,12 +192,12 @@ export function simulatePhysicsStep(
     node.vx = (node.vx || 0) + fx * dt;
     node.vy = (node.vy || 0) + fy * dt;
     
-    // Apply damping
-    node.vx *= 0.98;
-    node.vy *= 0.98;
+    // Apply damping (less damping = faster movement)
+    node.vx *= 0.92;
+    node.vy *= 0.92;
     
     // Limit maximum velocity
-    const maxVelocity = 80;
+    const maxVelocity = 150;
     const velocity = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
     if (velocity > maxVelocity) {
       node.vx = (node.vx / velocity) * maxVelocity;
