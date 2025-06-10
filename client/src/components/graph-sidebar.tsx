@@ -160,18 +160,7 @@ export default function GraphSidebar({
             </div>
           </div>
           
-          {/* Load Test Data Button */}
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <Button
-              onClick={() => loadTestDataMutation.mutate()}
-              disabled={loadTestDataMutation.isPending}
-              className="w-full"
-              variant="outline"
-            >
-              <Database className="h-4 w-4 mr-2" />
-              {loadTestDataMutation.isPending ? 'Laden...' : 'Laad Building Dataset'}
-            </Button>
-          </div>
+
         </div>
       )}
 

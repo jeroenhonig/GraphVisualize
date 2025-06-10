@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileSpreadsheet } from "lucide-react";
+import { Upload, FileSpreadsheet, FileText } from "lucide-react";
 
 interface FileUploadProps {
   onGraphCreated?: (graphId: string) => void;
@@ -22,7 +22,11 @@ export default function FileUpload({ onGraphCreated }: FileUploadProps) {
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await fetch('/api/upload', {
+      // Determine endpoint based on file type
+      const isRDFFile = file.name.toLowerCase().match(/\.(ttl|rdf|n3|nt)$/);
+      const endpoint = isRDFFile ? '/api/upload-rdf' : '/api/upload';
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
@@ -35,8 +39,9 @@ export default function FileUpload({ onGraphCreated }: FileUploadProps) {
       return response.json();
     },
     onSuccess: (data) => {
+      const fileType = data.fileType || 'Excel';
       toast({
-        title: "Excel Bestand Geüpload",
+        title: `${fileType} Bestand Geüpload`,
         description: `Graph "${data.graph.name}" succesvol aangemaakt met ${data.nodeCount} knopen en ${data.edgeCount} kanten`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
