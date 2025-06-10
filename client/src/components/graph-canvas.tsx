@@ -23,6 +23,10 @@ interface GraphCanvasProps {
   transform: GraphTransform;
   onTransformChange: (transform: GraphTransform) => void;
   editMode?: boolean;
+  panelConstraints?: {
+    leftPanel?: { x: number; y: number; width: number; collapsed: boolean };
+    rightPanel?: { x: number; y: number; width: number; collapsed: boolean };
+  };
 }
 
 export default function GraphCanvas({
@@ -35,6 +39,7 @@ export default function GraphCanvas({
   transform,
   onTransformChange,
   editMode = false,
+  panelConstraints,
 }: GraphCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -89,6 +94,79 @@ export default function GraphCanvas({
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Calculate available canvas area excluding panels
+  const getCanvasConstraints = useCallback(() => {
+    const headerHeight = 80;
+    const margin = 20;
+    
+    let leftBoundary = margin;
+    let rightBoundary = window.innerWidth - margin;
+    let topBoundary = headerHeight + margin;
+    let bottomBoundary = window.innerHeight - margin;
+
+    // Adjust for left panel
+    if (panelConstraints?.leftPanel && !panelConstraints.leftPanel.collapsed) {
+      const panelRight = panelConstraints.leftPanel.x + panelConstraints.leftPanel.width;
+      if (panelRight > leftBoundary) {
+        leftBoundary = panelRight + margin;
+      }
+    }
+
+    // Adjust for right panel
+    if (panelConstraints?.rightPanel && !panelConstraints.rightPanel.collapsed) {
+      const panelLeft = panelConstraints.rightPanel.x;
+      if (panelLeft < rightBoundary) {
+        rightBoundary = panelLeft - margin;
+      }
+    }
+
+    return {
+      left: leftBoundary,
+      right: rightBoundary,
+      top: topBoundary,
+      bottom: bottomBoundary,
+      width: Math.max(200, rightBoundary - leftBoundary),
+      height: Math.max(200, bottomBoundary - topBoundary)
+    };
+  }, [panelConstraints]);
+
+  // Constrain transform to stay within canvas bounds
+  const constrainTransform = useCallback((newTransform: GraphTransform): GraphTransform => {
+    const constraints = getCanvasConstraints();
+    
+    // Calculate the bounds of the content in screen space
+    const contentBounds = {
+      left: newTransform.translateX,
+      right: newTransform.translateX + (constraints.width * newTransform.scale),
+      top: newTransform.translateY,
+      bottom: newTransform.translateY + (constraints.height * newTransform.scale)
+    };
+
+    let { translateX, translateY, scale } = newTransform;
+
+    // Ensure content doesn't go beyond left boundary
+    if (contentBounds.left > constraints.left) {
+      translateX = constraints.left;
+    }
+
+    // Ensure content doesn't go beyond right boundary
+    if (contentBounds.right < constraints.right) {
+      translateX = constraints.right - (constraints.width * scale);
+    }
+
+    // Ensure content doesn't go beyond top boundary
+    if (contentBounds.top > constraints.top) {
+      translateY = constraints.top;
+    }
+
+    // Ensure content doesn't go beyond bottom boundary
+    if (contentBounds.bottom < constraints.bottom) {
+      translateY = constraints.bottom - (constraints.height * scale);
+    }
+
+    return { translateX, translateY, scale };
+  }, [getCanvasConstraints]);
 
   // Create node mutation
   const createNodeMutation = useMutation({
@@ -520,14 +598,18 @@ export default function GraphCanvas({
         });
       }
     } else if (isDragging) {
-      // Canvas panning
+      // Canvas panning with constraints
       const deltaX = e.clientX - dragStart.x;
       const deltaY = e.clientY - dragStart.y;
-      onTransformChange({
+      const newTransform = {
         ...transform,
         translateX: deltaX,
         translateY: deltaY
-      });
+      };
+      
+      // Apply constraints to keep canvas within panel bounds
+      const constrainedTransform = constrainTransform(newTransform);
+      onTransformChange(constrainedTransform);
     }
   }, [isNodeDragging, draggedNode, nodeDragStart, isDragging, dragStart, transform, onTransformChange, mouseDownPosition, hasDraggedSignificantly, DRAG_THRESHOLD]);
 
@@ -573,18 +655,22 @@ export default function GraphCanvas({
     });
   }, [contextMenu, toast]);
 
-  // Zoom handler
+  // Zoom handler with constraints
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     
     const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
     const newScale = Math.min(Math.max(transform.scale * zoomFactor, 0.1), 3);
 
-    onTransformChange({
+    const newTransform = {
       ...transform,
       scale: newScale,
-    });
-  }, [transform, onTransformChange]);
+    };
+    
+    // Apply constraints to keep canvas within panel bounds
+    const constrainedTransform = constrainTransform(newTransform);
+    onTransformChange(constrainedTransform);
+  }, [transform, onTransformChange, constrainTransform]);
 
   if (!graph) {
     return (

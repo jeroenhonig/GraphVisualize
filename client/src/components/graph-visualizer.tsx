@@ -254,6 +254,20 @@ export default function GraphVisualizer() {
           transform={transform}
           onTransformChange={setTransform}
           editMode={editMode}
+          panelConstraints={{
+            leftPanel: {
+              x: preferences.leftSidebarPosition.x,
+              y: preferences.leftSidebarPosition.y,
+              width: preferences.leftSidebarWidth,
+              collapsed: preferences.leftSidebarCollapsed
+            },
+            rightPanel: {
+              x: preferences.rightSidebarPosition.x,
+              y: preferences.rightSidebarPosition.y,
+              width: preferences.rightSidebarWidth,
+              collapsed: preferences.rightSidebarCollapsed
+            }
+          }}
         />
 
         {/* Graph Controls Overlay */}
