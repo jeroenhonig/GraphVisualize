@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Minus, RotateCcw, Download, Settings, Maximize, Search, Upload, FileText, BarChart3, Database, Network, TrendingUp } from "lucide-react";
+import { Plus, Minus, RotateCcw, Download, Settings, Maximize, Search, Upload, FileText, BarChart3, Database, Network, TrendingUp, ChevronDown, ChevronRight } from "lucide-react";
 import { useGraph } from "@/hooks/use-graph";
 
 export default function GraphVisualizer() {
@@ -35,6 +35,19 @@ export default function GraphVisualizer() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [expandedTreeItems, setExpandedTreeItems] = useState<Set<string>>(new Set(['nodes', 'relations']));
+
+  const toggleTreeItem = (itemId: string) => {
+    setExpandedTreeItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
 
   const handleZoomIn = () => {
     setTransform(prev => ({
@@ -137,11 +150,11 @@ export default function GraphVisualizer() {
       <div className="flex h-screen pt-16">
         {/* Sidebar with Tabs */}
         <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-          <Tabs defaultValue="nodes" className="flex-1 flex flex-col">
+          <Tabs defaultValue="tree" className="flex-1 flex flex-col">
             <TabsList className="grid w-full grid-cols-2 mx-4 mt-4">
-              <TabsTrigger value="nodes">
+              <TabsTrigger value="tree">
                 <Network className="h-4 w-4 mr-2" />
-                Nodes
+                Tree View
               </TabsTrigger>
               <TabsTrigger value="sparql">
                 <Search className="h-4 w-4 mr-2" />
@@ -149,16 +162,120 @@ export default function GraphVisualizer() {
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="nodes" className="flex-1 overflow-hidden">
-              <GraphSidebar
-                currentGraph={currentGraph}
-                selectedNode={selectedNode}
-                onNodeSelect={setSelectedNode}
-                onNodeExpand={expandNode}
-                onNodeCollapse={collapseNode}
-                editMode={editMode}
-                onEditModeChange={setEditMode}
-              />
+            <TabsContent value="tree" className="flex-1 overflow-hidden">
+              <div className="p-4 space-y-2">
+                {/* Nodes Section */}
+                <div>
+                  <button
+                    onClick={() => toggleTreeItem('nodes')}
+                    className="flex items-center w-full p-2 text-left hover:bg-gray-50 rounded"
+                  >
+                    {expandedTreeItems.has('nodes') ? (
+                      <ChevronDown className="h-4 w-4 mr-2" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 mr-2" />
+                    )}
+                    <Network className="h-4 w-4 mr-2 text-blue-600" />
+                    <span className="font-medium">Nodes</span>
+                    {currentGraph && (
+                      <span className="ml-auto text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                        {currentGraph.nodeCount}
+                      </span>
+                    )}
+                  </button>
+                  
+                  {expandedTreeItems.has('nodes') && currentGraph && (
+                    <div className="ml-6 mt-2 space-y-1">
+                      {Array.from(new Set(currentGraph.nodes.map((n: any) => n.type))).map((type: string) => (
+                        <div
+                          key={type}
+                          className="flex items-center justify-between p-2 text-sm hover:bg-gray-50 rounded cursor-pointer"
+                          onClick={() => {
+                            // Filter nodes by type
+                            const nodesOfType = currentGraph.nodes.filter((n: any) => n.type === type);
+                            setVisibleNodes(new Set(nodesOfType.map((n: any) => n.id)));
+                          }}
+                        >
+                          <div className="flex items-center">
+                            <div className="w-3 h-3 bg-blue-500 rounded mr-2"></div>
+                            <span>{type}</span>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {currentGraph.nodes.filter((n: any) => n.type === type).length}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Relations Section */}
+                <div>
+                  <button
+                    onClick={() => toggleTreeItem('relations')}
+                    className="flex items-center w-full p-2 text-left hover:bg-gray-50 rounded"
+                  >
+                    {expandedTreeItems.has('relations') ? (
+                      <ChevronDown className="h-4 w-4 mr-2" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 mr-2" />
+                    )}
+                    <Network className="h-4 w-4 mr-2 text-green-600" />
+                    <span className="font-medium">Relations</span>
+                    {currentGraph && (
+                      <span className="ml-auto text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                        {currentGraph.edgeCount}
+                      </span>
+                    )}
+                  </button>
+                  
+                  {expandedTreeItems.has('relations') && currentGraph && (
+                    <div className="ml-6 mt-2 space-y-1">
+                      {Array.from(new Set(currentGraph.edges.map((e: any) => e.type))).map((type: string) => (
+                        <div
+                          key={type}
+                          className="flex items-center justify-between p-2 text-sm hover:bg-gray-50 rounded cursor-pointer"
+                          onClick={() => {
+                            // Show all nodes that are connected by this relation type
+                            const edgesOfType = currentGraph.edges.filter((e: any) => e.type === type);
+                            const connectedNodeIds = new Set<string>();
+                            edgesOfType.forEach((edge: any) => {
+                              connectedNodeIds.add(edge.source);
+                              connectedNodeIds.add(edge.target);
+                            });
+                            setVisibleNodes(connectedNodeIds);
+                          }}
+                        >
+                          <div className="flex items-center">
+                            <div className="w-3 h-3 bg-green-500 rounded mr-2"></div>
+                            <span>{type}</span>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {currentGraph.edges.filter((e: any) => e.type === type).length}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Selected Node Details */}
+              {selectedNode && (
+                <div className="border-t p-4">
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Selected Node</h3>
+                  <div className="bg-gray-50 rounded p-3">
+                    <div className="flex items-center mb-2">
+                      <div className="w-4 h-4 bg-blue-500 rounded mr-2"></div>
+                      <span className="font-medium">{selectedNode.label}</span>
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      <div>Type: {selectedNode.type}</div>
+                      <div>ID: {selectedNode.id}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </TabsContent>
             
             <TabsContent value="sparql" className="flex-1 overflow-hidden p-4">
