@@ -1,4 +1,6 @@
 import { graphs, graphNodes, graphEdges, type Graph, type GraphNode, type GraphEdge, type InsertGraph, type InsertGraphNode, type InsertGraphEdge } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Graph operations
@@ -192,4 +194,147 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  async getGraph(graphId: string): Promise<Graph | undefined> {
+    const [graph] = await db.select().from(graphs).where(eq(graphs.graphId, graphId));
+    return graph || undefined;
+  }
+
+  async getAllGraphs(): Promise<Graph[]> {
+    return await db.select().from(graphs).orderBy(graphs.createdAt);
+  }
+
+  async createGraph(insertGraph: InsertGraph): Promise<Graph> {
+    const [graph] = await db
+      .insert(graphs)
+      .values({
+        ...insertGraph,
+        description: insertGraph.description || null,
+        nodeCount: insertGraph.nodeCount || 0,
+        edgeCount: insertGraph.edgeCount || 0,
+      })
+      .returning();
+    return graph;
+  }
+
+  async updateGraph(graphId: string, updates: Partial<InsertGraph>): Promise<Graph | undefined> {
+    const [graph] = await db
+      .update(graphs)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(graphs.graphId, graphId))
+      .returning();
+    return graph || undefined;
+  }
+
+  async deleteGraph(graphId: string): Promise<boolean> {
+    const result = await db.delete(graphs).where(eq(graphs.graphId, graphId));
+    if (result.rowCount && result.rowCount > 0) {
+      await this.deleteNodesByGraph(graphId);
+      await this.deleteEdgesByGraph(graphId);
+      return true;
+    }
+    return false;
+  }
+
+  async getNode(nodeId: string): Promise<GraphNode | undefined> {
+    const [node] = await db.select().from(graphNodes).where(eq(graphNodes.nodeId, nodeId));
+    return node || undefined;
+  }
+
+  async getNodesByGraph(graphId: string): Promise<GraphNode[]> {
+    return await db.select().from(graphNodes).where(eq(graphNodes.graphId, graphId));
+  }
+
+  async createNode(insertNode: InsertGraphNode): Promise<GraphNode> {
+    const [node] = await db
+      .insert(graphNodes)
+      .values({
+        ...insertNode,
+        data: insertNode.data || {},
+        x: insertNode.x || 0,
+        y: insertNode.y || 0,
+      })
+      .returning();
+    return node;
+  }
+
+  async updateNode(nodeId: string, updates: Partial<InsertGraphNode>): Promise<GraphNode | undefined> {
+    const [node] = await db
+      .update(graphNodes)
+      .set(updates)
+      .where(eq(graphNodes.nodeId, nodeId))
+      .returning();
+    return node || undefined;
+  }
+
+  async deleteNode(nodeId: string): Promise<boolean> {
+    const result = await db.delete(graphNodes).where(eq(graphNodes.nodeId, nodeId));
+    if (result.rowCount && result.rowCount > 0) {
+      // Delete associated edges
+      await db.delete(graphEdges).where(
+        eq(graphEdges.sourceId, nodeId)
+      );
+      await db.delete(graphEdges).where(
+        eq(graphEdges.targetId, nodeId)
+      );
+      return true;
+    }
+    return false;
+  }
+
+  async deleteNodesByGraph(graphId: string): Promise<boolean> {
+    await db.delete(graphNodes).where(eq(graphNodes.graphId, graphId));
+    return true;
+  }
+
+  async getEdge(edgeId: string): Promise<GraphEdge | undefined> {
+    const [edge] = await db.select().from(graphEdges).where(eq(graphEdges.edgeId, edgeId));
+    return edge || undefined;
+  }
+
+  async getEdgesByGraph(graphId: string): Promise<GraphEdge[]> {
+    return await db.select().from(graphEdges).where(eq(graphEdges.graphId, graphId));
+  }
+
+  async getEdgesByNode(nodeId: string): Promise<GraphEdge[]> {
+    const sourceEdges = await db.select().from(graphEdges).where(eq(graphEdges.sourceId, nodeId));
+    const targetEdges = await db.select().from(graphEdges).where(eq(graphEdges.targetId, nodeId));
+    return [...sourceEdges, ...targetEdges];
+  }
+
+  async createEdge(insertEdge: InsertGraphEdge): Promise<GraphEdge> {
+    const [edge] = await db
+      .insert(graphEdges)
+      .values({
+        ...insertEdge,
+        label: insertEdge.label || null,
+        data: insertEdge.data || {},
+      })
+      .returning();
+    return edge;
+  }
+
+  async updateEdge(edgeId: string, updates: Partial<InsertGraphEdge>): Promise<GraphEdge | undefined> {
+    const [edge] = await db
+      .update(graphEdges)
+      .set(updates)
+      .where(eq(graphEdges.edgeId, edgeId))
+      .returning();
+    return edge || undefined;
+  }
+
+  async deleteEdge(edgeId: string): Promise<boolean> {
+    const result = await db.delete(graphEdges).where(eq(graphEdges.edgeId, edgeId));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async deleteEdgesByGraph(graphId: string): Promise<boolean> {
+    await db.delete(graphEdges).where(eq(graphEdges.graphId, graphId));
+    return true;
+  }
+}
+
+export const storage = new DatabaseStorage();
