@@ -15,7 +15,7 @@ import {
   RDF_TYPES
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, not, or } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 export interface IStorage {
@@ -34,6 +34,7 @@ export interface IStorage {
   // Node operations via RDF triples
   createNodeFromTriples(graphId: string, nodeId: string, label: string, type: string, data: Record<string, any>, x?: number, y?: number): Promise<void>;
   updateNodePosition(nodeId: string, x: number, y: number): Promise<boolean>;
+  updateNodeProperties(nodeId: string, properties: { label?: string; type?: string; data?: Record<string, any> }): Promise<boolean>;
   deleteNodeFromTriples(nodeId: string): Promise<boolean>;
   
   // Edge operations via RDF triples
@@ -198,6 +199,77 @@ export class DatabaseStorage implements IStorage {
       );
 
     return true;
+  }
+
+  async updateNodeProperties(nodeId: string, properties: { label?: string; type?: string; data?: Record<string, any> }): Promise<boolean> {
+    try {
+      // Update label if provided
+      if (properties.label !== undefined) {
+        await db
+          .update(rdfTriples)
+          .set({ object: properties.label })
+          .where(
+            and(
+              eq(rdfTriples.subject, nodeId),
+              eq(rdfTriples.predicate, RDF_PREDICATES.LABEL)
+            )
+          );
+      }
+
+      // Update type if provided
+      if (properties.type !== undefined) {
+        await db
+          .update(rdfTriples)
+          .set({ object: properties.type })
+          .where(
+            and(
+              eq(rdfTriples.subject, nodeId),
+              eq(rdfTriples.predicate, RDF_PREDICATES.TYPE)
+            )
+          );
+      }
+
+      // Update data properties if provided
+      if (properties.data !== undefined) {
+        // First, get the graphId for this node
+        const nodeTriples = await db
+          .select({ graphId: rdfTriples.graphId })
+          .from(rdfTriples)
+          .where(eq(rdfTriples.subject, nodeId))
+          .limit(1);
+        
+        const graphId = nodeTriples[0]?.graphId || '';
+
+        // Delete existing data properties (except built-in ones)
+        await db
+          .delete(rdfTriples)
+          .where(
+            and(
+              eq(rdfTriples.subject, nodeId),
+              // Delete properties that are not system properties
+              eq(rdfTriples.predicate, RDF_PREDICATES.LABEL).not(),
+              eq(rdfTriples.predicate, RDF_PREDICATES.TYPE).not(),
+              eq(rdfTriples.predicate, RDF_PREDICATES.POSITION_X).not(),
+              eq(rdfTriples.predicate, RDF_PREDICATES.POSITION_Y).not()
+            )
+          );
+
+        // Insert new data properties
+        for (const [key, value] of Object.entries(properties.data)) {
+          await db.insert(rdfTriples).values({
+            subject: nodeId,
+            predicate: key,
+            object: String(value),
+            graphId: (await db.select({ graphId: rdfTriples.graphId }).from(rdfTriples).where(eq(rdfTriples.subject, nodeId)).limit(1))[0]?.graphId || '',
+          });
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error updating node properties:', error);
+      return false;
+    }
   }
 
   async deleteNodeFromTriples(nodeId: string): Promise<boolean> {

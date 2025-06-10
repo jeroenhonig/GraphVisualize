@@ -125,6 +125,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update node properties (label, type, data)
+  app.patch("/api/nodes/:nodeId", async (req, res) => {
+    try {
+      const { nodeId } = req.params;
+      const { label, type, data } = req.body;
+
+      const success = await storage.updateNodeProperties(nodeId, { label, type, data });
+      
+      if (!success) {
+        return res.status(404).json({ message: "Node not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Node update error:', error);
+      res.status(500).json({ message: "Failed to update node" });
+    }
+  });
+
   // Delete node
   app.delete("/api/nodes/:nodeId", async (req, res) => {
     try {
