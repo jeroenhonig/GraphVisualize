@@ -54,6 +54,11 @@ export default function GraphCanvas({
   const [physicsEnabled, setPhysicsEnabled] = useState(true);
   const [animationId, setAnimationId] = useState<number | null>(null);
   
+  // Drag threshold to distinguish between click and drag
+  const [mouseDownPosition, setMouseDownPosition] = useState<{ x: number; y: number } | null>(null);
+  const [hasDraggedSignificantly, setHasDraggedSignificantly] = useState(false);
+  const DRAG_THRESHOLD = 5; // pixels
+  
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ 
     x: number; 
@@ -392,6 +397,10 @@ export default function GraphCanvas({
     const target = e.target as Element;
     const nodeElement = target.closest('[data-node-id]');
     
+    // Store initial mouse position for drag threshold
+    setMouseDownPosition({ x: e.clientX, y: e.clientY });
+    setHasDraggedSignificantly(false);
+    
     if (nodeElement && e.button === 0) {
       // Node interaction
       const nodeId = nodeElement.getAttribute('data-node-id');
@@ -404,7 +413,7 @@ export default function GraphCanvas({
         // Select node first for edit mode
         onNodeSelect(node);
         
-        // Set up dragging with proper coordinate calculation
+        // Set up potential dragging but don't start yet
         const rect = svgRef.current?.getBoundingClientRect();
         if (rect) {
           const currentPos = localNodePositions[node.id] || { x: node.x, y: node.y };
@@ -412,7 +421,6 @@ export default function GraphCanvas({
           const svgY = (e.clientY - rect.top - transform.translateY) / transform.scale;
           
           setDraggedNode(node);
-          setIsNodeDragging(true);
           setNodeDragStart({ 
             x: svgX - currentPos.x, 
             y: svgY - currentPos.y 
@@ -422,14 +430,30 @@ export default function GraphCanvas({
       }
     }
     
-    if (e.button === 0) { // Left mouse button - canvas panning
-      setIsDragging(true);
+    if (e.button === 0) { // Left mouse button - canvas panning setup
       setDragStart({ x: e.clientX - transform.translateX, y: e.clientY - transform.translateY });
     }
   }, [graph?.nodes, localNodePositions, transform, onNodeSelect]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isNodeDragging && draggedNode) {
+    // Check if we've moved beyond the drag threshold
+    if (mouseDownPosition && !hasDraggedSignificantly) {
+      const deltaX = Math.abs(e.clientX - mouseDownPosition.x);
+      const deltaY = Math.abs(e.clientY - mouseDownPosition.y);
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      
+      if (distance > DRAG_THRESHOLD) {
+        setHasDraggedSignificantly(true);
+        // Only start actual dragging after threshold is exceeded
+        if (draggedNode) {
+          setIsNodeDragging(true);
+        } else {
+          setIsDragging(true);
+        }
+      }
+    }
+
+    if (isNodeDragging && draggedNode && hasDraggedSignificantly) {
       // Node dragging with proper coordinate transformation
       const rect = svgRef.current?.getBoundingClientRect();
       if (rect) {
@@ -445,7 +469,7 @@ export default function GraphCanvas({
           [draggedNode.id]: { x: newX, y: newY }
         }));
       }
-    } else if (isDragging) {
+    } else if (isDragging && hasDraggedSignificantly) {
       // Canvas panning
       const deltaX = e.clientX - dragStart.x;
       const deltaY = e.clientY - dragStart.y;
@@ -455,29 +479,35 @@ export default function GraphCanvas({
         translateY: deltaY
       });
     }
-  }, [isNodeDragging, draggedNode, nodeDragStart, isDragging, dragStart, transform, onTransformChange]);
+  }, [isNodeDragging, draggedNode, nodeDragStart, isDragging, dragStart, transform, onTransformChange, mouseDownPosition, hasDraggedSignificantly, DRAG_THRESHOLD]);
 
   const handleMouseUp = useCallback(() => {
-    if (isNodeDragging && draggedNode) {
-      // Save the new node position to the server
-      updateNodePositionMutation.mutate({
-        nodeId: draggedNode.id,
-        x: Math.round(draggedNode.x),
-        y: Math.round(draggedNode.y)
-      });
-      
-      // Clear local position after server update
-      setLocalNodePositions(prev => {
-        const updated = { ...prev };
-        delete updated[draggedNode.id];
-        return updated;
-      });
+    if (isNodeDragging && draggedNode && hasDraggedSignificantly) {
+      // Only save position if we actually dragged significantly
+      const localPos = localNodePositions[draggedNode.id];
+      if (localPos) {
+        updateNodePositionMutation.mutate({
+          nodeId: draggedNode.id,
+          x: Math.round(localPos.x),
+          y: Math.round(localPos.y)
+        });
+        
+        // Clear local position after server update
+        setLocalNodePositions(prev => {
+          const updated = { ...prev };
+          delete updated[draggedNode.id];
+          return updated;
+        });
+      }
     }
     
+    // Reset all drag states
     setIsDragging(false);
     setIsNodeDragging(false);
     setDraggedNode(null);
-  }, [isNodeDragging, draggedNode, updateNodePositionMutation]);
+    setMouseDownPosition(null);
+    setHasDraggedSignificantly(false);
+  }, [isNodeDragging, draggedNode, hasDraggedSignificantly, localNodePositions, updateNodePositionMutation]);
 
   const handleCreateRelation = useCallback((targetNodeId: string) => {
     if (relationSourceNode && targetNodeId !== relationSourceNode) {
