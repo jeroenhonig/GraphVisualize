@@ -170,9 +170,7 @@ export default function GraphVisualizer() {
           <div className="flex items-center space-x-4">
             <div className="flex items-center">
               <Network className="h-8 w-8 text-blue-600 mr-3" />
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                Graph Theory Visualizer
-              </h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Graph Visualizer</h1>
             </div>
             
             {currentGraph && (
@@ -243,7 +241,6 @@ export default function GraphVisualizer() {
           </div>
         </div>
       </header>
-
       {/* Main Layout */}
       <div className="h-screen pt-16 relative bg-graph-background">
         {/* Main Graph Area - Full Screen */}
@@ -498,7 +495,6 @@ export default function GraphVisualizer() {
           />
         </DraggablePanel>
       </div>
-
       {/* Import Modal */}
       <Dialog open={importModalOpen} onOpenChange={setImportModalOpen}>
         <DialogContent className="max-w-lg">
@@ -529,7 +525,6 @@ export default function GraphVisualizer() {
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Create Modal */}
       <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
         <DialogContent className="max-w-lg">
@@ -539,7 +534,6 @@ export default function GraphVisualizer() {
           <GraphCreator onGraphCreated={() => setCreateModalOpen(false)} />
         </DialogContent>
       </Dialog>
-
       {/* Save View Dialog */}
       {currentGraph && (
         <SaveViewDialog
@@ -551,7 +545,6 @@ export default function GraphVisualizer() {
           nodePositions={{}} // TODO: Get actual node positions
         />
       )}
-
       {/* Export Modal */}
       <Dialog open={exportModalOpen} onOpenChange={setExportModalOpen}>
         <DialogContent className="max-w-lg">
@@ -607,7 +600,6 @@ export default function GraphVisualizer() {
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Analytics Modal */}
       <Dialog open={analyticsModalOpen} onOpenChange={setAnalyticsModalOpen}>
         <DialogContent className="max-w-4xl">

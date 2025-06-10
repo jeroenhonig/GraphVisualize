@@ -15,6 +15,14 @@ interface DraggablePanelProps {
   className?: string;
 }
 
+interface SnapZone {
+  type: 'left' | 'right' | 'top' | 'bottom';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export default function DraggablePanel({
   children,
   title,
@@ -30,6 +38,7 @@ export default function DraggablePanel({
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [snapPreview, setSnapPreview] = useState<SnapZone | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<HTMLDivElement>(null);
 
@@ -54,26 +63,115 @@ export default function DraggablePanel({
     return () => window.removeEventListener('resize', handleResize);
   }, [position, onPositionChange]);
 
+  // Get snap zones for current viewport
+  const getSnapZones = (): SnapZone[] => {
+    const headerHeight = 80;
+    const snapMargin = 10;
+    const panelHeight = collapsed ? 56 : Math.max(400, window.innerHeight - headerHeight - 100);
+    
+    return [
+      // Left edge snap
+      {
+        type: 'left',
+        x: snapMargin,
+        y: headerHeight + snapMargin,
+        width: width,
+        height: panelHeight,
+      },
+      // Right edge snap
+      {
+        type: 'right',
+        x: window.innerWidth - width - snapMargin,
+        y: headerHeight + snapMargin,
+        width: width,
+        height: panelHeight,
+      },
+      // Top left corner
+      {
+        type: 'top',
+        x: snapMargin,
+        y: headerHeight + snapMargin,
+        width: width,
+        height: panelHeight,
+      },
+      // Top right corner
+      {
+        type: 'top',
+        x: window.innerWidth - width - snapMargin,
+        y: headerHeight + snapMargin,
+        width: width,
+        height: panelHeight,
+      },
+      // Bottom left corner
+      {
+        type: 'bottom',
+        x: snapMargin,
+        y: window.innerHeight - panelHeight - snapMargin,
+        width: width,
+        height: panelHeight,
+      },
+      // Bottom right corner
+      {
+        type: 'bottom',
+        x: window.innerWidth - width - snapMargin,
+        y: window.innerHeight - panelHeight - snapMargin,
+        width: width,
+        height: panelHeight,
+      },
+    ];
+  };
+
+  // Check if position is close to a snap zone
+  const getSnapPosition = (x: number, y: number): { snappedPos: { x: number; y: number }; snapZone: SnapZone | null } => {
+    const snapThreshold = 40;
+    const snapZones = getSnapZones();
+    
+    for (const zone of snapZones) {
+      const distanceX = Math.abs(x - zone.x);
+      const distanceY = Math.abs(y - zone.y);
+      
+      if (distanceX < snapThreshold && distanceY < snapThreshold) {
+        return {
+          snappedPos: { x: zone.x, y: zone.y },
+          snapZone: zone
+        };
+      }
+    }
+    
+    return { snappedPos: { x, y }, snapZone: null };
+  };
+
   // Dragging logic
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging) {
-        const newX = e.clientX - dragOffset.x;
-        const newY = e.clientY - dragOffset.y;
+        const rawX = e.clientX - dragOffset.x;
+        const rawY = e.clientY - dragOffset.y;
         
         // Keep panel within viewport bounds
+        const headerHeight = 80;
+        const minHeight = collapsed ? 56 : 400;
         const maxX = window.innerWidth - width;
-        const maxY = window.innerHeight - 400; // Min height for panel
+        const maxY = window.innerHeight - minHeight;
         
-        onPositionChange({
-          x: Math.max(0, Math.min(newX, maxX)),
-          y: Math.max(80, Math.min(newY, maxY)) // 80px for header
-        });
+        // Constrain to viewport first
+        const constrainedX = Math.max(0, Math.min(rawX, maxX));
+        const constrainedY = Math.max(headerHeight, Math.min(rawY, maxY));
+        
+        // Check for snap positions
+        const { snappedPos, snapZone } = getSnapPosition(constrainedX, constrainedY);
+        
+        // Update snap preview
+        setSnapPreview(snapZone);
+        
+        // Apply the position (snapped or regular)
+        onPositionChange(snappedPos);
       }
     };
 
     const handleMouseUp = () => {
       setIsDragging(false);
+      setSnapPreview(null);
     };
 
     if (isDragging) {
@@ -139,17 +237,39 @@ export default function DraggablePanel({
   const panelWidth = collapsed ? collapsedWidth : width;
 
   return (
-    <div
-      ref={panelRef}
-      className={`fixed bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-30 transition-all duration-200 ${className}`}
-      style={{
-        left: side === 'left' ? position.x : `calc(100vw - ${position.x + panelWidth}px)`,
-        top: position.y,
-        width: panelWidth,
-        height: collapsed ? '56px' : 'calc(100vh - 120px)',
-        cursor: isDragging ? 'grabbing' : 'default'
-      }}
-    >
+    <>
+      {/* Snap Preview Overlay */}
+      {isDragging && snapPreview && (
+        <div
+          className="fixed bg-blue-500/20 border-2 border-blue-500 border-dashed rounded-lg z-20 pointer-events-none"
+          style={{
+            left: snapPreview.x,
+            top: snapPreview.y,
+            width: snapPreview.width,
+            height: snapPreview.height,
+          }}
+        >
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="bg-blue-500 text-white px-3 py-1 rounded-md text-sm font-medium">
+              Snap naar {snapPreview.type === 'left' ? 'links' : snapPreview.type === 'right' ? 'rechts' : snapPreview.type === 'top' ? 'boven' : 'onder'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div
+        ref={panelRef}
+        className={`fixed bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-30 transition-all duration-200 ${
+          isDragging ? 'shadow-2xl scale-105' : 'shadow-lg'
+        } ${className}`}
+        style={{
+          left: position.x,
+          top: position.y,
+          width: panelWidth,
+          height: collapsed ? '56px' : 'calc(100vh - 120px)',
+          cursor: isDragging ? 'grabbing' : 'default'
+        }}
+      >
       {/* Header with drag handle and controls */}
       <div 
         className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-t-lg cursor-grab active:cursor-grabbing"
