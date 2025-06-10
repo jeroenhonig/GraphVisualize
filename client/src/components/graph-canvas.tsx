@@ -67,10 +67,12 @@ export default function GraphCanvas({
       y: number;
       data: Record<string, any>;
     }) => {
-      return await apiRequest(`/api/graphs/${nodeData.graphId}/nodes`, "POST", {
+      const graphId = graph?.graphId || graph?.id;
+      return await apiRequest(`/api/graphs/${graphId}/nodes`, "POST", {
         nodeId: nodeData.nodeId,
         label: nodeData.label,
         type: nodeData.type,
+        graphId: graphId,
         x: nodeData.x,
         y: nodeData.y,
         data: nodeData.data,
@@ -96,10 +98,10 @@ export default function GraphCanvas({
   // Context menu handlers
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    console.log('Context menu triggered', { graphId: graph?.id, clientX: e.clientX, clientY: e.clientY });
+    console.log('Context menu triggered', { graphId: graph?.graphId || graph?.id, clientX: e.clientX, clientY: e.clientY });
     
-    if (!graph?.id) {
-      console.log('No graph ID available');
+    if (!graph?.graphId && !graph?.id) {
+      console.log('No graph ID available', { graph });
       return;
     }
     

@@ -86,6 +86,7 @@ export interface VisualizationEdge {
 
 export interface GraphData {
   id: string;
+  graphId: string;
   name: string;
   description?: string;
   nodes: VisualizationNode[];

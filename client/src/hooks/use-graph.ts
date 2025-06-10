@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import type { GraphData, VisualizationNode } from "@shared/schema";
 import type { GraphTransform } from "@/lib/graph-utils";
 
@@ -16,6 +17,7 @@ export function useGraph() {
   // Fetch current graph
   const { data: currentGraph } = useQuery({
     queryKey: ['/api/graphs', currentGraphId],
+    queryFn: () => apiRequest(`/api/graphs/${currentGraphId}`, "GET"),
     enabled: !!currentGraphId,
   });
 
