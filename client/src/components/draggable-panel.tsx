@@ -74,8 +74,8 @@ export default function DraggablePanel({
       const otherWidth = otherPanel.collapsed ? 48 : otherPanel.width;
       const otherHeight = otherPanel.collapsed ? 56 : Math.max(400, window.innerHeight - 180);
       
-      // Check if rectangles overlap (with generous margin to prevent any overlap)
-      const margin = 20; // Increased from 5 to prevent any visual overlap
+      // Check if rectangles overlap (with very generous margin to prevent any overlap)
+      const margin = 30; // Further increased to prevent any visual overlap
       if (!(currentPanel.x + currentPanel.width + margin <= otherPanel.position.x ||
             otherPanel.position.x + otherWidth + margin <= currentPanel.x ||
             currentPanel.y + currentPanel.height + margin <= otherPanel.position.y ||
@@ -90,7 +90,7 @@ export default function DraggablePanel({
   const findNonCollidingPosition = (desiredX: number, desiredY: number): { x: number; y: number } => {
     const headerHeight = 80;
     const snapMargin = 10;
-    const gap = 25; // Increased gap between panels to prevent overlap
+    const gap = 35; // Further increased gap between panels to prevent overlap
     const currentWidth = collapsed ? 48 : width;
     const currentHeight = collapsed ? 56 : Math.max(400, window.innerHeight - headerHeight - 100);
     
@@ -517,7 +517,7 @@ export default function DraggablePanel({
       {!collapsed && (
         <div className="flex h-full" style={{ height: 'calc(100% - 56px)' }}>
           {side === 'left' && (
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'calc(100vh - 200px)' }}>
               {children}
             </div>
           )}
@@ -533,7 +533,7 @@ export default function DraggablePanel({
           />
           
           {side === 'right' && (
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'calc(100vh - 200px)' }}>
               {children}
             </div>
           )}
