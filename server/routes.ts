@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertGraphSchema, insertGraphNodeSchema, insertGraphEdgeSchema } from "@shared/schema";
+import { insertGraphSchema, insertGraphNodeSchema, insertGraphEdgeSchema, insertVisibilitySetSchema } from "@shared/schema";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import { nanoid } from "nanoid";

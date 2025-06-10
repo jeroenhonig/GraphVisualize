@@ -1,6 +1,22 @@
-import { graphs, graphNodes, graphEdges, type Graph, type GraphNode, type GraphEdge, type InsertGraph, type InsertGraphNode, type InsertGraphEdge } from "@shared/schema";
+import { 
+  graphs, 
+  graphNodes, 
+  graphEdges,
+  rdfTriples,
+  visibilitySets,
+  type Graph, 
+  type GraphNode, 
+  type GraphEdge, 
+  type RdfTriple,
+  type VisibilitySet,
+  type InsertGraph, 
+  type InsertGraphNode, 
+  type InsertGraphEdge,
+  type InsertRdfTriple,
+  type InsertVisibilitySet
+} from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 export interface IStorage {
@@ -27,6 +43,18 @@ export interface IStorage {
   updateEdge(edgeId: string, updates: Partial<InsertGraphEdge>): Promise<GraphEdge | undefined>;
   deleteEdge(edgeId: string): Promise<boolean>;
   deleteEdgesByGraph(graphId: string): Promise<boolean>;
+
+  // RDF Triple operations for SPARQL support
+  createRdfTriple(triple: InsertRdfTriple): Promise<RdfTriple>;
+  getRdfTriplesByGraph(graphId: string): Promise<RdfTriple[]>;
+  deleteRdfTriplesByGraph(graphId: string): Promise<boolean>;
+  
+  // Visibility Set operations
+  createVisibilitySet(visibilitySet: InsertVisibilitySet): Promise<VisibilitySet>;
+  getVisibilitySetsByGraph(graphId: string): Promise<VisibilitySet[]>;
+  getActiveVisibilitySet(graphId: string): Promise<VisibilitySet | undefined>;
+  setActiveVisibilitySet(graphId: string, setId: string): Promise<boolean>;
+  executeVisibilityQuery(graphId: string, sparqlQuery: string): Promise<string[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -193,6 +221,42 @@ export class MemStorage implements IStorage {
     }
     return true;
   }
+
+  // RDF Triple operations (stub implementations for MemStorage)
+  async createRdfTriple(triple: InsertRdfTriple): Promise<RdfTriple> {
+    throw new Error("RDF triples not supported in memory storage");
+  }
+
+  async getRdfTriplesByGraph(graphId: string): Promise<RdfTriple[]> {
+    return [];
+  }
+
+  async deleteRdfTriplesByGraph(graphId: string): Promise<boolean> {
+    return true;
+  }
+
+  // Visibility Set operations (stub implementations for MemStorage)
+  async createVisibilitySet(visibilitySet: InsertVisibilitySet): Promise<VisibilitySet> {
+    throw new Error("Visibility sets not supported in memory storage");
+  }
+
+  async getVisibilitySetsByGraph(graphId: string): Promise<VisibilitySet[]> {
+    return [];
+  }
+
+  async getActiveVisibilitySet(graphId: string): Promise<VisibilitySet | undefined> {
+    return undefined;
+  }
+
+  async setActiveVisibilitySet(graphId: string, setId: string): Promise<boolean> {
+    return false;
+  }
+
+  async executeVisibilityQuery(graphId: string, sparqlQuery: string): Promise<string[]> {
+    // Simple fallback - return all node IDs
+    const nodes = Array.from(this.nodes.values()).filter(node => node.graphId === graphId);
+    return nodes.map(node => node.nodeId);
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -343,6 +407,104 @@ export class DatabaseStorage implements IStorage {
   async deleteEdgesByGraph(graphId: string): Promise<boolean> {
     await db.delete(graphEdges).where(eq(graphEdges.graphId, graphId));
     return true;
+  }
+
+  // RDF Triple operations for SPARQL support
+  async createRdfTriple(triple: InsertRdfTriple): Promise<RdfTriple> {
+    const [rdfTriple] = await db.insert(rdfTriples).values(triple).returning();
+    return rdfTriple;
+  }
+
+  async getRdfTriplesByGraph(graphId: string): Promise<RdfTriple[]> {
+    return await db.select().from(rdfTriples).where(eq(rdfTriples.graphId, graphId));
+  }
+
+  async deleteRdfTriplesByGraph(graphId: string): Promise<boolean> {
+    await db.delete(rdfTriples).where(eq(rdfTriples.graphId, graphId));
+    return true;
+  }
+
+  // Visibility Set operations
+  async createVisibilitySet(visibilitySet: InsertVisibilitySet): Promise<VisibilitySet> {
+    const [newSet] = await db.insert(visibilitySets).values(visibilitySet).returning();
+    return newSet;
+  }
+
+  async getVisibilitySetsByGraph(graphId: string): Promise<VisibilitySet[]> {
+    return await db.select().from(visibilitySets).where(eq(visibilitySets.graphId, graphId));
+  }
+
+  async getActiveVisibilitySet(graphId: string): Promise<VisibilitySet | undefined> {
+    const [activeSet] = await db.select().from(visibilitySets)
+      .where(and(eq(visibilitySets.graphId, graphId), eq(visibilitySets.isActive, 'true')));
+    return activeSet || undefined;
+  }
+
+  async setActiveVisibilitySet(graphId: string, setId: string): Promise<boolean> {
+    // First, deactivate all visibility sets for this graph
+    await db.update(visibilitySets)
+      .set({ isActive: 'false' })
+      .where(eq(visibilitySets.graphId, graphId));
+    
+    // Then activate the specified set
+    await db.update(visibilitySets)
+      .set({ isActive: 'true' })
+      .where(and(eq(visibilitySets.graphId, graphId), eq(visibilitySets.setId, setId)));
+    
+    return true;
+  }
+
+  async executeVisibilityQuery(graphId: string, sparqlQuery: string): Promise<string[]> {
+    // Simple SPARQL-like query processor
+    // For now, supports basic patterns like SELECT ?node WHERE { ?node rdf:type ?type }
+    
+    try {
+      // Parse simple SPARQL queries and convert to SQL
+      const visibleNodeIds: string[] = [];
+      
+      // Get all nodes for the graph
+      const nodes = await this.getNodesByGraph(graphId);
+      const triples = await this.getRdfTriplesByGraph(graphId);
+      
+      // Basic pattern matching for SPARQL queries
+      if (sparqlQuery.includes('rdf:type')) {
+        // Extract type from query pattern like "?node rdf:type ex:Person"
+        const typeMatch = sparqlQuery.match(/rdf:type\s+(\w+:\w+|\w+)/);
+        if (typeMatch) {
+          const targetType = typeMatch[1].replace(/^\w+:/, ''); // Remove namespace prefix
+          
+          // Find nodes with matching type in RDF triples
+          const matchingTriples = triples.filter(triple => 
+            triple.predicate === 'rdf:type' && 
+            triple.object.includes(targetType)
+          );
+          
+          visibleNodeIds.push(...matchingTriples.map(triple => triple.subject));
+        }
+      } else if (sparqlQuery.includes('SELECT') && sparqlQuery.includes('*')) {
+        // Show all nodes for SELECT * queries
+        visibleNodeIds.push(...nodes.map(node => node.nodeId));
+      } else if (sparqlQuery.includes('hasProperty')) {
+        // Custom property-based filtering
+        const propertyMatch = sparqlQuery.match(/hasProperty\s+"([^"]+)"/);
+        if (propertyMatch) {
+          const propertyName = propertyMatch[1];
+          
+          // Filter nodes based on data properties
+          const matchingNodes = nodes.filter(node => {
+            const data = node.data as any;
+            return data && data[propertyName] !== undefined;
+          });
+          
+          visibleNodeIds.push(...matchingNodes.map(node => node.nodeId));
+        }
+      }
+      
+      return [...new Set(visibleNodeIds)]; // Remove duplicates
+    } catch (error) {
+      console.error('Error executing SPARQL query:', error);
+      return [];
+    }
   }
 }
 
