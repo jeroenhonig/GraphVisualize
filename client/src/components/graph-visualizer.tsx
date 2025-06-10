@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Minus, RotateCcw, Download, Settings, Maximize, Search, Upload, FileText, BarChart3, Database, Network, TrendingUp, ChevronDown, ChevronRight } from "lucide-react";
+import { RotateCcw, Download, Settings, Maximize, Search, Upload, FileText, BarChart3, Database, Network, TrendingUp, ChevronDown, ChevronRight } from "lucide-react";
 import { useGraph } from "@/hooks/use-graph";
 
 export default function GraphVisualizer() {
@@ -49,19 +49,7 @@ export default function GraphVisualizer() {
     });
   };
 
-  const handleZoomIn = () => {
-    setTransform(prev => ({
-      ...prev,
-      scale: Math.min(prev.scale * 1.2, 3)
-    }));
-  };
 
-  const handleZoomOut = () => {
-    setTransform(prev => ({
-      ...prev,
-      scale: Math.max(prev.scale / 1.2, 0.1)
-    }));
-  };
 
   const handleExport = () => {
     // Implementation would depend on the selected format
@@ -80,34 +68,6 @@ export default function GraphVisualizer() {
           </div>
           
           <div className="flex items-center space-x-3">
-            {/* Graph controls */}
-            <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleZoomIn}
-                className="p-2 hover:bg-white rounded text-gray-600 hover:text-gray-900"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={resetView}
-                className="p-2 hover:bg-white rounded text-gray-600 hover:text-gray-900"
-              >
-                <RotateCcw className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleZoomOut}
-                className="p-2 hover:bg-white rounded text-gray-600 hover:text-gray-900"
-              >
-                <Minus className="h-4 w-4" />
-              </Button>
-            </div>
-            
             {/* Import/Export/Analytics Section */}
             <div className="flex items-center space-x-2">
               <Button
