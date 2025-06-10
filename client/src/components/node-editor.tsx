@@ -33,12 +33,13 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
 
   const updateNodeMutation = useMutation({
     mutationFn: async (updates: { label?: string; type?: string; data?: Record<string, any> }) => {
-      // In een RDF-triple systeem zouden we hier de individuele triples updaten
-      // Voor nu simuleren we dit door de positie bij te werken (wat al werkt)
-      // TODO: Implementeer volledige node update via RDF triples
-      
-      const response = await apiRequest("PATCH", `/api/nodes/${node.id}`, updates);
-      return response.json();
+      try {
+        const response = await apiRequest("PATCH", `/api/nodes/${node.id}`, updates);
+        return await response.json();
+      } catch (error) {
+        console.error('Node update mutation error:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({
@@ -52,20 +53,30 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
       }
     },
     onError: (error: Error) => {
+      console.error('Node update error:', error);
       toast({
         title: "Update Fout",
-        description: error.message,
+        description: error.message || "Er is een fout opgetreden bij het bijwerken van de node",
         variant: "destructive",
       });
     },
   });
 
   const handleSave = () => {
-    updateNodeMutation.mutate({
-      label: editedNode.label,
-      type: editedNode.type,
-      data: editedNode.data,
-    });
+    try {
+      updateNodeMutation.mutate({
+        label: editedNode.label,
+        type: editedNode.type,
+        data: editedNode.data,
+      });
+    } catch (error) {
+      console.error('Save error:', error);
+      toast({
+        title: "Opslaan Fout",
+        description: "Er is een fout opgetreden bij het opslaan",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCancel = () => {
