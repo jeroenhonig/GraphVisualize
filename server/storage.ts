@@ -259,7 +259,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteEdgeFromTriples(edgeId: string): Promise<boolean> {
     const result = await db.delete(rdfTriples).where(eq(rdfTriples.subject, edgeId));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async getVisualizationData(graphId: string): Promise<GraphData> {
@@ -284,21 +284,21 @@ export class DatabaseStorage implements IStorage {
     const processedEdges = new Set<string>();
 
     // Process each subject (potential node or edge)
-    for (const [subject, subjectTripleList] of subjectTriples) {
-      const typeTriple = subjectTripleList.find(t => t.predicate === RDF_PREDICATES.TYPE);
+    for (const [subject, subjectTripleList] of Array.from(subjectTriples.entries())) {
+      const typeTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.TYPE);
       
       if (typeTriple?.object === RDF_TYPES.NODE) {
         // This is a node
-        const labelTriple = subjectTripleList.find(t => t.predicate === RDF_PREDICATES.LABEL);
-        const nodeTypeTriple = subjectTripleList.find(t => t.predicate === RDF_PREDICATES.NODE_TYPE);
-        const xTriple = subjectTripleList.find(t => t.predicate === RDF_PREDICATES.POSITION_X);
-        const yTriple = subjectTripleList.find(t => t.predicate === RDF_PREDICATES.POSITION_Y);
+        const labelTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.LABEL);
+        const nodeTypeTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.NODE_TYPE);
+        const xTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.POSITION_X);
+        const yTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.POSITION_Y);
 
         // Collect data properties
         const data: Record<string, any> = {};
         subjectTripleList
-          .filter(t => t.predicate.startsWith(RDF_PREDICATES.DATA_PROPERTY))
-          .forEach(t => {
+          .filter((t: any) => t.predicate.startsWith(RDF_PREDICATES.DATA_PROPERTY))
+          .forEach((t: any) => {
             const key = t.predicate.split(':').pop() || 'unknown';
             try {
               data[key] = JSON.parse(t.object);
@@ -318,7 +318,7 @@ export class DatabaseStorage implements IStorage {
         });
 
         // Find connections from this node
-        const connections = subjectTripleList.filter(t => t.predicate === RDF_PREDICATES.CONNECTS_TO);
+        const connections = subjectTripleList.filter((t: any) => t.predicate === RDF_PREDICATES.CONNECTS_TO);
         for (const conn of connections) {
           const edgeId = `${subject}-${conn.object}`;
           if (!processedEdges.has(edgeId)) {
@@ -394,7 +394,7 @@ export class DatabaseStorage implements IStorage {
         )
       );
 
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async executeVisibilityQuery(graphId: string, sparqlQuery: string): Promise<string[]> {
