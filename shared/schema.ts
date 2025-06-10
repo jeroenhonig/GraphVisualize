@@ -97,14 +97,38 @@ export interface GraphData {
 // RDF Predicates for standard graph operations
 export const RDF_PREDICATES = {
   TYPE: "rdf:type",
-  LABEL: "rdfs:label", 
-  HAS_PROPERTY: "graph:hasProperty",
+  LABEL: "rdfs:label",
   CONNECTS_TO: "graph:connectsTo",
   POSITION_X: "graph:positionX",
   POSITION_Y: "graph:positionY",
   NODE_TYPE: "graph:nodeType",
   EDGE_TYPE: "graph:edgeType",
-  DATA_PROPERTY: "graph:dataProperty"
+  // Standard schema.org properties
+  NAME: "schema:name",
+  AGE: "schema:age",
+  ADDRESS: "schema:address",
+  EMAIL: "schema:email",
+  PHONE: "schema:telephone",
+  ORGANIZATION: "schema:affiliation",
+  JOB_TITLE: "schema:jobTitle",
+  BIRTH_DATE: "schema:birthDate",
+  DESCRIPTION: "schema:description",
+  URL: "schema:url",
+  // Dublin Core properties
+  TITLE: "dc:title",
+  CREATOR: "dc:creator",
+  DATE: "dc:date",
+  SUBJECT: "dc:subject",
+  // FOAF properties for people
+  KNOWS: "foaf:knows",
+  GIVEN_NAME: "foaf:givenName",
+  FAMILY_NAME: "foaf:familyName",
+  NICKNAME: "foaf:nick",
+  // Custom domain properties with proper namespace
+  CITY: "ex:city",
+  COUNTRY: "ex:country",
+  COMPANY: "ex:company",
+  DEPARTMENT: "ex:department"
 } as const;
 
 // Standard RDF types for graph elements

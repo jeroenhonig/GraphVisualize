@@ -263,13 +263,9 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Input
-                    placeholder="Naam van eigenschap"
-                    value={key}
-                    onChange={(e) => handlePropertyKeyChange(key, e.target.value)}
-                    disabled={!isEditing}
-                    className="text-sm font-medium"
-                  />
+                  <div className="text-xs text-gray-600 font-mono bg-gray-100 px-2 py-1 rounded">
+                    {key}
+                  </div>
                   <Input
                     placeholder="Waarde"
                     value={String(value)}
@@ -292,12 +288,25 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
             <div className="space-y-2 p-3 bg-blue-50 rounded border border-blue-200">
               <Label className="text-sm font-medium text-blue-800">Nieuwe Eigenschap</Label>
               <div className="space-y-2">
-                <Input
-                  placeholder="Eigenschap naam (bijv. leeftijd, stad)"
-                  value={newPropertyKey}
-                  onChange={(e) => setNewPropertyKey(e.target.value)}
-                  className="text-sm"
-                />
+                <Select value={newPropertyKey} onValueChange={setNewPropertyKey}>
+                  <SelectTrigger className="text-sm">
+                    <SelectValue placeholder="Selecteer eigenschap type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="schema:name">Naam</SelectItem>
+                    <SelectItem value="schema:age">Leeftijd</SelectItem>
+                    <SelectItem value="ex:city">Stad</SelectItem>
+                    <SelectItem value="ex:country">Land</SelectItem>
+                    <SelectItem value="schema:email">Email</SelectItem>
+                    <SelectItem value="schema:telephone">Telefoon</SelectItem>
+                    <SelectItem value="ex:company">Bedrijf</SelectItem>
+                    <SelectItem value="ex:department">Afdeling</SelectItem>
+                    <SelectItem value="schema:jobTitle">Functie</SelectItem>
+                    <SelectItem value="schema:address">Adres</SelectItem>
+                    <SelectItem value="schema:description">Beschrijving</SelectItem>
+                    <SelectItem value="schema:birthDate">Geboortedatum</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Input
                   placeholder="Waarde"
                   value={newPropertyValue}

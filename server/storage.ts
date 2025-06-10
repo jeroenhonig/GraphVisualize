@@ -165,7 +165,7 @@ export class DatabaseStorage implements IStorage {
       triples.push({
         graphId,
         subject: nodeId,
-        predicate: `${RDF_PREDICATES.DATA_PROPERTY}:${key}`,
+        predicate: key,
         object: typeof value === 'string' ? value : JSON.stringify(value),
         objectType: "literal"
       });
@@ -530,7 +530,6 @@ export class DatabaseStorage implements IStorage {
         const nodes = new Set<string>();
         allTriples
           .filter(t => 
-            t.predicate.includes(RDF_PREDICATES.DATA_PROPERTY) &&
             t.predicate.includes(propertyName)
           )
           .forEach(t => nodes.add(t.subject));
