@@ -40,14 +40,28 @@ export default function GraphCanvas({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isLoading, setIsLoading] = useState(false);
   
+  // Node dragging state
+  const [draggedNode, setDraggedNode] = useState<VisualizationNode | null>(null);
+  const [nodeDragStart, setNodeDragStart] = useState({ x: 0, y: 0 });
+  const [isNodeDragging, setIsNodeDragging] = useState(false);
+  
   // Context menu state
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; visible: boolean }>({
+  const [contextMenu, setContextMenu] = useState<{ 
+    x: number; 
+    y: number; 
+    visible: boolean; 
+    nodeId?: string;
+    type: 'canvas' | 'node' | 'relation';
+  }>({
     x: 0,
     y: 0,
     visible: false,
+    type: 'canvas'
   });
   const [showCreateNodeDialog, setShowCreateNodeDialog] = useState(false);
+  const [showCreateRelationDialog, setShowCreateRelationDialog] = useState(false);
   const [nodePosition, setNodePosition] = useState({ x: 0, y: 0 });
+  const [relationSourceNode, setRelationSourceNode] = useState<string | null>(null);
   
   // New node form state
   const [newNodeLabel, setNewNodeLabel] = useState("");
@@ -90,15 +104,68 @@ export default function GraphCanvas({
       
       setContextMenu({ ...contextMenu, visible: false });
       toast({
-        title: "Knoop aangemaakt",
-        description: "Nieuwe knoop is succesvol toegevoegd aan de graaf",
+        title: "Node aangemaakt",
+        description: "Nieuwe node is succesvol toegevoegd aan de graaf",
       });
     },
     onError: (error: Error) => {
       console.error("Error creating node:", error);
       toast({
         title: "Fout",
-        description: "Kon knoop niet aanmaken",
+        description: "Kon node niet aanmaken",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update node position mutation
+  const updateNodePositionMutation = useMutation({
+    mutationFn: async ({ nodeId, x, y }: { nodeId: string; x: number; y: number }) => {
+      const response = await apiRequest("PATCH", `/api/nodes/${nodeId}/position`, { x, y });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Fout",
+        description: "Kon node positie niet bijwerken",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create relation mutation
+  const createRelationMutation = useMutation({
+    mutationFn: async ({ sourceId, targetId, label, type }: { 
+      sourceId: string; 
+      targetId: string; 
+      label?: string; 
+      type?: string;
+    }) => {
+      const graphId = graph?.graphId || graph?.id;
+      const response = await apiRequest("POST", `/api/graphs/${graphId}/edges`, {
+        sourceId,
+        targetId,
+        label: label || "relates_to",
+        type: type || "relationship"
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
+      setShowCreateRelationDialog(false);
+      setRelationSourceNode(null);
+      toast({
+        title: "Relatie aangemaakt",
+        description: "Nieuwe relatie is succesvol toegevoegd",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Fout",
+        description: "Kon relatie niet aanmaken",
         variant: "destructive",
       });
     },
@@ -134,6 +201,7 @@ export default function GraphCanvas({
       x: e.clientX,
       y: e.clientY,
       visible: true,
+      type: 'canvas'
     });
   }, [graph?.id, transform]);
 
@@ -146,7 +214,7 @@ export default function GraphCanvas({
     if (!newNodeLabel.trim() || !graph?.id) {
       toast({
         title: "Fout",
-        description: "Knoop naam is verplicht",
+        description: "Node naam is verplicht",
         variant: "destructive",
       });
       return;

@@ -42,8 +42,8 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
     },
     onSuccess: () => {
       toast({
-        title: "Knoop Bijgewerkt",
-        description: "De knoop gegevens zijn succesvol opgeslagen",
+        title: "Node Bijgewerkt",
+        description: "De node gegevens zijn succesvol opgeslagen",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
       setIsEditing(false);
@@ -118,7 +118,7 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
     <Card className="w-full">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Knoop Details</CardTitle>
+          <CardTitle className="text-lg">Node Details</CardTitle>
           <Button
             onClick={() => setIsEditing(!isEditing)}
             variant="outline"
