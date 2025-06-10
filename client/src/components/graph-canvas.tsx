@@ -46,6 +46,7 @@ export default function GraphCanvas({
   const [draggedNode, setDraggedNode] = useState<VisualizationNode | null>(null);
   const [nodeDragStart, setNodeDragStart] = useState({ x: 0, y: 0 });
   const [isNodeDragging, setIsNodeDragging] = useState(false);
+  const [activeDragNodeId, setActiveDragNodeId] = useState<string | null>(null);
   
   // Real-time node positions for immediate visual feedback
   const [localNodePositions, setLocalNodePositions] = useState<Record<string, { x: number; y: number }>>({});
@@ -144,13 +145,16 @@ export default function GraphCanvas({
       return response.json();
     },
     onSuccess: (data, variables) => {
-      // Clear the local position for this node after successful update
-      setLocalNodePositions(prev => {
-        const updated = { ...prev };
-        delete updated[variables.nodeId];
-        return updated;
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
+      // Only invalidate if we're not actively dragging this node
+      if (activeDragNodeId !== variables.nodeId) {
+        // Clear the local position for this node after successful update
+        setLocalNodePositions(prev => {
+          const updated = { ...prev };
+          delete updated[variables.nodeId];
+          return updated;
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
+      }
     },
     onError: (error: Error, variables) => {
       // Also clear local position on error to prevent stuck state
@@ -331,10 +335,14 @@ export default function GraphCanvas({
       edge => visibleNodes.has(edge.source) && visibleNodes.has(edge.target)
     ) || [];
 
-    // Apply local positions for real-time dragging feedback
+    // Apply local positions for real-time dragging feedback - prioritize local positions absolutely
     const nodesWithLocalPositions = visibleNodesArray.map(node => {
       const localPos = localNodePositions[node.id];
-      return localPos ? { ...node, x: localPos.x, y: localPos.y } : node;
+      if (localPos) {
+        // During dragging, local position has absolute priority
+        return { ...node, x: localPos.x, y: localPos.y };
+      }
+      return node;
     });
 
     renderGraph(
@@ -479,6 +487,7 @@ export default function GraphCanvas({
         // Start dragging based on what was set up in mouseDown
         if (draggedNode) {
           setIsNodeDragging(true);
+          setActiveDragNodeId(draggedNode.id);
         } else {
           setIsDragging(true);
         }
@@ -536,7 +545,21 @@ export default function GraphCanvas({
     setDraggedNode(null);
     setMouseDownPosition(null);
     setHasDraggedSignificantly(false);
-  }, [isNodeDragging, draggedNode, hasDraggedSignificantly, localNodePositions, updateNodePositionMutation]);
+    
+    // Clear active drag and allow query invalidation after a delay
+    if (activeDragNodeId) {
+      setTimeout(() => {
+        setActiveDragNodeId(null);
+        // Clear local position and refresh data
+        setLocalNodePositions(prev => {
+          const updated = { ...prev };
+          delete updated[activeDragNodeId];
+          return updated;
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
+      }, 200);
+    }
+  }, [isNodeDragging, draggedNode, hasDraggedSignificantly, localNodePositions, updateNodePositionMutation, activeDragNodeId, queryClient]);
 
   const handleCreateRelation = useCallback((targetNodeId: string) => {
     if (relationSourceNode && targetNodeId !== relationSourceNode) {
