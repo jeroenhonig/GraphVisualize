@@ -96,10 +96,18 @@ export default function GraphCanvas({
   // Context menu handlers
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    if (!graph?.id) return;
+    console.log('Context menu triggered', { graphId: graph?.id, clientX: e.clientX, clientY: e.clientY });
+    
+    if (!graph?.id) {
+      console.log('No graph ID available');
+      return;
+    }
     
     const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    if (!rect) {
+      console.log('No SVG rect available');
+      return;
+    }
 
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -107,6 +115,8 @@ export default function GraphCanvas({
     // Convert screen coordinates to SVG coordinates
     const svgX = (x - transform.translateX) / transform.scale;
     const svgY = (y - transform.translateY) / transform.scale;
+    
+    console.log('Setting node position and context menu', { svgX, svgY, clientX: e.clientX, clientY: e.clientY });
     
     setNodePosition({ x: svgX, y: svgY });
     setContextMenu({
@@ -326,19 +336,29 @@ export default function GraphCanvas({
       {/* Context Menu */}
       {contextMenu.visible && (
         <div
-          className="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
+          className="fixed bg-white border border-gray-200 rounded-lg shadow-xl py-1 z-[9999] min-w-[160px]"
           style={{
-            left: contextMenu.x,
-            top: contextMenu.y,
+            left: `${contextMenu.x}px`,
+            top: `${contextMenu.y}px`,
+            pointerEvents: 'auto',
           }}
+          onMouseDown={(e) => e.stopPropagation()}
         >
           <button
             onClick={handleCreateNode}
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
           >
             <Plus className="h-4 w-4" />
             Nieuwe knoop maken
           </button>
+        </div>
+      )}
+      
+      {/* Debug Context Menu State */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed top-0 right-0 bg-red-100 p-2 text-xs z-[10000]">
+          Context Menu: {contextMenu.visible ? 'VISIBLE' : 'HIDDEN'} 
+          {contextMenu.visible && ` at (${contextMenu.x}, ${contextMenu.y})`}
         </div>
       )}
 
