@@ -105,19 +105,38 @@ export default function GraphCanvas({
     let topBoundary = headerHeight + margin;
     let bottomBoundary = window.innerHeight - margin;
 
-    // Adjust for left panel
+    // Create a list of all panel boundaries to consider
+    const panelBoundaries: Array<{ left: number; right: number; top: number; bottom: number }> = [];
+
+    // Add left panel if not collapsed
     if (panelConstraints?.leftPanel && !panelConstraints.leftPanel.collapsed) {
-      const panelRight = panelConstraints.leftPanel.x + panelConstraints.leftPanel.width;
-      if (panelRight > leftBoundary) {
-        leftBoundary = panelRight + margin;
-      }
+      panelBoundaries.push({
+        left: panelConstraints.leftPanel.x,
+        right: panelConstraints.leftPanel.x + panelConstraints.leftPanel.width,
+        top: panelConstraints.leftPanel.y,
+        bottom: panelConstraints.leftPanel.y + Math.max(400, window.innerHeight - headerHeight - 100)
+      });
     }
 
-    // Adjust for right panel
+    // Add right panel if not collapsed
     if (panelConstraints?.rightPanel && !panelConstraints.rightPanel.collapsed) {
-      const panelLeft = panelConstraints.rightPanel.x;
-      if (panelLeft < rightBoundary) {
-        rightBoundary = panelLeft - margin;
+      panelBoundaries.push({
+        left: panelConstraints.rightPanel.x,
+        right: panelConstraints.rightPanel.x + panelConstraints.rightPanel.width,
+        top: panelConstraints.rightPanel.y,
+        bottom: panelConstraints.rightPanel.y + Math.max(400, window.innerHeight - headerHeight - 100)
+      });
+    }
+
+    // Find the leftmost right edge and rightmost left edge
+    for (const panel of panelBoundaries) {
+      // If panel is on the left side, adjust left boundary
+      if (panel.left < window.innerWidth / 2) {
+        leftBoundary = Math.max(leftBoundary, panel.right + margin);
+      }
+      // If panel is on the right side, adjust right boundary
+      if (panel.right > window.innerWidth / 2) {
+        rightBoundary = Math.min(rightBoundary, panel.left - margin);
       }
     }
 
