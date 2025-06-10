@@ -59,10 +59,10 @@ export default function FileUpload({ onGraphCreated }: FileUploadProps) {
   });
 
   const handleFileSelect = (file: File) => {
-    if (!file.name.match(/\.(xlsx|xls)$/i)) {
+    if (!file.name.match(/\.(xlsx|xls|ttl|rdf|n3|nt)$/i)) {
       toast({
         title: "Ongeldig Bestandstype",
-        description: "Alleen Excel bestanden (.xlsx, .xls) zijn toegestaan",
+        description: "Alleen Excel (.xlsx, .xls) of RDF (.ttl, .rdf, .n3, .nt) bestanden zijn toegestaan",
         variant: "destructive",
       });
       return;
@@ -110,13 +110,16 @@ export default function FileUpload({ onGraphCreated }: FileUploadProps) {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
       >
-        <FileSpreadsheet className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <div className="flex justify-center items-center space-x-4 mb-4">
+          <FileSpreadsheet className="h-8 w-8 text-gray-400" />
+          <FileText className="h-8 w-8 text-gray-400" />
+        </div>
         <div className="space-y-2">
           <p className="text-sm font-medium text-gray-900">
-            Sleep Excel bestand hier of klik om te uploaden
+            Sleep bestanden hier of klik om te uploaden
           </p>
           <p className="text-xs text-gray-500">
-            Ondersteunt .xlsx en .xls bestanden
+            Excel: .xlsx, .xls | RDF: .ttl, .rdf, .n3, .nt
           </p>
         </div>
         

@@ -204,11 +204,16 @@ export default function GraphVisualizer() {
           <div className="space-y-6 py-4">
             <Tabs defaultValue="upload" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="upload">Excel Uploaden</TabsTrigger>
+                <TabsTrigger value="upload">Bestanden Uploaden</TabsTrigger>
                 <TabsTrigger value="create">Handmatig Maken</TabsTrigger>
               </TabsList>
               <TabsContent value="upload" className="space-y-4 mt-4">
-                <FileUpload onGraphCreated={() => setImportModalOpen(false)} />
+                <div className="space-y-4">
+                  <div className="text-sm text-gray-600">
+                    Ondersteunde formaten: Excel (.xlsx, .xls), RDF (.ttl, .rdf, .n3, .nt)
+                  </div>
+                  <FileUpload onGraphCreated={() => setImportModalOpen(false)} />
+                </div>
               </TabsContent>
               <TabsContent value="create" className="space-y-4 mt-4">
                 <GraphCreator onGraphCreated={() => setImportModalOpen(false)} />
