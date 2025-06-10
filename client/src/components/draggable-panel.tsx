@@ -13,6 +13,7 @@ interface DraggablePanelProps {
   onWidthChange: (width: number) => void;
   onToggleCollapse: () => void;
   className?: string;
+  otherPanels?: Array<{ position: { x: number; y: number }; width: number; collapsed: boolean; side: "left" | "right" }>;
 }
 
 interface SnapZone {
@@ -34,6 +35,7 @@ export default function DraggablePanel({
   onWidthChange,
   onToggleCollapse,
   className = "",
+  otherPanels = [],
 }: DraggablePanelProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -63,7 +65,71 @@ export default function DraggablePanel({
     return () => window.removeEventListener('resize', handleResize);
   }, [position, onPositionChange]);
 
-  // Get snap zones for current viewport
+  // Check for collision with other panels
+  const checkCollision = (x: number, y: number, currentWidth: number, currentHeight: number) => {
+    const currentPanel = { x, y, width: currentWidth, height: currentHeight };
+    
+    for (const otherPanel of otherPanels) {
+      if (otherPanel.side === side) { // Only check panels on the same side
+        const otherWidth = otherPanel.collapsed ? 48 : otherPanel.width;
+        const otherHeight = otherPanel.collapsed ? 56 : Math.max(400, window.innerHeight - 180);
+        
+        // Check if rectangles overlap
+        if (!(currentPanel.x + currentPanel.width <= otherPanel.position.x ||
+              otherPanel.position.x + otherWidth <= currentPanel.x ||
+              currentPanel.y + currentPanel.height <= otherPanel.position.y ||
+              otherPanel.position.y + otherHeight <= currentPanel.y)) {
+          return true; // Collision detected
+        }
+      }
+    }
+    return false;
+  };
+
+  // Find the best position to avoid collisions
+  const findNonCollidingPosition = (desiredX: number, desiredY: number): { x: number; y: number } => {
+    const headerHeight = 80;
+    const snapMargin = 10;
+    const currentWidth = collapsed ? 48 : width;
+    const currentHeight = collapsed ? 56 : Math.max(400, window.innerHeight - headerHeight - 100);
+    
+    // If no collision, return desired position
+    if (!checkCollision(desiredX, desiredY, currentWidth, currentHeight)) {
+      return { x: desiredX, y: desiredY };
+    }
+    
+    // Find available positions by stacking vertically
+    const sideX = side === 'left' ? snapMargin : window.innerWidth - currentWidth - snapMargin;
+    let testY = headerHeight + snapMargin;
+    
+    // Get all other panels on the same side, sorted by Y position
+    const sameSidePanels = otherPanels
+      .filter(panel => panel.side === side)
+      .map(panel => ({
+        ...panel,
+        width: panel.collapsed ? 48 : panel.width,
+        height: panel.collapsed ? 56 : Math.max(400, window.innerHeight - headerHeight - 100)
+      }))
+      .sort((a, b) => a.position.y - b.position.y);
+    
+    // Find the first available spot
+    for (const otherPanel of sameSidePanels) {
+      if (testY + currentHeight <= otherPanel.position.y) {
+        // There's space here
+        break;
+      }
+      // Move test position below this panel
+      testY = otherPanel.position.y + otherPanel.height + 10;
+    }
+    
+    // Make sure we don't go beyond the viewport
+    const maxY = window.innerHeight - currentHeight - snapMargin;
+    testY = Math.min(testY, maxY);
+    
+    return { x: sideX, y: Math.max(headerHeight + snapMargin, testY) };
+  };
+
+  // Get snap zones for current viewport (simplified for vertical stacking)
   const getSnapZones = (): SnapZone[] => {
     const headerHeight = 80;
     const snapMargin = 10;
@@ -86,59 +152,35 @@ export default function DraggablePanel({
         width: width,
         height: panelHeight,
       },
-      // Top left corner
-      {
-        type: 'top',
-        x: snapMargin,
-        y: headerHeight + snapMargin,
-        width: width,
-        height: panelHeight,
-      },
-      // Top right corner
-      {
-        type: 'top',
-        x: window.innerWidth - width - snapMargin,
-        y: headerHeight + snapMargin,
-        width: width,
-        height: panelHeight,
-      },
-      // Bottom left corner
-      {
-        type: 'bottom',
-        x: snapMargin,
-        y: window.innerHeight - panelHeight - snapMargin,
-        width: width,
-        height: panelHeight,
-      },
-      // Bottom right corner
-      {
-        type: 'bottom',
-        x: window.innerWidth - width - snapMargin,
-        y: window.innerHeight - panelHeight - snapMargin,
-        width: width,
-        height: panelHeight,
-      },
     ];
   };
 
-  // Check if position is close to a snap zone
+  // Check if position is close to a snap zone and find non-colliding position
   const getSnapPosition = (x: number, y: number): { snappedPos: { x: number; y: number }; snapZone: SnapZone | null } => {
     const snapThreshold = 40;
     const snapZones = getSnapZones();
     
+    // First check if we're close to a snap zone
     for (const zone of snapZones) {
       const distanceX = Math.abs(x - zone.x);
-      const distanceY = Math.abs(y - zone.y);
       
-      if (distanceX < snapThreshold && distanceY < snapThreshold) {
+      if (distanceX < snapThreshold) {
+        // Try to snap to this side, but find a non-colliding position
+        const nonCollidingPos = findNonCollidingPosition(zone.x, y);
         return {
-          snappedPos: { x: zone.x, y: zone.y },
-          snapZone: zone
+          snappedPos: nonCollidingPos,
+          snapZone: {
+            ...zone,
+            x: nonCollidingPos.x,
+            y: nonCollidingPos.y
+          }
         };
       }
     }
     
-    return { snappedPos: { x, y }, snapZone: null };
+    // If no snap zone, still check for collisions and adjust if needed
+    const nonCollidingPos = findNonCollidingPosition(x, y);
+    return { snappedPos: nonCollidingPos, snapZone: null };
   };
 
   // Dragging logic

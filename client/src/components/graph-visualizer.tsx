@@ -284,6 +284,14 @@ export default function GraphVisualizer() {
           onPositionChange={updateLeftPosition}
           onWidthChange={updateLeftWidth}
           onToggleCollapse={toggleLeftSidebar}
+          otherPanels={[
+            {
+              position: preferences.rightSidebarPosition,
+              width: preferences.rightSidebarWidth,
+              collapsed: preferences.rightSidebarCollapsed,
+              side: "right"
+            }
+          ]}
         >
           <div className="h-full flex flex-col">
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -483,6 +491,14 @@ export default function GraphVisualizer() {
           onPositionChange={updateRightPosition}
           onWidthChange={updateRightWidth}
           onToggleCollapse={toggleRightSidebar}
+          otherPanels={[
+            {
+              position: preferences.leftSidebarPosition,
+              width: preferences.leftSidebarWidth,
+              collapsed: preferences.leftSidebarCollapsed,
+              side: "left"
+            }
+          ]}
         >
           <GraphSidebar
             currentGraph={currentGraph}
