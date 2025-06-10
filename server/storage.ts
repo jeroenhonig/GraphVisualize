@@ -2,12 +2,15 @@ import {
   graphs, 
   rdfTriples, 
   visibilitySets, 
+  savedViews,
   type Graph, 
   type RdfTriple, 
   type VisibilitySet, 
+  type SavedView,
   type InsertGraph, 
   type InsertRdfTriple, 
   type InsertVisibilitySet,
+  type InsertSavedView,
   type VisualizationNode,
   type VisualizationEdge,
   type GraphData,
@@ -50,6 +53,14 @@ export interface IStorage {
   getActiveVisibilitySet(graphId: string): Promise<VisibilitySet | undefined>;
   setActiveVisibilitySet(graphId: string, setId: string): Promise<boolean>;
   executeVisibilityQuery(graphId: string, sparqlQuery: string): Promise<string[]>;
+  
+  // Saved View operations
+  createSavedView(savedView: InsertSavedView): Promise<SavedView>;
+  getSavedViewsByGraph(graphId: string): Promise<SavedView[]>;
+  getSavedView(viewId: string): Promise<SavedView | undefined>;
+  updateSavedView(viewId: string, updates: Partial<InsertSavedView>): Promise<SavedView | undefined>;
+  deleteSavedView(viewId: string): Promise<boolean>;
+  applySavedView(viewId: string): Promise<{ visibleNodeIds: string[]; transform: any; nodePositions: any; sparqlQuery: string }>;
   
   // Data management
   clearAllData(): Promise<void>;
@@ -551,8 +562,64 @@ export class DatabaseStorage implements IStorage {
     return Array.from(nodes);
   }
 
+  // Saved View operations implementation
+  async createSavedView(savedView: InsertSavedView): Promise<SavedView> {
+    const [view] = await db
+      .insert(savedViews)
+      .values(savedView)
+      .returning();
+    return view;
+  }
+
+  async getSavedViewsByGraph(graphId: string): Promise<SavedView[]> {
+    return await db
+      .select()
+      .from(savedViews)
+      .where(eq(savedViews.graphId, graphId))
+      .orderBy(savedViews.createdAt);
+  }
+
+  async getSavedView(viewId: string): Promise<SavedView | undefined> {
+    const [view] = await db
+      .select()
+      .from(savedViews)
+      .where(eq(savedViews.viewId, viewId));
+    return view || undefined;
+  }
+
+  async updateSavedView(viewId: string, updates: Partial<InsertSavedView>): Promise<SavedView | undefined> {
+    const [updated] = await db
+      .update(savedViews)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(savedViews.viewId, viewId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteSavedView(viewId: string): Promise<boolean> {
+    const result = await db
+      .delete(savedViews)
+      .where(eq(savedViews.viewId, viewId));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async applySavedView(viewId: string): Promise<{ visibleNodeIds: string[]; transform: any; nodePositions: any; sparqlQuery: string }> {
+    const view = await this.getSavedView(viewId);
+    if (!view) {
+      throw new Error(`Saved view ${viewId} not found`);
+    }
+
+    return {
+      visibleNodeIds: view.visibleNodeIds,
+      transform: JSON.parse(view.transform),
+      nodePositions: view.nodePositions ? JSON.parse(view.nodePositions) : {},
+      sparqlQuery: view.sparqlQuery
+    };
+  }
+
   async clearAllData(): Promise<void> {
     // Delete all data from all tables
+    await db.delete(savedViews);
     await db.delete(visibilitySets);
     await db.delete(rdfTriples);
     await db.delete(graphs);

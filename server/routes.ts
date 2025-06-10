@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertGraphSchema, insertRdfTripleSchema, insertVisibilitySetSchema } from "@shared/schema";
+import { insertGraphSchema, insertRdfTripleSchema, insertVisibilitySetSchema, insertSavedViewSchema } from "@shared/schema";
 import { nanoid } from "nanoid";
 import multer from "multer";
 
