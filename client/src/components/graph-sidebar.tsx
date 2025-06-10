@@ -55,7 +55,9 @@ export default function GraphSidebar({
       {/* File Upload Section */}
       <div className="p-6 border-b border-gray-200 space-y-4">
         <FileUpload />
-        <GraphCreator />
+        <GraphCreator onGraphCreated={(graphId) => {
+          // This will be handled by the useGraph hook's auto-selection
+        }} />
       </div>
 
       {/* Graph Statistics */}
