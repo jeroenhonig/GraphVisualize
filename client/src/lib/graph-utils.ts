@@ -132,8 +132,11 @@ export function simulatePhysicsStep(
       const distance = Math.sqrt(dx * dx + dy * dy) || 1;
       
       // Strong repulsion force (inverse square law)
-      const repulsionStrength = 5000;
-      const force = repulsionStrength / (distance * distance);
+      const repulsionStrength = 15000;
+      const minDistance = 100;
+      const force = distance < minDistance ? 
+        repulsionStrength / (distance * distance) + (minDistance - distance) * 5 :
+        repulsionStrength / (distance * distance);
       const normalizedFx = (dx / distance) * force;
       const normalizedFy = (dy / distance) * force;
       
@@ -160,8 +163,8 @@ export function simulatePhysicsStep(
         const distance = Math.sqrt(dx * dx + dy * dy) || 1;
         
         // Spring force with optimal length
-        const springLength = 120;
-        const springStrength = 0.08;
+        const springLength = 200;
+        const springStrength = 0.05;
         const displacement = distance - springLength;
         const force = displacement * springStrength;
         
@@ -175,15 +178,15 @@ export function simulatePhysicsStep(
     const centerY = bounds.height / 2;
     const centerDx = centerX - node.x;
     const centerDy = centerY - node.y;
-    fx += centerDx * 0.0005;
-    fy += centerDy * 0.0005;
+    fx += centerDx * 0.0001;
+    fy += centerDy * 0.0001;
     
     // Boundary forces (keep nodes on screen)
-    const margin = 80;
-    if (node.x < margin) fx += (margin - node.x) * 0.05;
-    if (node.x > bounds.width - margin) fx -= (node.x - (bounds.width - margin)) * 0.05;
-    if (node.y < margin) fy += (margin - node.y) * 0.05;
-    if (node.y > bounds.height - margin) fy -= (node.y - (bounds.height - margin)) * 0.05;
+    const margin = 150;
+    if (node.x < margin) fx += (margin - node.x) * 0.02;
+    if (node.x > bounds.width - margin) fx -= (node.x - (bounds.width - margin)) * 0.02;
+    if (node.y < margin) fy += (margin - node.y) * 0.02;
+    if (node.y > bounds.height - margin) fy -= (node.y - (bounds.height - margin)) * 0.02;
     
     // Update velocity and position
     node.vx = (node.vx || 0) + fx * dt;
