@@ -93,7 +93,7 @@ export function renderGraph(
   // Clear existing content
   svg.innerHTML = '';
 
-  const { transform, selectedNodeId, onNodeClick, onNodeDoubleClick } = options;
+  const { transform, selectedNodeId, onNodeClick, onNodeDoubleClick, onNodeContextMenu } = options;
 
   // Create main group with transform
   const mainGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -196,6 +196,12 @@ export function renderGraph(
     nodeGroup.addEventListener('dblclick', (e) => {
       e.stopPropagation();
       onNodeDoubleClick?.(node.id);
+    });
+
+    nodeGroup.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onNodeContextMenu?.(e as MouseEvent, node.id);
     });
 
     // Hover effects

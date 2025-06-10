@@ -87,7 +87,7 @@ export class DatabaseStorage implements IStorage {
     
     // Delete the graph
     const result = await db.delete(graphs).where(eq(graphs.graphId, graphId));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async createRdfTriple(triple: InsertRdfTriple): Promise<RdfTriple> {
@@ -107,7 +107,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteRdfTriplesByGraph(graphId: string): Promise<boolean> {
     const result = await db.delete(rdfTriples).where(eq(rdfTriples.graphId, graphId));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async createNodeFromTriples(
@@ -207,7 +207,7 @@ export class DatabaseStorage implements IStorage {
     // Also delete triples where this node is the object (connections)
     await db.delete(rdfTriples).where(eq(rdfTriples.object, nodeId));
     
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async createEdgeFromTriples(
