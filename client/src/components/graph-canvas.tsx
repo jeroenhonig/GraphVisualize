@@ -143,10 +143,22 @@ export default function GraphCanvas({
       const response = await apiRequest("PATCH", `/api/nodes/${nodeId}/position`, { x, y });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      // Clear the local position for this node after successful update
+      setLocalNodePositions(prev => {
+        const updated = { ...prev };
+        delete updated[variables.nodeId];
+        return updated;
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables) => {
+      // Also clear local position on error to prevent stuck state
+      setLocalNodePositions(prev => {
+        const updated = { ...prev };
+        delete updated[variables.nodeId];
+        return updated;
+      });
       toast({
         title: "Fout",
         description: "Kon node positie niet bijwerken",
@@ -473,7 +485,8 @@ export default function GraphCanvas({
       }
     }
 
-    if (isNodeDragging && draggedNode) {
+    // Handle dragging for nodes that have been set up for dragging
+    if (draggedNode && (isNodeDragging || (hasDraggedSignificantly && !isNodeDragging))) {
       // Node dragging with proper coordinate transformation
       const rect = svgRef.current?.getBoundingClientRect();
       if (rect) {
@@ -512,12 +525,8 @@ export default function GraphCanvas({
           y: Math.round(localPos.y)
         });
         
-        // Clear local position after server update
-        setLocalNodePositions(prev => {
-          const updated = { ...prev };
-          delete updated[draggedNode.id];
-          return updated;
-        });
+        // Don't clear local position immediately - let it persist until server updates
+        // The mutation's onSuccess will trigger a refetch which will provide the new position
       }
     }
     
