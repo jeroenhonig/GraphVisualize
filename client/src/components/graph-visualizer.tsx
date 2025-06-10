@@ -231,32 +231,41 @@ export default function GraphVisualizer() {
       </header>
       {/* Main Layout - Allow scrolling */}
       <div className="min-h-screen pt-16 relative bg-graph-background overflow-y-auto">
-        {/* Main Graph Area - Full Screen */}
-        <GraphCanvas
-          graph={currentGraph}
-          selectedNode={selectedNode}
-          onNodeSelect={setSelectedNode}
-          onNodeExpand={expandNode}
-          visibleNodes={visibleNodes}
-          onVisibleNodesChange={setVisibleNodes}
-          transform={transform}
-          onTransformChange={setTransform}
-          editMode={editMode}
-          panelConstraints={{
-            leftPanel: {
-              x: 20,
-              y: 100,
-              width: 320,
-              collapsed: preferences.collapsed.navigation
-            },
-            rightPanel: {
-              x: window.innerWidth - 340,
-              y: 100,
-              width: 320,
-              collapsed: preferences.collapsed.details
-            }
-          }}
-        />
+        {/* View Panel - Graph Canvas */}
+        <LayoutPanel
+          title="Graph Weergave"
+          panelType="view"
+          position={positions.view}
+          collapsed={preferences.collapsed.view}
+          onToggleCollapse={() => togglePanelCollapse('view')}
+          onRotateLayout={rotateLayout}
+        >
+          <GraphCanvas
+            graph={currentGraph}
+            selectedNode={selectedNode}
+            onNodeSelect={setSelectedNode}
+            onNodeExpand={expandNode}
+            visibleNodes={visibleNodes}
+            onVisibleNodesChange={setVisibleNodes}
+            transform={transform}
+            onTransformChange={setTransform}
+            editMode={editMode}
+            panelConstraints={{
+              leftPanel: {
+                x: 20,
+                y: 100,
+                width: 320,
+                collapsed: preferences.collapsed.navigation
+              },
+              rightPanel: {
+                x: window.innerWidth - 340,
+                y: 100,
+                width: 320,
+                collapsed: preferences.collapsed.details
+              }
+            }}
+          />
+        </LayoutPanel>
 
         {/* Graph Controls Overlay */}
         <div className="absolute bottom-6 right-6 flex flex-col space-y-2 z-20">

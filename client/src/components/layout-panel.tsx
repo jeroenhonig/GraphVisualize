@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Layout } from "lucide-react";
 interface LayoutPanelProps {
   children: ReactNode;
   title: string;
-  panelType: 'navigation' | 'details';
+  panelType: 'navigation' | 'details' | 'view';
   position: {
     x: number | string;
     y: number | string;
@@ -39,18 +39,28 @@ export default function LayoutPanel({
     
     let actualX = position.x;
     let actualY = position.y;
+    let actualWidth = position.width;
     
     if (position.x === 'center') {
-      actualX = (windowWidth / 2) - 160;
+      actualX = 360; // Leave space for left panel
     } else if (position.x === 'right') {
-      actualX = windowWidth - 340;
+      actualX = windowWidth - (typeof position.width === 'string' ? 320 : position.width) - 20;
     }
     
     if (position.y === 'bottom-half') {
       actualY = (windowHeight / 2) + 10;
     }
     
-    return { x: actualX, y: actualY };
+    // Calculate width for view panel based on available space
+    if (typeof actualWidth === 'string' && actualWidth.includes('calc')) {
+      if (actualWidth === 'calc(100vw - 680px)') {
+        actualWidth = windowWidth - 680;
+      } else if (actualWidth === 'calc(100vw - 360px)') {
+        actualWidth = windowWidth - 360;
+      }
+    }
+    
+    return { x: actualX, y: actualY, width: actualWidth };
   };
 
   const actualPosition = getActualPosition();
@@ -61,7 +71,7 @@ export default function LayoutPanel({
       style={{
         left: actualPosition.x,
         top: actualPosition.y,
-        width: collapsed ? '48px' : position.width,
+        width: collapsed ? '48px' : actualPosition.width,
         height: collapsed ? '56px' : position.height,
       }}
     >
