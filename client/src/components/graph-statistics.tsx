@@ -65,7 +65,7 @@ export default function GraphStatistics({ graphData }: GraphStatisticsProps) {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center">
             <BarChart3 className="h-4 w-4 mr-2" />
-            Graaf Overzicht
+            Overzicht
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">

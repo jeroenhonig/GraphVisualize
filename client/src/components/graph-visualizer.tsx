@@ -44,6 +44,7 @@ export default function GraphVisualizer() {
   const [editMode, setEditMode] = useState(false);
   const [expandedTreeItems, setExpandedTreeItems] = useState<Set<string>>(new Set(['nodes', 'relations', 'saved-views']));
   const [saveViewDialogOpen, setSaveViewDialogOpen] = useState(false);
+  const [nodeDetailsModalOpen, setNodeDetailsModalOpen] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -161,14 +162,7 @@ export default function GraphVisualizer() {
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">Graph Visualizer</h1>
             </div>
             
-            {currentGraph && (
-              <div className="flex items-center space-x-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/20 rounded-full">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                  {currentGraph.name}
-                </span>
-              </div>
-            )}
+            
           </div>
           
           <div className="flex items-center space-x-2">
@@ -181,25 +175,8 @@ export default function GraphVisualizer() {
                 <Upload className="h-4 w-4 mr-2" />
                 Importeren
               </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setSaveViewDialogOpen(true)}
-                className="px-4 py-2 text-purple-600 hover:text-purple-900 hover:bg-purple-50"
-                disabled={!currentGraph}
-                title="Huidige view opslaan"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                View Opslaan
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={rotateLayout}
-                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                title="Layout roteren"
-              >
-                <Layout className="h-4 w-4 mr-2" />
-                Roteer Layout
-              </Button>
+              
+              
               <Button
                 variant="ghost"
                 onClick={() => setExportModalOpen(true)}
@@ -262,12 +239,6 @@ export default function GraphVisualizer() {
                 y: 100,
                 width: 320,
                 collapsed: preferences.collapsed.navigation
-              },
-              rightPanel: {
-                x: window.innerWidth - 340,
-                y: 100,
-                width: 320,
-                collapsed: preferences.collapsed.details
               }
             }}
           />
@@ -472,6 +443,32 @@ export default function GraphVisualizer() {
                     <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                       <GraphStatistics graphData={currentGraph} />
                     </div>
+
+                    {/* Selected Node Info */}
+                    {selectedNode && (
+                      <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-sm">Geselecteerde Node</h4>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setNodeDetailsModalOpen(true)}
+                          >
+                            Details
+                          </Button>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-800 rounded p-3">
+                          <div className="flex items-center mb-1">
+                            <div className="w-3 h-3 bg-blue-500 rounded mr-2"></div>
+                            <span className="font-medium text-sm">{selectedNode.label}</span>
+                          </div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400">
+                            <div>Type: {selectedNode.type}</div>
+                            <div>ID: {selectedNode.id}</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </TabsContent>
@@ -490,25 +487,7 @@ export default function GraphVisualizer() {
 
 
 
-        {/* Details Panel */}
-        <LayoutPanel
-          title="Node Details"
-          panelType="details"
-          position={positions.details}
-          collapsed={preferences.collapsed.details}
-          onToggleCollapse={() => togglePanelCollapse('details')}
-          onRotateLayout={rotateLayout}
-        >
-          <GraphSidebar
-            currentGraph={currentGraph}
-            selectedNode={selectedNode}
-            onNodeSelect={setSelectedNode}
-            onNodeExpand={expandNode}
-            onNodeCollapse={collapseNode}
-            editMode={editMode}
-            onEditModeChange={setEditMode}
-          />
-        </LayoutPanel>
+        
       </div>
       {/* Import Modal */}
       <Dialog open={importModalOpen} onOpenChange={setImportModalOpen}>
@@ -623,6 +602,32 @@ export default function GraphVisualizer() {
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {currentGraph && <GraphStatistics graphData={currentGraph} />}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Node Details Modal */}
+      <Dialog open={nodeDetailsModalOpen} onOpenChange={setNodeDetailsModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Node Details</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <GraphSidebar
+              currentGraph={currentGraph}
+              selectedNode={selectedNode}
+              onNodeSelect={setSelectedNode}
+              onNodeExpand={(nodeId) => {
+                expandNode(nodeId);
+                setNodeDetailsModalOpen(false);
+              }}
+              onNodeCollapse={(nodeId) => {
+                collapseNode(nodeId);
+                setNodeDetailsModalOpen(false);
+              }}
+              editMode={editMode}
+              onEditModeChange={setEditMode}
+            />
           </div>
         </DialogContent>
       </Dialog>

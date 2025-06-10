@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Layout } from "lucide-react";
 interface LayoutPanelProps {
   children: ReactNode;
   title: string;
-  panelType: 'navigation' | 'details' | 'view';
+  panelType: 'navigation' | 'view';
   position: {
     x: number | string;
     y: number | string;
@@ -108,11 +108,6 @@ export default function LayoutPanel({
                   <div className="text-xs font-medium text-gray-900 dark:text-white">
                     {graphInfo.name}
                   </div>
-                  {graphInfo.description && (
-                    <div className="text-xs text-gray-600 dark:text-gray-400 truncate">
-                      {graphInfo.description}
-                    </div>
-                  )}
                   <div className="text-xs text-gray-500 dark:text-gray-500">
                     {graphInfo.visibleCount} van {graphInfo.nodeCount} nodes zichtbaar
                   </div>
