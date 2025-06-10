@@ -1,165 +1,149 @@
-import { useRef, useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { FileSpreadsheet, Upload, CheckCircle, AlertCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Upload, FileSpreadsheet } from "lucide-react";
 
 interface FileUploadProps {
   onGraphCreated?: (graphId: string) => void;
 }
 
 export default function FileUpload({ onGraphCreated }: FileUploadProps) {
-  const [dragOver, setDragOver] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const queryClient = useQueryClient();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await apiRequest('POST', '/api/graphs/upload', formData);
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Upload failed');
+      }
+      
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/graphs'] });
       toast({
-        title: "Bestand succesvol geladen",
-        description: `${data.nodeCount} nodes en ${data.edgeCount} edges zijn verwerkt`,
+        title: "Excel Bestand Geüpload",
+        description: `Graph "${data.graph.name}" succesvol aangemaakt met ${data.nodeCount} knopen en ${data.edgeCount} kanten`,
       });
-      onGraphCreated?.(data.graph.graphId);
-      setUploadProgress(0);
+      queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
+      if (onGraphCreated) {
+        onGraphCreated(data.graph.graphId);
+      }
     },
     onError: (error: Error) => {
       toast({
-        title: "Upload mislukt",
+        title: "Upload Fout",
         description: error.message,
         variant: "destructive",
       });
-      setUploadProgress(0);
     },
   });
 
   const handleFileSelect = (file: File) => {
     if (!file.name.match(/\.(xlsx|xls)$/i)) {
       toast({
-        title: "Ongeldig bestand",
-        description: "Selecteer een Excel bestand (.xlsx of .xls)",
+        title: "Ongeldig Bestandstype",
+        description: "Alleen Excel bestanden (.xlsx, .xls) zijn toegestaan",
         variant: "destructive",
       });
       return;
     }
-
-    // Simulate upload progress
-    setUploadProgress(10);
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 90) {
-          clearInterval(interval);
-          return 90;
-        }
-        return prev + 10;
-      });
-    }, 200);
 
     uploadMutation.mutate(file);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    setDragOver(false);
+    setIsDragging(false);
     
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      handleFileSelect(file);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleFileSelect(files[0]);
     }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    setDragOver(true);
+    setIsDragging(true);
   };
 
-  const handleDragLeave = () => {
-    setDragOver(false);
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
   };
 
-  const triggerFileSelect = () => {
-    fileInputRef.current?.click();
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileSelect(files[0]);
+    }
   };
-
-  const isUploading = uploadMutation.isPending || uploadProgress > 0;
 
   return (
-    <Card>
-      <CardContent className="p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Excel Bestand Uploaden</h2>
-        
-        <div
-          className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-            dragOver 
-              ? 'border-blue-500 bg-blue-50' 
-              : 'border-gray-300 hover:border-gray-400'
-          }`}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onClick={triggerFileSelect}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFileSelect(file);
-            }}
-          />
-          
-          {isUploading ? (
-            <div className="space-y-3">
-              <div className="animate-spin mx-auto">
-                <Upload className="h-8 w-8 text-blue-500" />
-              </div>
-              <p className="text-sm text-gray-600">Bestand wordt verwerkt...</p>
-              <Progress value={uploadProgress} className="w-full" />
-            </div>
-          ) : (
-            <>
-              <FileSpreadsheet className="h-12 w-12 text-green-500 mx-auto mb-3" />
-              <p className="text-sm text-gray-600 mb-2">Sleep uw Excel bestand hier naartoe</p>
-              <p className="text-xs text-gray-500 mb-3">of klik om te selecteren</p>
-              <Button variant="outline" size="sm">
-                Bestand Kiezen
-              </Button>
-            </>
-          )}
+    <div className="space-y-4">
+      <div
+        className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+          isDragging
+            ? 'border-blue-400 bg-blue-50'
+            : 'border-gray-300 hover:border-gray-400'
+        }`}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
+        <FileSpreadsheet className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-gray-900">
+            Sleep Excel bestand hier of klik om te uploaden
+          </p>
+          <p className="text-xs text-gray-500">
+            Ondersteunt .xlsx en .xls bestanden
+          </p>
         </div>
-
-        {uploadMutation.isError && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center">
-            <AlertCircle className="h-4 w-4 text-red-500 mr-2" />
-            <span className="text-sm text-red-700">
-              {uploadMutation.error?.message || "Upload mislukt"}
-            </span>
+        
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls"
+          onChange={handleFileInputChange}
+          className="hidden"
+        />
+        
+        <Button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadMutation.isPending}
+          className="mt-4"
+        >
+          <Upload className="h-4 w-4 mr-2" />
+          {uploadMutation.isPending ? "Uploaden..." : "Bestand Selecteren"}
+        </Button>
+      </div>
+      
+      {uploadMutation.isPending && (
+        <div className="text-center">
+          <div className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-sm shadow rounded-md text-blue-500 bg-blue-100">
+            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Bestand wordt verwerkt...
           </div>
-        )}
-
-        {uploadMutation.isSuccess && (
-          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center">
-            <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-            <span className="text-sm text-green-700">
-              Bestand succesvol verwerkt
-            </span>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      )}
+    </div>
   );
 }
