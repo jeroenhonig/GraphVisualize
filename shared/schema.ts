@@ -1,43 +1,18 @@
-import { pgTable, text, serial, integer, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const graphNodes = pgTable("graph_nodes", {
-  id: serial("id").primaryKey(),
-  nodeId: text("node_id").notNull().unique(),
-  label: text("label").notNull(),
-  type: text("type").notNull(),
-  data: jsonb("data").default({}),
-  x: integer("x").default(0),
-  y: integer("y").default(0),
-  graphId: text("graph_id").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const graphEdges = pgTable("graph_edges", {
-  id: serial("id").primaryKey(),
-  edgeId: text("edge_id").notNull().unique(),
-  sourceId: text("source_id").notNull(),
-  targetId: text("target_id").notNull(),
-  label: text("label"),
-  type: text("type").notNull(),
-  data: jsonb("data").default({}),
-  graphId: text("graph_id").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
+// Minimal graphs table - only basic metadata
 export const graphs = pgTable("graphs", {
   id: serial("id").primaryKey(),
   graphId: text("graph_id").notNull().unique(),
   name: text("name").notNull(),
   description: text("description"),
-  nodeCount: integer("node_count").default(0),
-  edgeCount: integer("edge_count").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// RDF Triple store for SPARQL support
+// Core RDF triples table - all graph data stored as subject-predicate-object
 export const rdfTriples = pgTable("rdf_triples", {
   id: serial("id").primaryKey(),
   graphId: text("graph_id").notNull(),
@@ -48,29 +23,18 @@ export const rdfTriples = pgTable("rdf_triples", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Visibility sets based on SPARQL queries
+// SPARQL visibility sets for managing view states
 export const visibilitySets = pgTable("visibility_sets", {
   id: serial("id").primaryKey(),
   setId: text("set_id").notNull().unique(),
   graphId: text("graph_id").notNull(),
   name: text("name").notNull(),
   sparqlQuery: text("sparql_query").notNull(),
-  isActive: text("is_active").notNull().default("false"), // Only one can be active per graph
+  isActive: text("is_active").notNull().default("false"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertGraphNodeSchema = createInsertSchema(graphNodes).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertGraphEdgeSchema = createInsertSchema(graphEdges).omit({
-  id: true,
-  createdAt: true,
-  graphId: true,
-});
-
+// Zod schemas for validation
 export const insertRdfTripleSchema = createInsertSchema(rdfTriples).omit({
   id: true,
   createdAt: true,
@@ -79,29 +43,24 @@ export const insertRdfTripleSchema = createInsertSchema(rdfTriples).omit({
 export const insertVisibilitySetSchema = createInsertSchema(visibilitySets).omit({
   id: true,
   createdAt: true,
-  updatedAt: true,
 });
 
 export const insertGraphSchema = createInsertSchema(graphs).omit({
   id: true,
-  graphId: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export type InsertGraphNode = z.infer<typeof insertGraphNodeSchema>;
-export type InsertGraphEdge = z.infer<typeof insertGraphEdgeSchema>;
-export type InsertGraph = z.infer<typeof insertGraphSchema>;
-export type InsertRdfTriple = z.infer<typeof insertRdfTripleSchema>;
-export type InsertVisibilitySet = z.infer<typeof insertVisibilitySetSchema>;
-
-export type GraphNode = typeof graphNodes.$inferSelect;
-export type GraphEdge = typeof graphEdges.$inferSelect;
+// Type definitions
 export type Graph = typeof graphs.$inferSelect;
 export type RdfTriple = typeof rdfTriples.$inferSelect;
 export type VisibilitySet = typeof visibilitySets.$inferSelect;
 
-// Client-side types for graph visualization
+export type InsertGraph = z.infer<typeof insertGraphSchema>;
+export type InsertRdfTriple = z.infer<typeof insertRdfTripleSchema>;
+export type InsertVisibilitySet = z.infer<typeof insertVisibilitySetSchema>;
+
+// Visualization interfaces for frontend
 export interface VisualizationNode {
   id: string;
   label: string;
@@ -132,5 +91,28 @@ export interface GraphData {
   nodeCount: number;
   edgeCount: number;
   activeVisibilitySet?: VisibilitySet;
-  visibleNodeIds: string[]; // Unified visibility system based on SPARQL results
+  visibleNodeIds: string[];
 }
+
+// RDF Predicates for standard graph operations
+export const RDF_PREDICATES = {
+  TYPE: "rdf:type",
+  LABEL: "rdfs:label", 
+  HAS_PROPERTY: "graph:hasProperty",
+  CONNECTS_TO: "graph:connectsTo",
+  POSITION_X: "graph:positionX",
+  POSITION_Y: "graph:positionY",
+  NODE_TYPE: "graph:nodeType",
+  EDGE_TYPE: "graph:edgeType",
+  DATA_PROPERTY: "graph:dataProperty"
+} as const;
+
+// Standard RDF types for graph elements
+export const RDF_TYPES = {
+  NODE: "graph:Node",
+  EDGE: "graph:Edge",
+  PERSON: "schema:Person",
+  ORGANIZATION: "schema:Organization",
+  LOCATION: "schema:Place",
+  CONCEPT: "skos:Concept"
+} as const;

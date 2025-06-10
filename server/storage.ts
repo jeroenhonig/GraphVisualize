@@ -1,22 +1,21 @@
 import { 
   graphs, 
-  graphNodes, 
-  graphEdges,
-  rdfTriples,
-  visibilitySets,
+  rdfTriples, 
+  visibilitySets, 
   type Graph, 
-  type GraphNode, 
-  type GraphEdge, 
-  type RdfTriple,
-  type VisibilitySet,
+  type RdfTriple, 
+  type VisibilitySet, 
   type InsertGraph, 
-  type InsertGraphNode, 
-  type InsertGraphEdge,
-  type InsertRdfTriple,
-  type InsertVisibilitySet
+  type InsertRdfTriple, 
+  type InsertVisibilitySet,
+  type VisualizationNode,
+  type VisualizationEdge,
+  type GraphData,
+  RDF_PREDICATES,
+  RDF_TYPES
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 export interface IStorage {
@@ -27,27 +26,22 @@ export interface IStorage {
   updateGraph(graphId: string, updates: Partial<InsertGraph>): Promise<Graph | undefined>;
   deleteGraph(graphId: string): Promise<boolean>;
 
-  // Node operations
-  createNode(node: InsertGraphNode): Promise<GraphNode>;
-  getNode(nodeId: string): Promise<GraphNode | undefined>;
-  getNodesByGraph(graphId: string): Promise<GraphNode[]>;
-  updateNode(nodeId: string, updates: Partial<InsertGraphNode>): Promise<GraphNode | undefined>;
-  deleteNode(nodeId: string): Promise<boolean>;
-  deleteNodesByGraph(graphId: string): Promise<boolean>;
-
-  // Edge operations
-  createEdge(edge: InsertGraphEdge): Promise<GraphEdge>;
-  getEdge(edgeId: string): Promise<GraphEdge | undefined>;
-  getEdgesByGraph(graphId: string): Promise<GraphEdge[]>;
-  getEdgesByNode(nodeId: string): Promise<GraphEdge[]>;
-  updateEdge(edgeId: string, updates: Partial<InsertGraphEdge>): Promise<GraphEdge | undefined>;
-  deleteEdge(edgeId: string): Promise<boolean>;
-  deleteEdgesByGraph(graphId: string): Promise<boolean>;
-
-  // RDF Triple operations for SPARQL support
+  // RDF Triple operations (core data storage)
   createRdfTriple(triple: InsertRdfTriple): Promise<RdfTriple>;
   getRdfTriplesByGraph(graphId: string): Promise<RdfTriple[]>;
   deleteRdfTriplesByGraph(graphId: string): Promise<boolean>;
+  
+  // Node operations via RDF triples
+  createNodeFromTriples(graphId: string, nodeId: string, label: string, type: string, data: Record<string, any>, x?: number, y?: number): Promise<void>;
+  updateNodePosition(nodeId: string, x: number, y: number): Promise<boolean>;
+  deleteNodeFromTriples(nodeId: string): Promise<boolean>;
+  
+  // Edge operations via RDF triples
+  createEdgeFromTriples(graphId: string, edgeId: string, sourceId: string, targetId: string, label?: string, type?: string): Promise<void>;
+  deleteEdgeFromTriples(edgeId: string): Promise<boolean>;
+  
+  // Convert RDF triples to visualization format
+  getVisualizationData(graphId: string): Promise<GraphData>;
   
   // Visibility Set operations
   createVisibilitySet(visibilitySet: InsertVisibilitySet): Promise<VisibilitySet>;
@@ -57,454 +51,404 @@ export interface IStorage {
   executeVisibilityQuery(graphId: string, sparqlQuery: string): Promise<string[]>;
 }
 
-export class MemStorage implements IStorage {
-  private graphs: Map<string, Graph>;
-  private nodes: Map<string, GraphNode>;
-  private edges: Map<string, GraphEdge>;
-  private currentGraphId: number;
-  private currentNodeId: number;
-  private currentEdgeId: number;
-
-  constructor() {
-    this.graphs = new Map();
-    this.nodes = new Map();
-    this.edges = new Map();
-    this.currentGraphId = 1;
-    this.currentNodeId = 1;
-    this.currentEdgeId = 1;
-  }
-
-  // Graph operations
+export class DatabaseStorage implements IStorage {
   async createGraph(insertGraph: InsertGraph): Promise<Graph> {
-    const id = this.currentGraphId++;
-    const now = new Date();
-    const graph: Graph = {
-      ...insertGraph,
-      id,
-      createdAt: now,
-      updatedAt: now,
-    };
-    this.graphs.set(graph.graphId, graph);
+    const [graph] = await db
+      .insert(graphs)
+      .values(insertGraph)
+      .returning();
     return graph;
   }
 
-  async getGraph(graphId: string): Promise<Graph | undefined> {
-    return this.graphs.get(graphId);
-  }
-
-  async getAllGraphs(): Promise<Graph[]> {
-    return Array.from(this.graphs.values());
-  }
-
-  async updateGraph(graphId: string, updates: Partial<InsertGraph>): Promise<Graph | undefined> {
-    const graph = this.graphs.get(graphId);
-    if (!graph) return undefined;
-
-    const updatedGraph: Graph = {
-      ...graph,
-      ...updates,
-      updatedAt: new Date(),
-    };
-    this.graphs.set(graphId, updatedGraph);
-    return updatedGraph;
-  }
-
-  async deleteGraph(graphId: string): Promise<boolean> {
-    const deleted = this.graphs.delete(graphId);
-    if (deleted) {
-      await this.deleteNodesByGraph(graphId);
-      await this.deleteEdgesByGraph(graphId);
-    }
-    return deleted;
-  }
-
-  // Node operations
-  async createNode(insertNode: InsertGraphNode): Promise<GraphNode> {
-    const id = this.currentNodeId++;
-    const now = new Date();
-    const node: GraphNode = {
-      ...insertNode,
-      id,
-      createdAt: now,
-    };
-    this.nodes.set(node.nodeId, node);
-    return node;
-  }
-
-  async getNode(nodeId: string): Promise<GraphNode | undefined> {
-    return this.nodes.get(nodeId);
-  }
-
-  async getNodesByGraph(graphId: string): Promise<GraphNode[]> {
-    return Array.from(this.nodes.values()).filter(node => node.graphId === graphId);
-  }
-
-  async updateNode(nodeId: string, updates: Partial<InsertGraphNode>): Promise<GraphNode | undefined> {
-    const node = this.nodes.get(nodeId);
-    if (!node) return undefined;
-
-    const updatedNode: GraphNode = {
-      ...node,
-      ...updates,
-    };
-    this.nodes.set(nodeId, updatedNode);
-    return updatedNode;
-  }
-
-  async deleteNode(nodeId: string): Promise<boolean> {
-    const deleted = this.nodes.delete(nodeId);
-    if (deleted) {
-      // Delete associated edges
-      const edges = await this.getEdgesByNode(nodeId);
-      for (const edge of edges) {
-        await this.deleteEdge(edge.edgeId);
-      }
-    }
-    return deleted;
-  }
-
-  async deleteNodesByGraph(graphId: string): Promise<boolean> {
-    const nodes = await this.getNodesByGraph(graphId);
-    for (const node of nodes) {
-      this.nodes.delete(node.nodeId);
-    }
-    return true;
-  }
-
-  // Edge operations
-  async createEdge(insertEdge: InsertGraphEdge): Promise<GraphEdge> {
-    const id = this.currentEdgeId++;
-    const now = new Date();
-    const edge: GraphEdge = {
-      ...insertEdge,
-      id,
-      createdAt: now,
-    };
-    this.edges.set(edge.edgeId, edge);
-    return edge;
-  }
-
-  async getEdge(edgeId: string): Promise<GraphEdge | undefined> {
-    return this.edges.get(edgeId);
-  }
-
-  async getEdgesByGraph(graphId: string): Promise<GraphEdge[]> {
-    return Array.from(this.edges.values()).filter(edge => edge.graphId === graphId);
-  }
-
-  async getEdgesByNode(nodeId: string): Promise<GraphEdge[]> {
-    return Array.from(this.edges.values()).filter(
-      edge => edge.sourceId === nodeId || edge.targetId === nodeId
-    );
-  }
-
-  async updateEdge(edgeId: string, updates: Partial<InsertGraphEdge>): Promise<GraphEdge | undefined> {
-    const edge = this.edges.get(edgeId);
-    if (!edge) return undefined;
-
-    const updatedEdge: GraphEdge = {
-      ...edge,
-      ...updates,
-    };
-    this.edges.set(edgeId, updatedEdge);
-    return updatedEdge;
-  }
-
-  async deleteEdge(edgeId: string): Promise<boolean> {
-    return this.edges.delete(edgeId);
-  }
-
-  async deleteEdgesByGraph(graphId: string): Promise<boolean> {
-    const edges = await this.getEdgesByGraph(graphId);
-    for (const edge of edges) {
-      this.edges.delete(edge.edgeId);
-    }
-    return true;
-  }
-
-  // RDF Triple operations (stub implementations for MemStorage)
-  async createRdfTriple(triple: InsertRdfTriple): Promise<RdfTriple> {
-    throw new Error("RDF triples not supported in memory storage");
-  }
-
-  async getRdfTriplesByGraph(graphId: string): Promise<RdfTriple[]> {
-    return [];
-  }
-
-  async deleteRdfTriplesByGraph(graphId: string): Promise<boolean> {
-    return true;
-  }
-
-  // Visibility Set operations (stub implementations for MemStorage)
-  async createVisibilitySet(visibilitySet: InsertVisibilitySet): Promise<VisibilitySet> {
-    throw new Error("Visibility sets not supported in memory storage");
-  }
-
-  async getVisibilitySetsByGraph(graphId: string): Promise<VisibilitySet[]> {
-    return [];
-  }
-
-  async getActiveVisibilitySet(graphId: string): Promise<VisibilitySet | undefined> {
-    return undefined;
-  }
-
-  async setActiveVisibilitySet(graphId: string, setId: string): Promise<boolean> {
-    return false;
-  }
-
-  async executeVisibilityQuery(graphId: string, sparqlQuery: string): Promise<string[]> {
-    // Simple fallback - return all node IDs
-    const nodes = Array.from(this.nodes.values()).filter(node => node.graphId === graphId);
-    return nodes.map(node => node.nodeId);
-  }
-}
-
-export class DatabaseStorage implements IStorage {
   async getGraph(graphId: string): Promise<Graph | undefined> {
     const [graph] = await db.select().from(graphs).where(eq(graphs.graphId, graphId));
     return graph || undefined;
   }
 
   async getAllGraphs(): Promise<Graph[]> {
-    return await db.select().from(graphs).orderBy(graphs.createdAt);
-  }
-
-  async createGraph(insertGraph: InsertGraph): Promise<Graph> {
-    const [graph] = await db
-      .insert(graphs)
-      .values({
-        graphId: nanoid(),
-        ...insertGraph,
-        description: insertGraph.description || null,
-        nodeCount: insertGraph.nodeCount || 0,
-        edgeCount: insertGraph.edgeCount || 0,
-      })
-      .returning();
-    return graph;
+    return await db.select().from(graphs);
   }
 
   async updateGraph(graphId: string, updates: Partial<InsertGraph>): Promise<Graph | undefined> {
-    const [graph] = await db
+    const [updated] = await db
       .update(graphs)
-      .set({
-        ...updates,
-        updatedAt: new Date(),
-      })
+      .set({ ...updates, updatedAt: new Date() })
       .where(eq(graphs.graphId, graphId))
       .returning();
-    return graph || undefined;
+    return updated || undefined;
   }
 
   async deleteGraph(graphId: string): Promise<boolean> {
+    // Delete all RDF triples for this graph
+    await this.deleteRdfTriplesByGraph(graphId);
+    
+    // Delete visibility sets
+    await db.delete(visibilitySets).where(eq(visibilitySets.graphId, graphId));
+    
+    // Delete the graph
     const result = await db.delete(graphs).where(eq(graphs.graphId, graphId));
-    if (result.rowCount && result.rowCount > 0) {
-      await this.deleteNodesByGraph(graphId);
-      await this.deleteEdgesByGraph(graphId);
-      return true;
-    }
-    return false;
+    return result.rowCount > 0;
   }
 
-  async getNode(nodeId: string): Promise<GraphNode | undefined> {
-    const [node] = await db.select().from(graphNodes).where(eq(graphNodes.nodeId, nodeId));
-    return node || undefined;
-  }
-
-  async getNodesByGraph(graphId: string): Promise<GraphNode[]> {
-    return await db.select().from(graphNodes).where(eq(graphNodes.graphId, graphId));
-  }
-
-  async createNode(insertNode: InsertGraphNode): Promise<GraphNode> {
-    const [node] = await db
-      .insert(graphNodes)
-      .values({
-        nodeId: insertNode.nodeId,
-        label: insertNode.label,
-        type: insertNode.type,
-        graphId: insertNode.graphId,
-        data: insertNode.data || {},
-        x: insertNode.x ?? null,
-        y: insertNode.y ?? null,
-      })
-      .returning();
-    return node;
-  }
-
-  async updateNode(nodeId: string, updates: Partial<InsertGraphNode>): Promise<GraphNode | undefined> {
-    const [node] = await db
-      .update(graphNodes)
-      .set(updates)
-      .where(eq(graphNodes.nodeId, nodeId))
-      .returning();
-    return node || undefined;
-  }
-
-  async deleteNode(nodeId: string): Promise<boolean> {
-    const result = await db.delete(graphNodes).where(eq(graphNodes.nodeId, nodeId));
-    if (result.rowCount && result.rowCount > 0) {
-      // Delete associated edges
-      await db.delete(graphEdges).where(
-        eq(graphEdges.sourceId, nodeId)
-      );
-      await db.delete(graphEdges).where(
-        eq(graphEdges.targetId, nodeId)
-      );
-      return true;
-    }
-    return false;
-  }
-
-  async deleteNodesByGraph(graphId: string): Promise<boolean> {
-    await db.delete(graphNodes).where(eq(graphNodes.graphId, graphId));
-    return true;
-  }
-
-  async getEdge(edgeId: string): Promise<GraphEdge | undefined> {
-    const [edge] = await db.select().from(graphEdges).where(eq(graphEdges.edgeId, edgeId));
-    return edge || undefined;
-  }
-
-  async getEdgesByGraph(graphId: string): Promise<GraphEdge[]> {
-    return await db.select().from(graphEdges).where(eq(graphEdges.graphId, graphId));
-  }
-
-  async getEdgesByNode(nodeId: string): Promise<GraphEdge[]> {
-    const sourceEdges = await db.select().from(graphEdges).where(eq(graphEdges.sourceId, nodeId));
-    const targetEdges = await db.select().from(graphEdges).where(eq(graphEdges.targetId, nodeId));
-    return [...sourceEdges, ...targetEdges];
-  }
-
-  async createEdge(insertEdge: InsertGraphEdge): Promise<GraphEdge> {
-    const [edge] = await db
-      .insert(graphEdges)
-      .values({
-        edgeId: insertEdge.edgeId,
-        sourceId: insertEdge.sourceId,
-        targetId: insertEdge.targetId,
-        type: insertEdge.type,
-        graphId: insertEdge.graphId,
-        label: insertEdge.label ?? null,
-        data: insertEdge.data || {},
-      })
-      .returning();
-    return edge;
-  }
-
-  async updateEdge(edgeId: string, updates: Partial<InsertGraphEdge>): Promise<GraphEdge | undefined> {
-    const [edge] = await db
-      .update(graphEdges)
-      .set(updates)
-      .where(eq(graphEdges.edgeId, edgeId))
-      .returning();
-    return edge || undefined;
-  }
-
-  async deleteEdge(edgeId: string): Promise<boolean> {
-    const result = await db.delete(graphEdges).where(eq(graphEdges.edgeId, edgeId));
-    return result.rowCount ? result.rowCount > 0 : false;
-  }
-
-  async deleteEdgesByGraph(graphId: string): Promise<boolean> {
-    await db.delete(graphEdges).where(eq(graphEdges.graphId, graphId));
-    return true;
-  }
-
-  // RDF Triple operations for SPARQL support
   async createRdfTriple(triple: InsertRdfTriple): Promise<RdfTriple> {
-    const [rdfTriple] = await db.insert(rdfTriples).values(triple).returning();
-    return rdfTriple;
+    const [created] = await db
+      .insert(rdfTriples)
+      .values(triple)
+      .returning();
+    return created;
   }
 
   async getRdfTriplesByGraph(graphId: string): Promise<RdfTriple[]> {
-    return await db.select().from(rdfTriples).where(eq(rdfTriples.graphId, graphId));
+    return await db
+      .select()
+      .from(rdfTriples)
+      .where(eq(rdfTriples.graphId, graphId));
   }
 
   async deleteRdfTriplesByGraph(graphId: string): Promise<boolean> {
-    await db.delete(rdfTriples).where(eq(rdfTriples.graphId, graphId));
+    const result = await db.delete(rdfTriples).where(eq(rdfTriples.graphId, graphId));
+    return result.rowCount > 0;
+  }
+
+  async createNodeFromTriples(
+    graphId: string, 
+    nodeId: string, 
+    label: string, 
+    type: string, 
+    data: Record<string, any>, 
+    x: number = 0, 
+    y: number = 0
+  ): Promise<void> {
+    const triples: InsertRdfTriple[] = [
+      // Node existence and type
+      {
+        graphId,
+        subject: nodeId,
+        predicate: RDF_PREDICATES.TYPE,
+        object: RDF_TYPES.NODE,
+        objectType: "uri"
+      },
+      {
+        graphId,
+        subject: nodeId,
+        predicate: RDF_PREDICATES.NODE_TYPE,
+        object: type,
+        objectType: "literal"
+      },
+      {
+        graphId,
+        subject: nodeId,
+        predicate: RDF_PREDICATES.LABEL,
+        object: label,
+        objectType: "literal"
+      },
+      // Position
+      {
+        graphId,
+        subject: nodeId,
+        predicate: RDF_PREDICATES.POSITION_X,
+        object: x.toString(),
+        objectType: "literal"
+      },
+      {
+        graphId,
+        subject: nodeId,
+        predicate: RDF_PREDICATES.POSITION_Y,
+        object: y.toString(),
+        objectType: "literal"
+      }
+    ];
+
+    // Add data properties
+    for (const [key, value] of Object.entries(data)) {
+      triples.push({
+        graphId,
+        subject: nodeId,
+        predicate: `${RDF_PREDICATES.DATA_PROPERTY}:${key}`,
+        object: typeof value === 'string' ? value : JSON.stringify(value),
+        objectType: "literal"
+      });
+    }
+
+    // Insert all triples
+    await db.insert(rdfTriples).values(triples);
+  }
+
+  async updateNodePosition(nodeId: string, x: number, y: number): Promise<boolean> {
+    // Update X position
+    await db
+      .update(rdfTriples)
+      .set({ object: x.toString() })
+      .where(
+        and(
+          eq(rdfTriples.subject, nodeId),
+          eq(rdfTriples.predicate, RDF_PREDICATES.POSITION_X)
+        )
+      );
+
+    // Update Y position
+    await db
+      .update(rdfTriples)
+      .set({ object: y.toString() })
+      .where(
+        and(
+          eq(rdfTriples.subject, nodeId),
+          eq(rdfTriples.predicate, RDF_PREDICATES.POSITION_Y)
+        )
+      );
+
     return true;
   }
 
-  // Visibility Set operations
+  async deleteNodeFromTriples(nodeId: string): Promise<boolean> {
+    // Delete all triples where this node is the subject
+    const result = await db.delete(rdfTriples).where(eq(rdfTriples.subject, nodeId));
+    
+    // Also delete triples where this node is the object (connections)
+    await db.delete(rdfTriples).where(eq(rdfTriples.object, nodeId));
+    
+    return result.rowCount > 0;
+  }
+
+  async createEdgeFromTriples(
+    graphId: string, 
+    edgeId: string, 
+    sourceId: string, 
+    targetId: string, 
+    label?: string, 
+    type: string = "connects"
+  ): Promise<void> {
+    const triples: InsertRdfTriple[] = [
+      // Edge existence and type
+      {
+        graphId,
+        subject: edgeId,
+        predicate: RDF_PREDICATES.TYPE,
+        object: RDF_TYPES.EDGE,
+        objectType: "uri"
+      },
+      {
+        graphId,
+        subject: edgeId,
+        predicate: RDF_PREDICATES.EDGE_TYPE,
+        object: type,
+        objectType: "literal"
+      },
+      // Connection between nodes
+      {
+        graphId,
+        subject: sourceId,
+        predicate: RDF_PREDICATES.CONNECTS_TO,
+        object: targetId,
+        objectType: "uri"
+      }
+    ];
+
+    if (label) {
+      triples.push({
+        graphId,
+        subject: edgeId,
+        predicate: RDF_PREDICATES.LABEL,
+        object: label,
+        objectType: "literal"
+      });
+    }
+
+    await db.insert(rdfTriples).values(triples);
+  }
+
+  async deleteEdgeFromTriples(edgeId: string): Promise<boolean> {
+    const result = await db.delete(rdfTriples).where(eq(rdfTriples.subject, edgeId));
+    return result.rowCount > 0;
+  }
+
+  async getVisualizationData(graphId: string): Promise<GraphData> {
+    const graph = await this.getGraph(graphId);
+    if (!graph) {
+      throw new Error("Graph not found");
+    }
+
+    const allTriples = await this.getRdfTriplesByGraph(graphId);
+    
+    // Group triples by subject to construct nodes and edges
+    const subjectTriples = new Map<string, RdfTriple[]>();
+    for (const triple of allTriples) {
+      if (!subjectTriples.has(triple.subject)) {
+        subjectTriples.set(triple.subject, []);
+      }
+      subjectTriples.get(triple.subject)!.push(triple);
+    }
+
+    const nodes: VisualizationNode[] = [];
+    const edges: VisualizationEdge[] = [];
+    const processedEdges = new Set<string>();
+
+    // Process each subject (potential node or edge)
+    for (const [subject, subjectTripleList] of subjectTriples) {
+      const typeTriple = subjectTripleList.find(t => t.predicate === RDF_PREDICATES.TYPE);
+      
+      if (typeTriple?.object === RDF_TYPES.NODE) {
+        // This is a node
+        const labelTriple = subjectTripleList.find(t => t.predicate === RDF_PREDICATES.LABEL);
+        const nodeTypeTriple = subjectTripleList.find(t => t.predicate === RDF_PREDICATES.NODE_TYPE);
+        const xTriple = subjectTripleList.find(t => t.predicate === RDF_PREDICATES.POSITION_X);
+        const yTriple = subjectTripleList.find(t => t.predicate === RDF_PREDICATES.POSITION_Y);
+
+        // Collect data properties
+        const data: Record<string, any> = {};
+        subjectTripleList
+          .filter(t => t.predicate.startsWith(RDF_PREDICATES.DATA_PROPERTY))
+          .forEach(t => {
+            const key = t.predicate.split(':').pop() || 'unknown';
+            try {
+              data[key] = JSON.parse(t.object);
+            } catch {
+              data[key] = t.object;
+            }
+          });
+
+        nodes.push({
+          id: subject,
+          label: labelTriple?.object || subject,
+          type: nodeTypeTriple?.object || "unknown",
+          data,
+          x: parseInt(xTriple?.object || "0"),
+          y: parseInt(yTriple?.object || "0"),
+          visible: true
+        });
+
+        // Find connections from this node
+        const connections = subjectTripleList.filter(t => t.predicate === RDF_PREDICATES.CONNECTS_TO);
+        for (const conn of connections) {
+          const edgeId = `${subject}-${conn.object}`;
+          if (!processedEdges.has(edgeId)) {
+            edges.push({
+              id: edgeId,
+              source: subject,
+              target: conn.object,
+              type: "connects",
+              data: {}
+            });
+            processedEdges.add(edgeId);
+          }
+        }
+      }
+    }
+
+    return {
+      id: graph.id.toString(),
+      graphId: graph.graphId,
+      name: graph.name,
+      description: graph.description || undefined,
+      nodes,
+      edges,
+      nodeCount: nodes.length,
+      edgeCount: edges.length,
+      visibleNodeIds: nodes.map(n => n.id)
+    };
+  }
+
   async createVisibilitySet(visibilitySet: InsertVisibilitySet): Promise<VisibilitySet> {
-    const [newSet] = await db.insert(visibilitySets).values(visibilitySet).returning();
-    return newSet;
+    const [created] = await db
+      .insert(visibilitySets)
+      .values(visibilitySet)
+      .returning();
+    return created;
   }
 
   async getVisibilitySetsByGraph(graphId: string): Promise<VisibilitySet[]> {
-    return await db.select().from(visibilitySets).where(eq(visibilitySets.graphId, graphId));
+    return await db
+      .select()
+      .from(visibilitySets)
+      .where(eq(visibilitySets.graphId, graphId));
   }
 
   async getActiveVisibilitySet(graphId: string): Promise<VisibilitySet | undefined> {
-    const [activeSet] = await db.select().from(visibilitySets)
-      .where(and(eq(visibilitySets.graphId, graphId), eq(visibilitySets.isActive, 'true')));
-    return activeSet || undefined;
+    const [active] = await db
+      .select()
+      .from(visibilitySets)
+      .where(
+        and(
+          eq(visibilitySets.graphId, graphId),
+          eq(visibilitySets.isActive, "true")
+        )
+      );
+    return active || undefined;
   }
 
   async setActiveVisibilitySet(graphId: string, setId: string): Promise<boolean> {
-    // First, deactivate all visibility sets for this graph
-    await db.update(visibilitySets)
-      .set({ isActive: 'false' })
+    // Deactivate all sets for this graph
+    await db
+      .update(visibilitySets)
+      .set({ isActive: "false" })
       .where(eq(visibilitySets.graphId, graphId));
-    
-    // Then activate the specified set
-    await db.update(visibilitySets)
-      .set({ isActive: 'true' })
-      .where(and(eq(visibilitySets.graphId, graphId), eq(visibilitySets.setId, setId)));
-    
-    return true;
+
+    // Activate the specified set
+    const result = await db
+      .update(visibilitySets)
+      .set({ isActive: "true" })
+      .where(
+        and(
+          eq(visibilitySets.graphId, graphId),
+          eq(visibilitySets.setId, setId)
+        )
+      );
+
+    return result.rowCount > 0;
   }
 
   async executeVisibilityQuery(graphId: string, sparqlQuery: string): Promise<string[]> {
-    // Simple SPARQL-like query processor
-    // For now, supports basic patterns like SELECT ?node WHERE { ?node rdf:type ?type }
+    // Simple SPARQL-like query processing for RDF triples
+    // This is a basic implementation - in production you'd use a proper SPARQL engine
     
-    try {
-      // Parse simple SPARQL queries and convert to SQL
-      const visibleNodeIds: string[] = [];
-      
-      // Get all nodes for the graph
-      const nodes = await this.getNodesByGraph(graphId);
-      const triples = await this.getRdfTriplesByGraph(graphId);
-      
-      // Basic pattern matching for SPARQL queries
-      if (sparqlQuery.includes('rdf:type')) {
-        // Extract type from query pattern like "?node rdf:type ex:Person"
-        const typeMatch = sparqlQuery.match(/rdf:type\s+(\w+:\w+|\w+)/);
-        if (typeMatch) {
-          const targetType = typeMatch[1].replace(/^\w+:/, ''); // Remove namespace prefix
-          
-          // Find nodes with matching type in RDF triples
-          const matchingTriples = triples.filter(triple => 
-            triple.predicate === 'rdf:type' && 
-            triple.object.includes(targetType)
-          );
-          
-          visibleNodeIds.push(...matchingTriples.map(triple => triple.subject));
-        }
-      } else if (sparqlQuery.includes('SELECT') && sparqlQuery.includes('*')) {
-        // Show all nodes for SELECT * queries
-        visibleNodeIds.push(...nodes.map(node => node.nodeId));
-      } else if (sparqlQuery.includes('hasProperty')) {
-        // Custom property-based filtering
-        const propertyMatch = sparqlQuery.match(/hasProperty\s+"([^"]+)"/);
-        if (propertyMatch) {
-          const propertyName = propertyMatch[1];
-          
-          // Filter nodes based on data properties
-          const matchingNodes = nodes.filter(node => {
-            const data = node.data as any;
-            return data && data[propertyName] !== undefined;
-          });
-          
-          visibleNodeIds.push(...matchingNodes.map(node => node.nodeId));
-        }
-      }
-      
-      return [...new Set(visibleNodeIds)]; // Remove duplicates
-    } catch (error) {
-      console.error('Error executing SPARQL query:', error);
-      return [];
+    const allTriples = await this.getRdfTriplesByGraph(graphId);
+    
+    // Basic pattern matching for common queries
+    if (sparqlQuery.includes("SELECT * WHERE")) {
+      // Return all nodes
+      const nodes = new Set<string>();
+      allTriples
+        .filter(t => t.predicate === RDF_PREDICATES.TYPE && t.object === RDF_TYPES.NODE)
+        .forEach(t => nodes.add(t.subject));
+      return Array.from(nodes);
     }
+    
+    if (sparqlQuery.includes("rdf:type")) {
+      const typeMatch = sparqlQuery.match(/rdf:type\s+(\w+)/);
+      if (typeMatch) {
+        const targetType = typeMatch[1];
+        const nodes = new Set<string>();
+        allTriples
+          .filter(t => 
+            t.predicate === RDF_PREDICATES.NODE_TYPE && 
+            t.object.toLowerCase().includes(targetType.toLowerCase())
+          )
+          .forEach(t => nodes.add(t.subject));
+        return Array.from(nodes);
+      }
+    }
+    
+    if (sparqlQuery.includes("hasProperty")) {
+      const propMatch = sparqlQuery.match(/hasProperty\s+"([^"]+)"/);
+      if (propMatch) {
+        const propertyName = propMatch[1];
+        const nodes = new Set<string>();
+        allTriples
+          .filter(t => 
+            t.predicate.includes(RDF_PREDICATES.DATA_PROPERTY) &&
+            t.predicate.includes(propertyName)
+          )
+          .forEach(t => nodes.add(t.subject));
+        return Array.from(nodes);
+      }
+    }
+    
+    // Default: return all nodes
+    const nodes = new Set<string>();
+    allTriples
+      .filter(t => t.predicate === RDF_PREDICATES.TYPE && t.object === RDF_TYPES.NODE)
+      .forEach(t => nodes.add(t.subject));
+    return Array.from(nodes);
   }
 }
 
