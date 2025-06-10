@@ -45,6 +45,9 @@ export default function GraphCanvas({
   const [nodeDragStart, setNodeDragStart] = useState({ x: 0, y: 0 });
   const [isNodeDragging, setIsNodeDragging] = useState(false);
   
+  // Real-time node positions for immediate visual feedback
+  const [localNodePositions, setLocalNodePositions] = useState<Record<string, { x: number; y: number }>>({});
+  
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ 
     x: number; 
@@ -279,7 +282,21 @@ export default function GraphCanvas({
     }
   }, [graph?.id]);
 
-  // Render graph
+  // Handle node context menu for relation creation
+  const handleNodeContextMenu = useCallback((e: React.MouseEvent, nodeId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      visible: true,
+      nodeId,
+      type: 'node'
+    });
+  }, []);
+
+  // Render graph with real-time node positions
   useEffect(() => {
     if (!graph || !svgRef.current) return;
 
@@ -288,18 +305,27 @@ export default function GraphCanvas({
       edge => visibleNodes.has(edge.source) && visibleNodes.has(edge.target)
     ) || [];
 
+    // Apply local positions for real-time dragging feedback
+    const nodesWithLocalPositions = visibleNodesArray.map(node => {
+      const localPos = localNodePositions[node.id];
+      return localPos ? { ...node, x: localPos.x, y: localPos.y } : node;
+    });
+
     renderGraph(
       svgRef.current,
-      visibleNodesArray,
+      nodesWithLocalPositions,
       visibleEdges,
       {
         selectedNodeId: selectedNode?.id,
         onNodeClick: onNodeSelect,
         onNodeDoubleClick: onNodeExpand,
+        onNodeContextMenu: (e: MouseEvent, nodeId: string) => {
+          handleNodeContextMenu(e as any, nodeId);
+        },
         transform,
       }
     );
-  }, [graph, visibleNodes, selectedNode, transform, onNodeSelect, onNodeExpand]);
+  }, [graph, visibleNodes, selectedNode, transform, onNodeSelect, onNodeExpand, localNodePositions, handleNodeContextMenu]);
 
   // Enhanced mouse handlers for both panning and node dragging
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -328,17 +354,23 @@ export default function GraphCanvas({
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isNodeDragging && draggedNode) {
-      // Node dragging
+      // Node dragging with real-time visual feedback
       const deltaX = e.clientX - nodeDragStart.x;
       const deltaY = e.clientY - nodeDragStart.y;
       
       const newX = draggedNode.x + deltaX / transform.scale;
       const newY = draggedNode.y + deltaY / transform.scale;
       
-      // Update node position temporarily
+      // Update local position for immediate visual feedback
+      setLocalNodePositions(prev => ({
+        ...prev,
+        [draggedNode.id]: { x: newX, y: newY }
+      }));
+      
+      // Update node drag start for continuous dragging
       setNodeDragStart({ x: e.clientX, y: e.clientY });
       
-      // Update the dragged node position for immediate visual feedback
+      // Update the dragged node position
       setDraggedNode({ ...draggedNode, x: newX, y: newY });
       
     } else if (isDragging) {
@@ -364,26 +396,19 @@ export default function GraphCanvas({
         x: Math.round(draggedNode.x),
         y: Math.round(draggedNode.y)
       });
+      
+      // Clear local position after server update
+      setLocalNodePositions(prev => {
+        const updated = { ...prev };
+        delete updated[draggedNode.id];
+        return updated;
+      });
     }
     
     setIsDragging(false);
     setIsNodeDragging(false);
     setDraggedNode(null);
   }, [isNodeDragging, draggedNode, updateNodePositionMutation]);
-
-  // Handle node context menu for relation creation
-  const handleNodeContextMenu = useCallback((e: React.MouseEvent, nodeId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      visible: true,
-      nodeId,
-      type: 'node'
-    });
-  }, []);
 
   const handleCreateRelation = useCallback((targetNodeId: string) => {
     if (relationSourceNode && targetNodeId !== relationSourceNode) {
