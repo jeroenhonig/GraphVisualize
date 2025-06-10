@@ -53,25 +53,26 @@ export default function GraphSidebar({
   return (
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
       {/* File Upload Section */}
-      <div className="p-6 border-b border-gray-200">
+      <div className="p-6 border-b border-gray-200 space-y-4">
         <FileUpload />
+        <GraphCreator />
       </div>
 
       {/* Graph Statistics */}
       {currentGraph && (
         <div className="p-6 border-b border-gray-200">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Graph Statistieken</h3>
+          <h3 className="text-sm font-medium text-gray-900 mb-3">Graaf Statistieken</h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Totaal Nodes:</span>
+              <span className="text-sm text-gray-600">Totaal Knopen:</span>
               <span className="text-sm font-mono font-medium">{currentGraph.nodeCount}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Totaal Edges:</span>
+              <span className="text-sm text-gray-600">Totaal Kanten:</span>
               <span className="text-sm font-mono font-medium">{currentGraph.edgeCount}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Zichtbare Nodes:</span>
+              <span className="text-sm text-gray-600">Zichtbare Knopen:</span>
               <span className="text-sm font-mono font-medium text-blue-600">
                 {currentGraph.nodes.filter(n => n.visible !== false).length}
               </span>
@@ -90,7 +91,7 @@ export default function GraphSidebar({
 
       {/* Node Details Panel */}
       <div className="flex-1 p-6 overflow-y-auto">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">Node Details</h3>
+        <h3 className="text-sm font-medium text-gray-900 mb-3">Knoop Details</h3>
         
         {selectedNode ? (
           <div className="space-y-4">
@@ -117,7 +118,7 @@ export default function GraphSidebar({
                   {nodeConnections && (
                     <div>
                       <span className="text-gray-600">Connecties:</span>
-                      <span className="ml-2 font-mono">{nodeConnections.connections.length}</span>
+                      <span className="ml-2 font-mono">{(nodeConnections as any)?.connections?.length || 0}</span>
                     </div>
                   )}
                 </div>
@@ -148,14 +149,14 @@ export default function GraphSidebar({
             </Card>
 
             {/* Connected Nodes */}
-            {nodeConnections?.connections && nodeConnections.connections.length > 0 && (
+            {(nodeConnections as any)?.connections && (nodeConnections as any).connections.length > 0 && (
               <div>
                 <h4 className="text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
-                  Verbonden Nodes
+                  Verbonden Knopen
                 </h4>
                 
                 <div className="space-y-2">
-                  {nodeConnections.connections.slice(0, 8).map((connection: any) => (
+                  {(nodeConnections as any).connections.slice(0, 8).map((connection: any) => (
                     <Card key={connection.id} className="hover:bg-gray-50 cursor-pointer">
                       <CardContent className="p-2">
                         <div className="flex items-center justify-between">
@@ -175,9 +176,9 @@ export default function GraphSidebar({
                     </Card>
                   ))}
                   
-                  {nodeConnections.connections.length > 8 && (
+                  {(nodeConnections as any).connections.length > 8 && (
                     <div className="text-xs text-gray-500 text-center py-2">
-                      +{nodeConnections.connections.length - 8} meer...
+                      +{(nodeConnections as any).connections.length - 8} meer...
                     </div>
                   )}
                 </div>

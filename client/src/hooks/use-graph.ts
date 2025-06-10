@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { GraphData, VisualizationNode } from "@shared/schema";
 import type { GraphTransform } from "@/lib/graph-utils";
@@ -30,6 +30,17 @@ export function useGraph() {
     setVisibleNodes(new Set());
     setTransform({ scale: 1, translateX: 0, translateY: 0 });
   }, []);
+
+  // Auto-select the most recent graph if none is selected
+  useEffect(() => {
+    if (!currentGraphId && allGraphs && Array.isArray(allGraphs) && allGraphs.length > 0) {
+      // Sort by creation date and select the most recent
+      const mostRecent = [...allGraphs].sort((a: any, b: any) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )[0];
+      setCurrentGraphId(mostRecent.graphId);
+    }
+  }, [allGraphs, currentGraphId]);
 
   const expandNode = useCallback((nodeId: string) => {
     if (!currentGraph) return;
