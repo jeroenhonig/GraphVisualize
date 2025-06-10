@@ -10,6 +10,7 @@ export interface RenderOptions {
   selectedNodeId?: string;
   onNodeClick?: (node: VisualizationNode) => void;
   onNodeDoubleClick?: (nodeId: string) => void;
+  onNodeContextMenu?: (e: MouseEvent, nodeId: string) => void;
   transform: GraphTransform;
 }
 
@@ -139,6 +140,7 @@ export function renderGraph(
   nodes.forEach(node => {
     const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     nodeGroup.setAttribute('transform', `translate(${node.x}, ${node.y})`);
+    nodeGroup.setAttribute('data-node-id', node.id);
     nodeGroup.classList.add('cursor-pointer', 'transition-all', 'duration-200');
     
     // Node shape based on type

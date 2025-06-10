@@ -67,6 +67,10 @@ export default function GraphCanvas({
   const [newNodeLabel, setNewNodeLabel] = useState("");
   const [newNodeType, setNewNodeType] = useState("default");
   
+  // New relation form state
+  const [newRelationLabel, setNewRelationLabel] = useState("");
+  const [newRelationType, setNewRelationType] = useState("relationship");
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -297,32 +301,105 @@ export default function GraphCanvas({
     );
   }, [graph, visibleNodes, selectedNode, transform, onNodeSelect, onNodeExpand]);
 
-  // Pan handlers
+  // Enhanced mouse handlers for both panning and node dragging
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button === 0) { // Left mouse button
+    const target = e.target as Element;
+    const nodeElement = target.closest('[data-node-id]');
+    
+    if (nodeElement && e.button === 0) {
+      // Node dragging
+      const nodeId = nodeElement.getAttribute('data-node-id');
+      const node = graph?.nodes.find(n => n.id === nodeId);
+      
+      if (node) {
+        setDraggedNode(node);
+        setIsNodeDragging(true);
+        setNodeDragStart({ x: e.clientX, y: e.clientY });
+        e.stopPropagation();
+        return;
+      }
+    }
+    
+    if (e.button === 0) { // Left mouse button - canvas panning
       setIsDragging(true);
       setDragStart({ x: e.clientX, y: e.clientY });
     }
-  }, []);
+  }, [graph?.nodes]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging) return;
+    if (isNodeDragging && draggedNode) {
+      // Node dragging
+      const deltaX = e.clientX - nodeDragStart.x;
+      const deltaY = e.clientY - nodeDragStart.y;
+      
+      const newX = draggedNode.x + deltaX / transform.scale;
+      const newY = draggedNode.y + deltaY / transform.scale;
+      
+      // Update node position temporarily
+      setNodeDragStart({ x: e.clientX, y: e.clientY });
+      
+      // Update the dragged node position for immediate visual feedback
+      setDraggedNode({ ...draggedNode, x: newX, y: newY });
+      
+    } else if (isDragging) {
+      // Canvas panning
+      const deltaX = e.clientX - dragStart.x;
+      const deltaY = e.clientY - dragStart.y;
 
-    const deltaX = e.clientX - dragStart.x;
-    const deltaY = e.clientY - dragStart.y;
+      onTransformChange({
+        ...transform,
+        translateX: transform.translateX + deltaX,
+        translateY: transform.translateY + deltaY,
+      });
 
-    onTransformChange({
-      ...transform,
-      translateX: transform.translateX + deltaX,
-      translateY: transform.translateY + deltaY,
-    });
-
-    setDragStart({ x: e.clientX, y: e.clientY });
-  }, [isDragging, dragStart, transform, onTransformChange]);
+      setDragStart({ x: e.clientX, y: e.clientY });
+    }
+  }, [isDragging, isNodeDragging, draggedNode, dragStart, nodeDragStart, transform, onTransformChange]);
 
   const handleMouseUp = useCallback(() => {
+    if (isNodeDragging && draggedNode) {
+      // Save the new node position to the server
+      updateNodePositionMutation.mutate({
+        nodeId: draggedNode.id,
+        x: Math.round(draggedNode.x),
+        y: Math.round(draggedNode.y)
+      });
+    }
+    
     setIsDragging(false);
+    setIsNodeDragging(false);
+    setDraggedNode(null);
+  }, [isNodeDragging, draggedNode, updateNodePositionMutation]);
+
+  // Handle node context menu for relation creation
+  const handleNodeContextMenu = useCallback((e: React.MouseEvent, nodeId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      visible: true,
+      nodeId,
+      type: 'node'
+    });
   }, []);
+
+  const handleCreateRelation = useCallback((targetNodeId: string) => {
+    if (relationSourceNode && targetNodeId !== relationSourceNode) {
+      setShowCreateRelationDialog(true);
+      setContextMenu({ ...contextMenu, visible: false });
+    }
+  }, [relationSourceNode, contextMenu]);
+
+  const handleStartRelation = useCallback((nodeId: string) => {
+    setRelationSourceNode(nodeId);
+    setContextMenu({ ...contextMenu, visible: false });
+    toast({
+      title: "Relatie Modus",
+      description: "Rechtermuisklik op een andere node om een relatie te maken",
+    });
+  }, [contextMenu, toast]);
 
   // Zoom handler
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -427,13 +504,36 @@ export default function GraphCanvas({
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <button
-            onClick={handleCreateNode}
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Nieuwe knoop maken
-          </button>
+          {contextMenu.type === 'canvas' && (
+            <button
+              onClick={handleCreateNode}
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Nieuwe node maken
+            </button>
+          )}
+          
+          {contextMenu.type === 'node' && contextMenu.nodeId && (
+            <>
+              <button
+                onClick={() => handleStartRelation(contextMenu.nodeId!)}
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Start relatie
+              </button>
+              {relationSourceNode && relationSourceNode !== contextMenu.nodeId && (
+                <button
+                  onClick={() => handleCreateRelation(contextMenu.nodeId!)}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  Maak relatie
+                </button>
+              )}
+            </>
+          )}
         </div>
       )}
       
@@ -449,30 +549,30 @@ export default function GraphCanvas({
       <Dialog open={showCreateNodeDialog} onOpenChange={setShowCreateNodeDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nieuwe Knoop Maken</DialogTitle>
+            <DialogTitle>Nieuwe Node Maken</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="nodeLabel">Knoop Naam</Label>
+              <Label htmlFor="nodeLabel">Node Naam</Label>
               <Input
                 id="nodeLabel"
                 value={newNodeLabel}
                 onChange={(e) => setNewNodeLabel(e.target.value)}
-                placeholder="Voer knoop naam in..."
+                placeholder="Voer node naam in..."
               />
             </div>
             <div>
-              <Label htmlFor="nodeType">Knoop Type</Label>
+              <Label htmlFor="nodeType">Node Type</Label>
               <Select value={newNodeType} onValueChange={setNewNodeType}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecteer type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="default">Standaard</SelectItem>
-                  <SelectItem value="person">Persoon</SelectItem>
-                  <SelectItem value="organization">Organisatie</SelectItem>
-                  <SelectItem value="event">Gebeurtenis</SelectItem>
-                  <SelectItem value="location">Locatie</SelectItem>
+                  <SelectItem value="Person">Persoon</SelectItem>
+                  <SelectItem value="Organization">Organisatie</SelectItem>
+                  <SelectItem value="Event">Gebeurtenis</SelectItem>
+                  <SelectItem value="Location">Locatie</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -487,7 +587,85 @@ export default function GraphCanvas({
                 onClick={handleCreateNodeSubmit}
                 disabled={createNodeMutation.isPending}
               >
-                {createNodeMutation.isPending ? "Maken..." : "Knoop Maken"}
+                {createNodeMutation.isPending ? "Maken..." : "Node Maken"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Relation Dialog */}
+      <Dialog open={showCreateRelationDialog} onOpenChange={setShowCreateRelationDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nieuwe Relatie Maken</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Van Node</Label>
+              <Input
+                value={relationSourceNode || ""}
+                disabled
+                className="bg-gray-100"
+              />
+            </div>
+            <div>
+              <Label>Naar Node</Label>
+              <Input
+                value={contextMenu.nodeId || ""}
+                disabled
+                className="bg-gray-100"
+              />
+            </div>
+            <div>
+              <Label htmlFor="relationLabel">Relatie Label</Label>
+              <Input
+                id="relationLabel"
+                value={newRelationLabel}
+                onChange={(e) => setNewRelationLabel(e.target.value)}
+                placeholder="Voer relatie beschrijving in..."
+              />
+            </div>
+            <div>
+              <Label htmlFor="relationType">Relatie Type</Label>
+              <Select value={newRelationType} onValueChange={setNewRelationType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecteer type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="relationship">Relatie</SelectItem>
+                  <SelectItem value="works_at">Werkt bij</SelectItem>
+                  <SelectItem value="knows">Kent</SelectItem>
+                  <SelectItem value="located_in">Gevestigd in</SelectItem>
+                  <SelectItem value="part_of">Onderdeel van</SelectItem>
+                  <SelectItem value="connected_to">Verbonden met</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowCreateRelationDialog(false);
+                  setRelationSourceNode(null);
+                }}
+              >
+                Annuleren
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (relationSourceNode && contextMenu.nodeId) {
+                    createRelationMutation.mutate({
+                      sourceId: relationSourceNode,
+                      targetId: contextMenu.nodeId,
+                      label: newRelationLabel || "relates_to",
+                      type: newRelationType
+                    });
+                  }
+                }}
+                disabled={createRelationMutation.isPending}
+              >
+                {createRelationMutation.isPending ? "Maken..." : "Relatie Maken"}
               </Button>
             </div>
           </div>
