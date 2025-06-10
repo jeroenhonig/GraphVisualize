@@ -242,36 +242,53 @@ export default function DraggablePanel({
         const isNearLeftSnap = Math.abs(constrainedX - 10) < snapThreshold;
         const isNearRightSnap = Math.abs(constrainedX - (window.innerWidth - currentWidth - 10)) < snapThreshold;
         
-        // Always check for collisions
+        // Always check for collisions - no exceptions
         const hasCollision = checkCollision(constrainedX, constrainedY, currentWidth, currentHeight);
         
         let finalPosition;
         
-        if (hasCollision || isNearLeftSnap || isNearRightSnap) {
-          // Use collision detection to find a safe position
+        // Always use collision detection if there's any overlap
+        if (hasCollision) {
           finalPosition = findNonCollidingPosition(constrainedX, constrainedY);
-          
-          // Create snap zone if we're near snap areas
-          if (isNearLeftSnap || finalPosition.x <= 20) {
-            snapZone = {
-              type: 'left' as const,
-              x: finalPosition.x,
-              y: finalPosition.y,
-              width: currentWidth,
-              height: currentHeight
-            };
-          } else if (isNearRightSnap || finalPosition.x >= window.innerWidth - currentWidth - 20) {
-            snapZone = {
-              type: 'right' as const,
-              x: finalPosition.x,
-              y: finalPosition.y,
-              width: currentWidth,
-              height: currentHeight
-            };
-          }
         } else {
-          // No collision, use desired position
           finalPosition = { x: constrainedX, y: constrainedY };
+        }
+        
+        // Handle snapping separately
+        if (isNearLeftSnap || finalPosition.x <= 20) {
+          // Snap to left side
+          const leftX = 10;
+          const leftCollision = checkCollision(leftX, finalPosition.y, currentWidth, currentHeight);
+          if (leftCollision) {
+            finalPosition = findNonCollidingPosition(leftX, finalPosition.y);
+          } else {
+            finalPosition.x = leftX;
+          }
+          
+          snapZone = {
+            type: 'left' as const,
+            x: finalPosition.x,
+            y: finalPosition.y,
+            width: currentWidth,
+            height: currentHeight
+          };
+        } else if (isNearRightSnap || finalPosition.x >= window.innerWidth - currentWidth - 20) {
+          // Snap to right side
+          const rightX = window.innerWidth - currentWidth - 10;
+          const rightCollision = checkCollision(rightX, finalPosition.y, currentWidth, currentHeight);
+          if (rightCollision) {
+            finalPosition = findNonCollidingPosition(rightX, finalPosition.y);
+          } else {
+            finalPosition.x = rightX;
+          }
+          
+          snapZone = {
+            type: 'right' as const,
+            x: finalPosition.x,
+            y: finalPosition.y,
+            width: currentWidth,
+            height: currentHeight
+          };
         }
         
         setSnapPreview(snapZone);
@@ -280,6 +297,20 @@ export default function DraggablePanel({
     };
 
     const handleMouseUp = () => {
+      if (isDragging) {
+        // Force final collision check on mouse up
+        const headerHeight = 80;
+        const currentWidth = collapsed ? 48 : width;
+        const currentHeight = collapsed ? 56 : Math.max(400, window.innerHeight - headerHeight - 100);
+        
+        const hasCollision = checkCollision(position.x, position.y, currentWidth, currentHeight);
+        if (hasCollision) {
+          // Find non-colliding position and apply it
+          const safePosition = findNonCollidingPosition(position.x, position.y);
+          onPositionChange(safePosition);
+        }
+      }
+      
       setIsDragging(false);
       setSnapPreview(null);
     };
@@ -326,6 +357,24 @@ export default function DraggablePanel({
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isResizing, side, onWidthChange]);
+
+  // Automatic collision resolution effect
+  useEffect(() => {
+    if (isDragging) return; // Don't interfere while dragging
+    
+    const headerHeight = 80;
+    const currentWidth = collapsed ? 48 : width;
+    const currentHeight = collapsed ? 56 : Math.max(400, window.innerHeight - headerHeight - 100);
+    
+    const hasCollision = checkCollision(position.x, position.y, currentWidth, currentHeight);
+    if (hasCollision) {
+      // Auto-resolve collision
+      const safePosition = findNonCollidingPosition(position.x, position.y);
+      if (safePosition.x !== position.x || safePosition.y !== position.y) {
+        onPositionChange(safePosition);
+      }
+    }
+  }, [position, width, collapsed, otherPanels, isDragging]);
 
   const handleDragStart = (e: React.MouseEvent) => {
     if (panelRef.current) {
