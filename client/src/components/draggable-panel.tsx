@@ -387,11 +387,27 @@ export default function DraggablePanel({
       const timer = setTimeout(() => {
         const safePosition = findNonCollidingPosition(position.x, position.y);
         onPositionChange(safePosition);
-      }, 100);
+      }, 50); // Faster response
       
       return () => clearTimeout(timer);
     }
   }, [position, width, collapsed, otherPanels, isDragging]);
+
+  // Additional effect for size/collapse changes to prevent overlaps when expanding/collapsing
+  useEffect(() => {
+    if (isDragging) return;
+    
+    const headerHeight = 80;
+    const currentWidth = collapsed ? 48 : width;
+    const currentHeight = collapsed ? 56 : Math.max(400, window.innerHeight - headerHeight - 100);
+    
+    // Immediate collision check when size changes
+    const hasCollision = checkCollision(position.x, position.y, currentWidth, currentHeight);
+    if (hasCollision) {
+      const safePosition = findNonCollidingPosition(position.x, position.y);
+      onPositionChange(safePosition);
+    }
+  }, [width, collapsed]); // Only trigger on size changes
 
   // Additional effect to handle window resize and ensure no overlaps
   useEffect(() => {

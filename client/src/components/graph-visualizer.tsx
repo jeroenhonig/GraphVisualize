@@ -241,8 +241,8 @@ export default function GraphVisualizer() {
           </div>
         </div>
       </header>
-      {/* Main Layout */}
-      <div className="h-screen pt-16 relative bg-graph-background">
+      {/* Main Layout - Allow scrolling */}
+      <div className="min-h-screen pt-16 relative bg-graph-background overflow-y-auto">
         {/* Main Graph Area - Full Screen */}
         <GraphCanvas
           graph={currentGraph}
