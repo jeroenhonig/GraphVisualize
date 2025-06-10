@@ -446,6 +446,17 @@ export default function GraphVisualizer() {
             </Button>
           </div>
         </div>
+
+        {/* Right Sidebar - Node Details & Edit */}
+        <GraphSidebar
+          currentGraph={currentGraph}
+          selectedNode={selectedNode}
+          onNodeSelect={setSelectedNode}
+          onNodeExpand={expandNode}
+          onNodeCollapse={collapseNode}
+          editMode={editMode}
+          onEditModeChange={setEditMode}
+        />
       </div>
 
       {/* Import Modal */}
