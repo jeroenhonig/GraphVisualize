@@ -562,13 +562,7 @@ export default function GraphCanvas({
         </div>
       )}
       
-      {/* Debug Context Menu State */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed top-0 right-0 bg-red-100 p-2 text-xs z-[10000]">
-          Context Menu: {contextMenu.visible ? 'VISIBLE' : 'HIDDEN'} 
-          {contextMenu.visible && ` at (${contextMenu.x}, ${contextMenu.y})`}
-        </div>
-      )}
+
 
       {/* Create Node Dialog */}
       <Dialog open={showCreateNodeDialog} onOpenChange={setShowCreateNodeDialog}>
