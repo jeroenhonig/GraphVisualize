@@ -259,8 +259,7 @@ export default function GraphSidebar({
                         <div className="space-y-3">
                           {Object.entries(editForm.data).map(([key, value]) => (
                             <div key={key} className="space-y-2">
-                              <div className="flex items-center justify-between">
-                                <Label className="text-sm font-medium">Eigenschap</Label>
+                              <div className="flex items-center justify-end">
                                 <Button
                                   onClick={() => {
                                     const newData = { ...editForm.data };

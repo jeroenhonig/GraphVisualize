@@ -44,8 +44,8 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
            dy < (bounds1.height + bounds2.height) / 2 + 20;
   }
 
-  // Enhanced force simulation with better spacing
-  for (let i = 0; i < 300; i++) {
+  // Enhanced force simulation with better spacing and edge consideration
+  for (let i = 0; i < 400; i++) {
     // Stronger repulsion between nodes to prevent overlap
     for (let j = 0; j < layoutNodes.length; j++) {
       for (let k = j + 1; k < layoutNodes.length; k++) {
@@ -56,20 +56,28 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
         const dy = node2.y - node1.y;
         const distance = Math.sqrt(dx * dx + dy * dy) || 1;
         
-        // Calculate minimum distance based on label sizes
+        // Calculate minimum distance based on label sizes and edge space
         const bounds1 = getNodeBounds(node1);
         const bounds2 = getNodeBounds(node2);
-        const minDistance = Math.max(bounds1.width, bounds1.height, bounds2.width, bounds2.height) + 40;
+        const baseDistance = Math.max(bounds1.width, bounds1.height, bounds2.width, bounds2.height);
+        
+        // Add extra space if nodes are connected (for edge labels)
+        const areConnected = edges.some(edge => 
+          (edge.source === node1.id && edge.target === node2.id) ||
+          (edge.source === node2.id && edge.target === node1.id)
+        );
+        
+        const minDistance = baseDistance + (areConnected ? 80 : 50);
         
         if (distance < minDistance) {
-          const force = (minDistance - distance) * 4;
+          const force = (minDistance - distance) * (areConnected ? 5 : 4);
           const fx = (dx / distance) * force;
           const fy = (dy / distance) * force;
           
-          node1.vx -= fx * 0.15;
-          node1.vy -= fy * 0.15;
-          node2.vx += fx * 0.15;
-          node2.vy += fy * 0.15;
+          node1.vx -= fx * 0.18;
+          node1.vy -= fy * 0.18;
+          node2.vx += fx * 0.18;
+          node2.vy += fy * 0.18;
         }
       }
     }
@@ -266,28 +274,87 @@ export function renderGraph(
   const nodesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   mainGroup.appendChild(nodesGroup);
 
-  // Render edges with curved paths
+  // Calculate optimal edge label positions to avoid conflicts
+  const edgeLabelPositions = new Map<string, {x: number, y: number}>();
+  
   edges.forEach(edge => {
     const sourceNode = nodes.find(n => n.id === edge.source);
     const targetNode = nodes.find(n => n.id === edge.target);
     
     if (!sourceNode || !targetNode) return;
 
-    // Calculate curved path to avoid overlapping and reduce intersections
     const dx = targetNode.x - sourceNode.x;
     const dy = targetNode.y - sourceNode.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    
-    // Create curve based on distance and angle
-    const curvature = Math.min(distance * 0.25, 60);
     const angle = Math.atan2(dy, dx);
-    const perpAngle = angle + Math.PI / 2;
     
-    // Control point for the curve - offset to create natural curves
+    // Try different curvature values to find best position for label
+    const curvatureOptions = [
+      distance * 0.15,  // Less curved
+      distance * 0.25,  // Default
+      distance * 0.35,  // More curved
+      -distance * 0.15, // Curve other direction
+      -distance * 0.25
+    ];
+    
+    let bestCurvature = distance * 0.25;
+    let minConflicts = Infinity;
+    
+    if (edge.label) {
+      for (const curvature of curvatureOptions) {
+        const perpAngle = angle + Math.PI / 2;
+        const midX = (sourceNode.x + targetNode.x) / 2;
+        const midY = (sourceNode.y + targetNode.y) / 2;
+        const testX = midX + Math.cos(perpAngle) * curvature;
+        const testY = midY + Math.sin(perpAngle) * curvature;
+        
+        let conflicts = 0;
+        
+        // Check conflicts with nodes
+        for (const node of nodes) {
+          const nodeDx = Math.abs(testX - node.x);
+          const nodeDy = Math.abs(testY - node.y);
+          if (nodeDx < 50 && nodeDy < 30) conflicts++;
+        }
+        
+        // Check conflicts with other edge labels
+        for (const [otherEdgeId, otherPos] of edgeLabelPositions) {
+          const edgeDx = Math.abs(testX - otherPos.x);
+          const edgeDy = Math.abs(testY - otherPos.y);
+          if (edgeDx < 60 && edgeDy < 25) conflicts++;
+        }
+        
+        if (conflicts < minConflicts) {
+          minConflicts = conflicts;
+          bestCurvature = curvature;
+        }
+      }
+    }
+    
+    // Calculate final positions
+    const curvature = Math.max(Math.min(bestCurvature, 80), -80); // Limit curvature
+    const perpAngle = angle + Math.PI / 2;
     const midX = (sourceNode.x + targetNode.x) / 2;
     const midY = (sourceNode.y + targetNode.y) / 2;
     const controlX = midX + Math.cos(perpAngle) * curvature;
     const controlY = midY + Math.sin(perpAngle) * curvature;
+    
+    // Store edge label position
+    if (edge.label) {
+      edgeLabelPositions.set(edge.id, {x: controlX, y: controlY});
+    }
+  });
+
+  // Render edges with optimized curves
+  edges.forEach(edge => {
+    const sourceNode = nodes.find(n => n.id === edge.source);
+    const targetNode = nodes.find(n => n.id === edge.target);
+    
+    if (!sourceNode || !targetNode) return;
+
+    const labelPos = edgeLabelPositions.get(edge.id);
+    const controlX = labelPos?.x || (sourceNode.x + targetNode.x) / 2;
+    const controlY = labelPos?.y || (sourceNode.y + targetNode.y) / 2;
 
     // Create curved path using quadratic Bézier curve
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -309,27 +376,31 @@ export function renderGraph(
     shadowPath.setAttribute('stroke-linecap', 'round');
     edgesGroup.appendChild(shadowPath);
     
-    // Add edge label if exists
-    if (edge.label) {
-      const labelText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      labelText.setAttribute('x', controlX.toString());
-      labelText.setAttribute('y', (controlY + 4).toString());
-      labelText.setAttribute('text-anchor', 'middle');
-      labelText.setAttribute('class', 'text-xs fill-gray-700 font-medium pointer-events-none');
-      labelText.textContent = edge.label;
+    // Add edge label if exists with optimized position
+    if (edge.label && labelPos) {
+      // Create label background for better readability
+      const labelText = edge.label.length > 20 ? edge.label.substring(0, 17) + '...' : edge.label;
+      const labelWidth = labelText.length * 6 + 12;
       
-      // Background circle for label readability
-      const labelBg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      labelBg.setAttribute('cx', controlX.toString());
-      labelBg.setAttribute('cy', controlY.toString());
-      labelBg.setAttribute('r', '14');
-      labelBg.setAttribute('fill', 'white');
-      labelBg.setAttribute('opacity', '0.9');
+      const labelBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      labelBg.setAttribute('x', (labelPos.x - labelWidth/2).toString());
+      labelBg.setAttribute('y', (labelPos.y - 8).toString());
+      labelBg.setAttribute('width', labelWidth.toString());
+      labelBg.setAttribute('height', '16');
+      labelBg.setAttribute('rx', '4');
+      labelBg.setAttribute('fill', 'rgba(255, 255, 255, 0.95)');
       labelBg.setAttribute('stroke', 'hsl(215, 20%, 75%)');
       labelBg.setAttribute('stroke-width', '1');
       
+      const labelTextEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      labelTextEl.setAttribute('x', labelPos.x.toString());
+      labelTextEl.setAttribute('y', (labelPos.y + 3).toString());
+      labelTextEl.setAttribute('text-anchor', 'middle');
+      labelTextEl.setAttribute('class', 'text-xs fill-gray-700 font-medium pointer-events-none');
+      labelTextEl.textContent = labelText;
+      
       edgesGroup.appendChild(labelBg);
-      edgesGroup.appendChild(labelText);
+      edgesGroup.appendChild(labelTextEl);
     }
 
     edgesGroup.appendChild(path);
@@ -386,7 +457,7 @@ export function renderGraph(
       { x: -30, y: 5, anchor: 'end' }       // Left
     ];
 
-    // Find best position by checking for overlaps with other nodes
+    // Find best position by checking for overlaps with other nodes and edge labels
     let bestPosition = labelPositions[0];
     let minConflicts = Infinity;
 
@@ -403,8 +474,37 @@ export function renderGraph(
         const dy = Math.abs(labelY - otherNode.y);
         
         // Consider both node circle and label area
-        if (dx < 50 && dy < 25) {
+        if (dx < 60 && dy < 30) {
           conflicts++;
+        }
+      }
+
+      // Check conflicts with edge label positions
+      for (const edge of edges) {
+        const sourceNode = nodes.find(n => n.id === edge.source);
+        const targetNode = nodes.find(n => n.id === edge.target);
+        
+        if (sourceNode && targetNode && edge.label) {
+          // Calculate edge label position (curve midpoint)
+          const dx = targetNode.x - sourceNode.x;
+          const dy = targetNode.y - sourceNode.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const curvature = Math.min(distance * 0.25, 60);
+          const angle = Math.atan2(dy, dx);
+          const perpAngle = angle + Math.PI / 2;
+          
+          const midX = (sourceNode.x + targetNode.x) / 2;
+          const midY = (sourceNode.y + targetNode.y) / 2;
+          const edgeLabelX = midX + Math.cos(perpAngle) * curvature;
+          const edgeLabelY = midY + Math.sin(perpAngle) * curvature;
+          
+          // Check if node label would conflict with edge label
+          const edgeDx = Math.abs(labelX - edgeLabelX);
+          const edgeDy = Math.abs(labelY - edgeLabelY);
+          
+          if (edgeDx < 40 && edgeDy < 20) {
+            conflicts += 2; // Higher penalty for edge label conflicts
+          }
         }
       }
 
