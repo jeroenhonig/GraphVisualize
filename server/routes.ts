@@ -192,6 +192,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Clear all data and load test dataset
+  app.post("/api/load-test-data", async (req, res) => {
+    try {
+      await storage.clearAllData();
+      await storage.loadBuildingDataset();
+      res.json({ success: true, message: "Test data loaded successfully" });
+    } catch (error) {
+      console.error('Error loading test data:', error);
+      res.status(500).json({ message: "Failed to load test data" });
+    }
+  });
+
   // SPARQL-based visibility set management
   app.post("/api/graphs/:graphId/visibility-sets", async (req, res) => {
     try {

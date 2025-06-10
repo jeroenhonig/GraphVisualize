@@ -50,6 +50,10 @@ export interface IStorage {
   getActiveVisibilitySet(graphId: string): Promise<VisibilitySet | undefined>;
   setActiveVisibilitySet(graphId: string, setId: string): Promise<boolean>;
   executeVisibilityQuery(graphId: string, sparqlQuery: string): Promise<string[]>;
+  
+  // Data management
+  clearAllData(): Promise<void>;
+  loadBuildingDataset(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -543,6 +547,420 @@ export class DatabaseStorage implements IStorage {
       .filter(t => t.predicate === RDF_PREDICATES.TYPE && t.object === RDF_TYPES.NODE)
       .forEach(t => nodes.add(t.subject));
     return Array.from(nodes);
+  }
+
+  async clearAllData(): Promise<void> {
+    // Delete all data from all tables
+    await db.delete(visibilitySets);
+    await db.delete(rdfTriples);
+    await db.delete(graphs);
+  }
+
+  async loadBuildingDataset(): Promise<void> {
+    const graphId = nanoid();
+    
+    // Create the main graph
+    await this.createGraph({
+      graphId,
+      name: "Building RDF Dataset",
+      description: "Complete building information dataset with RDF triples"
+    });
+
+    // Define building dataset triples based on the RDF file
+    const buildingTriples = [
+      // Main building
+      {
+        graphId,
+        subject: "building:KantoorgebouwCentrum",
+        predicate: RDF_PREDICATES.TYPE,
+        object: "building:Office",
+        objectType: "uri" as const
+      },
+      {
+        graphId,
+        subject: "building:KantoorgebouwCentrum",
+        predicate: RDF_PREDICATES.LABEL,
+        object: "Kantoorgebouw Centrum Amsterdam",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "building:KantoorgebouwCentrum",
+        predicate: "property:buildingHeight",
+        object: "45.5",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "building:KantoorgebouwCentrum",
+        predicate: "property:grossFloorArea",
+        object: "8500.0",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "building:KantoorgebouwCentrum",
+        predicate: "property:numberOfFloors",
+        object: "12",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "building:KantoorgebouwCentrum",
+        predicate: "property:constructionYear",
+        object: "2019",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "building:KantoorgebouwCentrum",
+        predicate: "property:energyLabel",
+        object: "A",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "building:KantoorgebouwCentrum",
+        predicate: "property:address",
+        object: "Damrak 123, 1012 LP Amsterdam, Nederland",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "building:KantoorgebouwCentrum",
+        predicate: RDF_PREDICATES.POSITION_X,
+        object: "400",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "building:KantoorgebouwCentrum",
+        predicate: RDF_PREDICATES.POSITION_Y,
+        object: "300",
+        objectType: "literal" as const
+      },
+
+      // Foundation element
+      {
+        graphId,
+        subject: "element:Foundation001",
+        predicate: RDF_PREDICATES.TYPE,
+        object: "building:Foundation",
+        objectType: "uri" as const
+      },
+      {
+        graphId,
+        subject: "element:Foundation001",
+        predicate: RDF_PREDICATES.LABEL,
+        object: "Hoofdfundering",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "element:Foundation001",
+        predicate: "property:foundationDepth",
+        object: "18.5",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "element:Foundation001",
+        predicate: "property:numberOfPiles",
+        object: "156",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "element:Foundation001",
+        predicate: "property:pileType",
+        object: "Prefab betonpalen",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "element:Foundation001",
+        predicate: RDF_PREDICATES.POSITION_X,
+        object: "200",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "element:Foundation001",
+        predicate: RDF_PREDICATES.POSITION_Y,
+        object: "500",
+        objectType: "literal" as const
+      },
+
+      // Structure element
+      {
+        graphId,
+        subject: "element:Structure001",
+        predicate: RDF_PREDICATES.TYPE,
+        object: "building:Structure",
+        objectType: "uri" as const
+      },
+      {
+        graphId,
+        subject: "element:Structure001",
+        predicate: RDF_PREDICATES.LABEL,
+        object: "Hoofddraagstructuur",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "element:Structure001",
+        predicate: "property:structuralSystem",
+        object: "Stalen frame met betonnen vloeren",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "element:Structure001",
+        predicate: "property:columnSpacing",
+        object: "7.2",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "element:Structure001",
+        predicate: RDF_PREDICATES.POSITION_X,
+        object: "600",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "element:Structure001",
+        predicate: RDF_PREDICATES.POSITION_Y,
+        object: "300",
+        objectType: "literal" as const
+      },
+
+      // Facade element
+      {
+        graphId,
+        subject: "element:Facade001",
+        predicate: RDF_PREDICATES.TYPE,
+        object: "building:Facade",
+        objectType: "uri" as const
+      },
+      {
+        graphId,
+        subject: "element:Facade001",
+        predicate: RDF_PREDICATES.LABEL,
+        object: "Hoofdgevel",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "element:Facade001",
+        predicate: "property:facadeArea",
+        object: "2850.0",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "element:Facade001",
+        predicate: "property:glazingRatio",
+        object: "0.65",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "element:Facade001",
+        predicate: RDF_PREDICATES.POSITION_X,
+        object: "400",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "element:Facade001",
+        predicate: RDF_PREDICATES.POSITION_Y,
+        object: "100",
+        objectType: "literal" as const
+      },
+
+      // Materials
+      {
+        graphId,
+        subject: "material:Concrete_C30_37",
+        predicate: RDF_PREDICATES.TYPE,
+        object: "building:Material",
+        objectType: "uri" as const
+      },
+      {
+        graphId,
+        subject: "material:Concrete_C30_37",
+        predicate: RDF_PREDICATES.LABEL,
+        object: "Beton C30/37",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "material:Concrete_C30_37",
+        predicate: "property:compressiveStrength",
+        object: "30",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "material:Concrete_C30_37",
+        predicate: "property:density",
+        object: "2400",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "material:Concrete_C30_37",
+        predicate: RDF_PREDICATES.POSITION_X,
+        object: "100",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "material:Concrete_C30_37",
+        predicate: RDF_PREDICATES.POSITION_Y,
+        object: "400",
+        objectType: "literal" as const
+      },
+
+      {
+        graphId,
+        subject: "material:Steel_S355",
+        predicate: RDF_PREDICATES.TYPE,
+        object: "building:Material",
+        objectType: "uri" as const
+      },
+      {
+        graphId,
+        subject: "material:Steel_S355",
+        predicate: RDF_PREDICATES.LABEL,
+        object: "Constructiestaal S355",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "material:Steel_S355",
+        predicate: "property:yieldStrength",
+        object: "355",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "material:Steel_S355",
+        predicate: "property:recycledContent",
+        object: "0.85",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "material:Steel_S355",
+        predicate: RDF_PREDICATES.POSITION_X,
+        object: "700",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "material:Steel_S355",
+        predicate: RDF_PREDICATES.POSITION_Y,
+        object: "500",
+        objectType: "literal" as const
+      },
+
+      // Documents
+      {
+        graphId,
+        subject: "doc:ArchitecturalDrawings",
+        predicate: RDF_PREDICATES.TYPE,
+        object: "schema:DigitalDocument",
+        objectType: "uri" as const
+      },
+      {
+        graphId,
+        subject: "doc:ArchitecturalDrawings",
+        predicate: RDF_PREDICATES.LABEL,
+        object: "Architecturale tekeningen",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "doc:ArchitecturalDrawings",
+        predicate: "dcterms:title",
+        object: "Kantoorgebouw Centrum - Architecturale tekeningen v2.1",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "doc:ArchitecturalDrawings",
+        predicate: "dcterms:format",
+        object: "application/pdf",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "doc:ArchitecturalDrawings",
+        predicate: RDF_PREDICATES.POSITION_X,
+        object: "800",
+        objectType: "literal" as const
+      },
+      {
+        graphId,
+        subject: "doc:ArchitecturalDrawings",
+        predicate: RDF_PREDICATES.POSITION_Y,
+        object: "200",
+        objectType: "literal" as const
+      },
+
+      // Relationships - building has elements
+      {
+        graphId,
+        subject: "building:KantoorgebouwCentrum",
+        predicate: "building:hasElement",
+        object: "element:Foundation001",
+        objectType: "uri" as const
+      },
+      {
+        graphId,
+        subject: "building:KantoorgebouwCentrum",
+        predicate: "building:hasElement",
+        object: "element:Structure001",
+        objectType: "uri" as const
+      },
+      {
+        graphId,
+        subject: "building:KantoorgebouwCentrum",
+        predicate: "building:hasElement",
+        object: "element:Facade001",
+        objectType: "uri" as const
+      },
+
+      // Elements have materials
+      {
+        graphId,
+        subject: "element:Foundation001",
+        predicate: "building:hasMaterial",
+        object: "material:Concrete_C30_37",
+        objectType: "uri" as const
+      },
+      {
+        graphId,
+        subject: "element:Structure001",
+        predicate: "building:hasMaterial",
+        object: "material:Steel_S355",
+        objectType: "uri" as const
+      },
+
+      // Building has documents
+      {
+        graphId,
+        subject: "building:KantoorgebouwCentrum",
+        predicate: "building:hasDocument",
+        object: "doc:ArchitecturalDrawings",
+        objectType: "uri" as const
+      }
+    ];
+
+    // Insert all triples
+    await db.insert(rdfTriples).values(buildingTriples);
   }
 }
 

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ExpandIcon, EyeOff, Info, Edit3, Save, X, Plus, Trash2 } from "lucide-react";
+import { ExpandIcon, EyeOff, Info, Edit3, Save, X, Plus, Trash2, Database } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
@@ -41,6 +41,24 @@ export default function GraphSidebar({
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const loadTestDataMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/load-test-data');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/graphs'] });
+      toast({ title: "Building dataset geladen", description: "RDF testdata is succesvol geladen" });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Fout bij laden data", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    }
+  });
   
   const { data: nodeConnections } = useQuery({
     queryKey: ['/api/nodes', selectedNode?.id, 'connections'],
@@ -140,6 +158,19 @@ export default function GraphSidebar({
               </div>
               <div className="text-gray-600 dark:text-gray-400">Relaties</div>
             </div>
+          </div>
+          
+          {/* Load Test Data Button */}
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <Button
+              onClick={() => loadTestDataMutation.mutate()}
+              disabled={loadTestDataMutation.isPending}
+              className="w-full"
+              variant="outline"
+            >
+              <Database className="h-4 w-4 mr-2" />
+              {loadTestDataMutation.isPending ? 'Laden...' : 'Laad Building Dataset'}
+            </Button>
           </div>
         </div>
       )}

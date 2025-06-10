@@ -1,0 +1,356 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix time: <http://www.w3.org/2006/time#> .
+@prefix schema: <http://schema.org/> .
+
+# Custom namespaces voor dit project
+@prefix building: <https://example.org/building/> .
+@prefix classification: <https://example.org/classification/> .
+@prefix property: <https://example.org/property/> .
+@prefix element: <https://example.org/element/> .
+@prefix material: <https://example.org/material/> .
+@prefix doc: <https://example.org/document/> .
+
+# ==================================================
+# HOOFD GEBOUW OBJECT
+# ==================================================
+
+building:KantoorgebouwCentrum 
+    rdf:type building:Office ;
+    rdfs:label "Kantoorgebouw Centrum Amsterdam"@nl ;
+    rdfs:label "Office Building Center Amsterdam"@en ;
+    
+    # Basis eigenschappen
+    property:buildingHeight "45.5"^^xsd:decimal ;
+    property:grossFloorArea "8500.0"^^xsd:decimal ;
+    property:numberOfFloors "12"^^xsd:integer ;
+    property:constructionYear "2019"^^xsd:gYear ;
+    property:renovationYear "2023"^^xsd:gYear ;
+    
+    # Locatie informatie
+    geo:lat "52.3676"^^xsd:decimal ;
+    geo:long "4.9041"^^xsd:decimal ;
+    property:address "Damrak 123, 1012 LP Amsterdam, Nederland"@nl ;
+    property:postalCode "1012LP" ;
+    
+    # Energielabel en duurzaamheid
+    property:energyLabel "A"^^xsd:string ;
+    property:sustainabilityCertification "BREEAM Excellent" ;
+    property:co2Emissions "12.5"^^xsd:decimal ; # kg CO2/m²/jaar
+    
+    # Classificaties
+    classification:buildingType classification:OfficeBuilding ;
+    classification:constructionMethod classification:SteelFrame ;
+    classification:foundationType classification:PileFounding ;
+    
+    # Relaties naar elementen
+    building:hasElement element:Foundation001 ;
+    building:hasElement element:Structure001 ;
+    building:hasElement element:Facade001 ;
+    building:hasElement element:Roof001 ;
+    building:hasElement element:Elevator001 ;
+    building:hasElement element:StairCase001 ;
+    
+    # Gerelateerde documenten
+    building:hasDocument doc:ArchitecturalDrawings ;
+    building:hasDocument doc:StructuralCalculations ;
+    building:hasDocument doc:EnergyReport ;
+    building:hasDocument doc:SafetyReport ;
+    building:hasDocument doc:MaintenanceManual ;
+    
+    # Tijdstempel en versioning
+    dcterms:created "2019-03-15T09:00:00Z"^^xsd:dateTime ;
+    dcterms:modified "2023-11-20T14:30:00Z"^^xsd:dateTime ;
+    dcterms:creator foaf:Person ;
+    schema:version "2.1" .
+
+# ==================================================
+# CLASSIFICATIE SCHEMA
+# ==================================================
+
+classification:OfficeBuilding 
+    rdf:type owl:Class ;
+    rdfs:label "Kantoorgebouw"@nl ;
+    rdfs:label "Office Building"@en ;
+    rdfs:subClassOf building:Building ;
+    rdfs:comment "Een gebouw primair bestemd voor kantoorwerkzaamheden"@nl .
+
+classification:SteelFrame 
+    rdf:type owl:Class ;
+    rdfs:label "Stalen skeletbouw"@nl ;
+    rdfs:label "Steel Frame Construction"@en ;
+    rdfs:comment "Constructiemethode met stalen draagstructuur"@nl .
+
+classification:PileFounding 
+    rdf:type owl:Class ;
+    rdfs:label "Paalfundering"@nl ;
+    rdfs:label "Pile Foundation"@en ;
+    rdfs:comment "Fundering op palen tot draagkrachtige ondergrond"@nl .
+
+# ==================================================
+# BOUW ELEMENTEN
+# ==================================================
+
+element:Foundation001 
+    rdf:type building:Foundation ;
+    rdfs:label "Hoofdfundering"@nl ;
+    
+    property:foundationDepth "18.5"^^xsd:decimal ; # meter
+    property:numberOfPiles "156"^^xsd:integer ;
+    property:pileType "Prefab betonpalen"@nl ;
+    property:loadCapacity "2500"^^xsd:decimal ; # kN per paal
+    
+    building:hasMaterial material:Concrete_C30_37 ;
+    building:hasMaterial material:Steel_S355 ;
+    
+    building:hasDocument doc:FoundationReport ;
+    building:hasDocument doc:SoilInvestigation .
+
+element:Structure001 
+    rdf:type building:Structure ;
+    rdfs:label "Hoofddraagstructuur"@nl ;
+    
+    property:structuralSystem "Stalen frame met betonnen vloeren"@nl ;
+    property:columnSpacing "7.2"^^xsd:decimal ; # meter
+    property:floorThickness "0.25"^^xsd:decimal ; # meter
+    
+    building:hasMaterial material:Steel_S355 ;
+    building:hasMaterial material:Concrete_C25_30 ;
+    
+    building:hasDocument doc:StructuralCalculations ;
+    building:hasDocument doc:WeldingReport .
+
+element:Facade001 
+    rdf:type building:Facade ;
+    rdfs:label "Hoofdgevel"@nl ;
+    
+    property:facadeArea "2850.0"^^xsd:decimal ; # m²
+    property:glazingRatio "0.65"^^xsd:decimal ; # 65% glas
+    property:thermalTransmittance "0.8"^^xsd:decimal ; # W/m²K
+    property:soundInsulation "42"^^xsd:decimal ; # dB
+    
+    building:hasMaterial material:Glass_Triple ;
+    building:hasMaterial material:Aluminum_6063 ;
+    building:hasMaterial material:Insulation_Rockwool ;
+    
+    building:hasDocument doc:FacadeSpecifications ;
+    building:hasDocument doc:ThermalAnalysis .
+
+element:Roof001 
+    rdf:type building:Roof ;
+    rdfs:label "Hoofddak"@nl ;
+    
+    property:roofArea "625.0"^^xsd:decimal ; # m²
+    property:roofType "Plat dak met extensieve begroeiing"@nl ;
+    property:thermalTransmittance "0.15"^^xsd:decimal ; # W/m²K
+    property:waterproofing "EPDM membraan"@nl ;
+    
+    building:hasMaterial material:EPDM_Membrane ;
+    building:hasMaterial material:Insulation_PIR ;
+    building:hasMaterial material:GreenRoof_Sedum ;
+    
+    building:hasDocument doc:RoofSpecifications ;
+    building:hasDocument doc:WaterproofingCertificate .
+
+# ==================================================
+# MATERIAAL SPECIFICATIES
+# ==================================================
+
+material:Concrete_C30_37 
+    rdf:type building:Material ;
+    rdfs:label "Beton C30/37"@nl ;
+    
+    property:compressiveStrength "30"^^xsd:decimal ; # N/mm²
+    property:density "2400"^^xsd:decimal ; # kg/m³
+    property:thermalConductivity "1.8"^^xsd:decimal ; # W/mK
+    property:carbonFootprint "290"^^xsd:decimal ; # kg CO2/m³
+    
+    building:hasDocument doc:ConcreteTestReport .
+
+material:Steel_S355 
+    rdf:type building:Material ;
+    rdfs:label "Constructiestaal S355"@nl ;
+    
+    property:yieldStrength "355"^^xsd:decimal ; # N/mm²
+    property:tensileStrength "510"^^xsd:decimal ; # N/mm²
+    property:density "7850"^^xsd:decimal ; # kg/m³
+    property:recycledContent "0.85"^^xsd:decimal ; # 85% gerecycled
+    
+    building:hasDocument doc:SteelCertificates .
+
+material:Glass_Triple 
+    rdf:type building:Material ;
+    rdfs:label "Drievoudig glas"@nl ;
+    
+    property:thermalTransmittance "0.6"^^xsd:decimal ; # W/m²K
+    property:lightTransmittance "0.72"^^xsd:decimal ; # 72%
+    property:solarHeatGainCoefficient "0.35"^^xsd:decimal ;
+    property:thickness "44"^^xsd:decimal ; # mm
+    
+    building:hasDocument doc:GlassPerformanceData .
+
+# ==================================================
+# DOCUMENTEN EN KOPPELING
+# ==================================================
+
+doc:ArchitecturalDrawings 
+    rdf:type schema:DigitalDocument ;
+    rdfs:label "Architecturale tekeningen"@nl ;
+    
+    dcterms:title "Kantoorgebouw Centrum - Architecturale tekeningen v2.1" ;
+    dcterms:description "Volledige set architecturale tekeningen inclusief plattegronden, gevels en details" ;
+    dcterms:format "application/pdf" ;
+    dcterms:extent "15.2 MB" ;
+    dcterms:created "2019-02-20T10:00:00Z"^^xsd:dateTime ;
+    dcterms:modified "2023-11-15T16:45:00Z"^^xsd:dateTime ;
+    dcterms:creator "Architectenbureau Moderne Vorm BV" ;
+    
+    # Link naar PDF document
+    schema:url "https://example.org/documents/architectural_drawings_v2.1.pdf" ;
+    schema:contentUrl "https://example.org/documents/architectural_drawings_v2.1.pdf" ;
+    
+    # Document classificatie
+    classification:documentType classification:ArchitecturalDrawing ;
+    property:confidentialityLevel "Internal" ;
+    property:revisionNumber "2.1" .
+
+doc:StructuralCalculations 
+    rdf:type schema:DigitalDocument ;
+    rdfs:label "Constructieberekeningen"@nl ;
+    
+    dcterms:title "Statische berekeningen hoofddraagstructuur" ;
+    dcterms:description "Volledige set constructieberekeningen conform Eurocode" ;
+    dcterms:format "application/pdf" ;
+    dcterms:extent "8.7 MB" ;
+    dcterms:created "2019-01-15T14:20:00Z"^^xsd:dateTime ;
+    dcterms:creator "Ingenieursbureau Stabiel & Sterk" ;
+    
+    schema:url "https://example.org/documents/structural_calculations.pdf" ;
+    
+    classification:documentType classification:StructuralCalculation ;
+    property:calculationStandard "EN 1990-1999 (Eurocode)" ;
+    property:approvalStatus "Approved" ;
+    property:approvalDate "2019-02-01"^^xsd:date .
+
+doc:EnergyReport 
+    rdf:type schema:DigitalDocument ;
+    rdfs:label "Energierapport"@nl ;
+    
+    dcterms:title "Energieprestatie en duurzaamheidsrapport" ;
+    dcterms:description "EPA-rapport en BREEAM certificering documentatie" ;
+    dcterms:format "application/pdf" ;
+    dcterms:extent "4.2 MB" ;
+    dcterms:created "2019-08-10T11:30:00Z"^^xsd:dateTime ;
+    dcterms:creator "Duurzaam Advies Consultancy" ;
+    
+    schema:url "https://example.org/documents/energy_performance_report.pdf" ;
+    
+    classification:documentType classification:EnergyReport ;
+    property:energyLabel "A" ;
+    property:breeamScore "83.2"^^xsd:decimal ;
+    property:validUntil "2029-08-10"^^xsd:date .
+
+doc:MaintenanceManual 
+    rdf:type schema:DigitalDocument ;
+    rdfs:label "Onderhoudshandleiding"@nl ;
+    
+    dcterms:title "Technische onderhoudshandleiding gebouwsystemen" ;
+    dcterms:description "Volledige onderhoudshandleiding voor alle gebouwsystemen en componenten" ;
+    dcterms:format "application/pdf" ;
+    dcterms:extent "12.8 MB" ;
+    dcterms:created "2019-09-01T08:00:00Z"^^xsd:dateTime ;
+    dcterms:modified "2023-09-01T10:15:00Z"^^xsd:dateTime ;
+    dcterms:creator "Technisch Beheer Partners" ;
+    
+    schema:url "https://example.org/documents/maintenance_manual_v1.2.pdf" ;
+    
+    classification:documentType classification:MaintenanceManual ;
+    property:maintenanceInterval "Annual" ;
+    property:warrantyPeriod "10 years" ;
+    schema:version "1.2" .
+
+# ==================================================
+# EIGENSCHAPPEN DEFINITIE
+# ==================================================
+
+property:buildingHeight 
+    rdf:type owl:DatatypeProperty ;
+    rdfs:label "Gebouwhoogte"@nl ;
+    rdfs:comment "Totale hoogte van het gebouw in meters"@nl ;
+    rdfs:domain building:Building ;
+    rdfs:range xsd:decimal .
+
+property:grossFloorArea 
+    rdf:type owl:DatatypeProperty ;
+    rdfs:label "Bruto vloeroppervlak"@nl ;
+    rdfs:comment "Totaal bruto vloeroppervlak in vierkante meters"@nl ;
+    rdfs:domain building:Building ;
+    rdfs:range xsd:decimal .
+
+property:numberOfFloors 
+    rdf:type owl:DatatypeProperty ;
+    rdfs:label "Aantal verdiepingen"@nl ;
+    rdfs:comment "Totaal aantal verdiepingen inclusief begane grond"@nl ;
+    rdfs:domain building:Building ;
+    rdfs:range xsd:integer .
+
+property:energyLabel 
+    rdf:type owl:DatatypeProperty ;
+    rdfs:label "Energielabel"@nl ;
+    rdfs:comment "Officieel energielabel volgens Nederlandse norm"@nl ;
+    rdfs:domain building:Building ;
+    rdfs:range xsd:string .
+
+# ==================================================
+# RELATIES DEFINITIE
+# ==================================================
+
+building:hasElement 
+    rdf:type owl:ObjectProperty ;
+    rdfs:label "heeft element"@nl ;
+    rdfs:comment "Relatie tussen gebouw en bouwelementen"@nl ;
+    rdfs:domain building:Building ;
+    rdfs:range building:Element .
+
+building:hasMaterial 
+    rdf:type owl:ObjectProperty ;
+    rdfs:label "heeft materiaal"@nl ;
+    rdfs:comment "Relatie tussen element en materiaal"@nl ;
+    rdfs:domain building:Element ;
+    rdfs:range building:Material .
+
+building:hasDocument 
+    rdf:type owl:ObjectProperty ;
+    rdfs:label "heeft document"@nl ;
+    rdfs:comment "Relatie tussen object en gerelateerd document"@nl ;
+    rdfs:range schema:DigitalDocument .
+
+# ==================================================
+# KLASSEN DEFINITIE
+# ==================================================
+
+building:Building 
+    rdf:type owl:Class ;
+    rdfs:label "Gebouw"@nl ;
+    rdfs:comment "Hoofdklasse voor alle gebouwtypen"@nl .
+
+building:Element 
+    rdf:type owl:Class ;
+    rdfs:label "Bouwelement"@nl ;
+    rdfs:comment "Onderdeel van een bouwwerk"@nl .
+
+building:Material 
+    rdf:type owl:Class ;
+    rdfs:label "Materiaal"@nl ;
+    rdfs:comment "Bouwmateriaal gebruikt in constructie"@nl .
+
+# Specifieke element types
+building:Foundation rdfs:subClassOf building:Element .
+building:Structure rdfs:subClassOf building:Element .
+building:Facade rdfs:subClassOf building:Element .
+building:Roof rdfs:subClassOf building:Element .
