@@ -99,33 +99,52 @@ export default function DraggablePanel({
       return { x: desiredX, y: desiredY };
     }
     
-    // If there's a collision, find a safe position
-    // First, try to snap to appropriate side
-    let targetX = side === 'left' ? snapMargin : window.innerWidth - currentWidth - snapMargin;
+    // If there's a collision, try to find the best alternative position
+    // First, determine if we should be on left or right side based on desired position
+    const isLeftSide = desiredX < window.innerWidth / 2;
+    const targetX = isLeftSide ? snapMargin : window.innerWidth - currentWidth - snapMargin;
     
-    // Sort all panels by Y position to find gaps
-    const allPanels = otherPanels.map(panel => ({
-      ...panel,
-      width: panel.collapsed ? 48 : panel.width,
-      height: panel.collapsed ? 56 : Math.max(400, window.innerHeight - headerHeight - 100)
-    })).sort((a, b) => a.position.y - b.position.y);
+    // Get panels on the same side, sorted by Y position
+    const sameSidePanels = otherPanels
+      .filter(panel => {
+        const panelIsLeftSide = panel.position.x < window.innerWidth / 2;
+        return panelIsLeftSide === isLeftSide;
+      })
+      .map(panel => ({
+        ...panel,
+        width: panel.collapsed ? 48 : panel.width,
+        height: panel.collapsed ? 56 : Math.max(400, window.innerHeight - headerHeight - 100)
+      }))
+      .sort((a, b) => a.position.y - b.position.y);
     
-    // Try to find a vertical gap
+    // Try to place above, between, or below existing panels
     let bestY = headerHeight + snapMargin;
     
-    for (const otherPanel of allPanels) {
-      // Check if there's enough space above this panel
-      if (bestY + currentHeight + 10 <= otherPanel.position.y) {
-        // Found a gap - check if this position would collide with any other panel
-        if (!checkCollision(targetX, bestY, currentWidth, currentHeight)) {
-          return { x: targetX, y: bestY };
-        }
-      }
-      // Move to position below this panel
-      bestY = Math.max(bestY, otherPanel.position.y + otherPanel.height + 10);
+    // Check if we can fit above the first panel
+    if (sameSidePanels.length > 0 && bestY + currentHeight + 10 <= sameSidePanels[0].position.y) {
+      return { x: targetX, y: bestY };
     }
     
-    // If no gaps found, place at the bottom
+    // Check gaps between panels
+    for (let i = 0; i < sameSidePanels.length - 1; i++) {
+      const currentPanel = sameSidePanels[i];
+      const nextPanel = sameSidePanels[i + 1];
+      
+      const gapStart = currentPanel.position.y + currentPanel.height + 10;
+      const gapEnd = nextPanel.position.y - 10;
+      
+      if (gapEnd - gapStart >= currentHeight) {
+        return { x: targetX, y: gapStart };
+      }
+    }
+    
+    // Place below the last panel
+    if (sameSidePanels.length > 0) {
+      const lastPanel = sameSidePanels[sameSidePanels.length - 1];
+      bestY = lastPanel.position.y + lastPanel.height + 10;
+    }
+    
+    // Make sure we don't go beyond the viewport
     const maxY = window.innerHeight - currentHeight - snapMargin;
     bestY = Math.min(bestY, maxY);
     
@@ -186,7 +205,7 @@ export default function DraggablePanel({
     return { snappedPos: nonCollidingPos, snapZone: null };
   };
 
-  // Dragging logic with strict collision prevention
+  // Dragging logic with flexible collision prevention
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging) {
@@ -204,38 +223,56 @@ export default function DraggablePanel({
         const constrainedX = Math.max(0, Math.min(rawX, maxX));
         const constrainedY = Math.max(headerHeight, Math.min(rawY, maxY));
         
-        // Always use collision detection to find valid position
-        const validPosition = findNonCollidingPosition(constrainedX, constrainedY);
-        
-        // Update snap preview only if we're close to a snap zone
+        // Only apply collision detection when we're close to snapping or actually overlapping
         const snapThreshold = 40;
+        let shouldUseCollisionDetection = false;
         let snapZone = null;
         
-        // Check for left side snap
-        if (Math.abs(constrainedX - 10) < snapThreshold) {
-          snapZone = {
-            type: 'left' as const,
-            x: validPosition.x,
-            y: validPosition.y,
-            width: currentWidth,
-            height: currentHeight
-          };
+        // Check if we're close to snap zones
+        const isNearLeftSnap = Math.abs(constrainedX - 10) < snapThreshold;
+        const isNearRightSnap = Math.abs(constrainedX - (window.innerWidth - currentWidth - 10)) < snapThreshold;
+        
+        if (isNearLeftSnap || isNearRightSnap) {
+          shouldUseCollisionDetection = true;
+          
+          if (isNearLeftSnap) {
+            snapZone = {
+              type: 'left' as const,
+              x: 10,
+              y: constrainedY,
+              width: currentWidth,
+              height: currentHeight
+            };
+          } else {
+            snapZone = {
+              type: 'right' as const,
+              x: window.innerWidth - currentWidth - 10,
+              y: constrainedY,
+              width: currentWidth,
+              height: currentHeight
+            };
+          }
         }
-        // Check for right side snap
-        else if (Math.abs(constrainedX - (window.innerWidth - currentWidth - 10)) < snapThreshold) {
-          snapZone = {
-            type: 'right' as const,
-            x: validPosition.x,
-            y: validPosition.y,
-            width: currentWidth,
-            height: currentHeight
-          };
+        
+        // Also check if we're actually overlapping with another panel
+        const hasCollision = checkCollision(constrainedX, constrainedY, currentWidth, currentHeight);
+        if (hasCollision) {
+          shouldUseCollisionDetection = true;
+        }
+        
+        let finalPosition;
+        if (shouldUseCollisionDetection) {
+          finalPosition = findNonCollidingPosition(constrainedX, constrainedY);
+          if (snapZone) {
+            snapZone.x = finalPosition.x;
+            snapZone.y = finalPosition.y;
+          }
+        } else {
+          finalPosition = { x: constrainedX, y: constrainedY };
         }
         
         setSnapPreview(snapZone);
-        
-        // Always apply the collision-free position
-        onPositionChange(validPosition);
+        onPositionChange(finalPosition);
       }
     };
 
