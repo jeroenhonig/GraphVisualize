@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Minus, RotateCcw, Download, Settings, Maximize, Search, Upload, FileText, BarChart3, Database, Network } from "lucide-react";
+import { Plus, Minus, RotateCcw, Download, Settings, Maximize, Search, Upload, FileText, BarChart3, Database, Network, TrendingUp } from "lucide-react";
 import { useGraph } from "@/hooks/use-graph";
 
 export default function GraphVisualizer() {
@@ -33,6 +33,7 @@ export default function GraphVisualizer() {
   const [exportFormat, setExportFormat] = useState("png");
   const [exportQuality, setExportQuality] = useState("standard");
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
 
   const handleZoomIn = () => {
@@ -94,7 +95,7 @@ export default function GraphVisualizer() {
               </Button>
             </div>
             
-            {/* Import/Export Section */}
+            {/* Import/Export/Analytics Section */}
             <div className="flex items-center space-x-2">
               <Button
                 variant="ghost"
@@ -111,6 +112,14 @@ export default function GraphVisualizer() {
               >
                 <Download className="h-4 w-4 mr-2" />
                 Exporteren
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setAnalyticsModalOpen(true)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              >
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Analytics
               </Button>
             </div>
             
@@ -129,22 +138,14 @@ export default function GraphVisualizer() {
         {/* Sidebar with Tabs */}
         <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
           <Tabs defaultValue="nodes" className="flex-1 flex flex-col">
-            <TabsList className="grid w-full grid-cols-4 mx-4 mt-4">
-              <TabsTrigger value="nodes" className="text-xs">
-                <Network className="h-3 w-3 mr-1" />
+            <TabsList className="grid w-full grid-cols-2 mx-4 mt-4">
+              <TabsTrigger value="nodes">
+                <Network className="h-4 w-4 mr-2" />
                 Nodes
               </TabsTrigger>
-              <TabsTrigger value="sparql" className="text-xs">
-                <Search className="h-3 w-3 mr-1" />
+              <TabsTrigger value="sparql">
+                <Search className="h-4 w-4 mr-2" />
                 SPARQL
-              </TabsTrigger>
-              <TabsTrigger value="statistics" className="text-xs">
-                <BarChart3 className="h-3 w-3 mr-1" />
-                Stats
-              </TabsTrigger>
-              <TabsTrigger value="data" className="text-xs">
-                <Database className="h-3 w-3 mr-1" />
-                Data
               </TabsTrigger>
             </TabsList>
             
@@ -171,61 +172,7 @@ export default function GraphVisualizer() {
               )}
             </TabsContent>
             
-            <TabsContent value="statistics" className="flex-1 overflow-hidden p-4">
-              <GraphStatistics graphData={currentGraph} />
-            </TabsContent>
-            
-            <TabsContent value="data" className="flex-1 overflow-hidden p-4">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">RDF Data Browser</h3>
-                {currentGraph && (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded">
-                        <div className="font-medium">Total Triples</div>
-                        <div className="text-2xl font-bold text-blue-600">
-                          {currentGraph.nodeCount + currentGraph.edgeCount}
-                        </div>
-                      </div>
-                      <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded">
-                        <div className="font-medium">Unique Types</div>
-                        <div className="text-2xl font-bold text-green-600">
-                          {new Set(currentGraph.nodes.map(n => n.type)).size}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="border rounded-lg p-3">
-                      <h4 className="font-medium mb-2">Node Types</h4>
-                      <div className="space-y-1 text-sm">
-                        {Array.from(new Set(currentGraph.nodes.map((n: any) => n.type))).map((type: string) => (
-                          <div key={type} className="flex justify-between">
-                            <span>{type}</span>
-                            <span className="text-gray-500">
-                              {currentGraph.nodes.filter((n: any) => n.type === type).length}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div className="border rounded-lg p-3">
-                      <h4 className="font-medium mb-2">Relation Types</h4>
-                      <div className="space-y-1 text-sm">
-                        {Array.from(new Set(currentGraph.edges.map(e => e.type))).map(type => (
-                          <div key={type} className="flex justify-between">
-                            <span>{type}</span>
-                            <span className="text-gray-500">
-                              {currentGraph.edges.filter(e => e.type === type).length}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
+
           </Tabs>
         </div>
 
@@ -340,6 +287,88 @@ export default function GraphVisualizer() {
             <Button onClick={handleExport}>
               <Download className="h-4 w-4 mr-2" />
               Exporteren
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Analytics Modal */}
+      <Dialog open={analyticsModalOpen} onOpenChange={setAnalyticsModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Graph Analytics & Data</DialogTitle>
+          </DialogHeader>
+          
+          {currentGraph && (
+            <div className="space-y-6 py-4">
+              {/* Statistics Section */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Statistieken</h3>
+                <GraphStatistics graphData={currentGraph} />
+              </div>
+              
+              {/* Data Browser Section */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">RDF Data Browser</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded">
+                      <div className="font-medium">Total Triples</div>
+                      <div className="text-2xl font-bold text-blue-600">
+                        {currentGraph.nodeCount + currentGraph.edgeCount}
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded">
+                      <div className="font-medium">Unique Node Types</div>
+                      <div className="text-2xl font-bold text-green-600">
+                        {new Set(currentGraph.nodes.map((n: any) => n.type)).size}
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded">
+                      <div className="font-medium">Unique Relations</div>
+                      <div className="text-2xl font-bold text-purple-600">
+                        {new Set(currentGraph.edges.map((e: any) => e.type)).size}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-medium mb-3">Node Types</h4>
+                      <div className="space-y-2 text-sm max-h-48 overflow-y-auto">
+                        {Array.from(new Set(currentGraph.nodes.map((n: any) => n.type))).map((type: string) => (
+                          <div key={type} className="flex justify-between items-center">
+                            <span className="truncate">{type}</span>
+                            <span className="text-gray-500 bg-gray-100 px-2 py-1 rounded text-xs ml-2">
+                              {currentGraph.nodes.filter((n: any) => n.type === type).length}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-medium mb-3">Relation Types</h4>
+                      <div className="space-y-2 text-sm max-h-48 overflow-y-auto">
+                        {Array.from(new Set(currentGraph.edges.map((e: any) => e.type))).map((type: string) => (
+                          <div key={type} className="flex justify-between items-center">
+                            <span className="truncate">{type}</span>
+                            <span className="text-gray-500 bg-gray-100 px-2 py-1 rounded text-xs ml-2">
+                              {currentGraph.edges.filter((e: any) => e.type === type).length}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div className="flex justify-end pt-4">
+            <Button variant="ghost" onClick={() => setAnalyticsModalOpen(false)}>
+              Sluiten
             </Button>
           </div>
         </DialogContent>
