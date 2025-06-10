@@ -68,7 +68,7 @@ export default function GraphCanvas({
       data: Record<string, any>;
     }) => {
       const graphId = graph?.graphId || graph?.id;
-      return await apiRequest(`/api/graphs/${graphId}/nodes`, "POST", {
+      const response = await apiRequest("POST", `/api/graphs/${graphId}/nodes`, {
         nodeId: nodeData.nodeId,
         label: nodeData.label,
         type: nodeData.type,
@@ -77,9 +77,12 @@ export default function GraphCanvas({
         y: nodeData.y,
         data: nodeData.data,
       });
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/graphs", graph?.graphId || graph?.id] });
+      setContextMenu({ ...contextMenu, visible: false });
       toast({
         title: "Knoop aangemaakt",
         description: "Nieuwe knoop is succesvol toegevoegd aan de graaf",
@@ -145,7 +148,7 @@ export default function GraphCanvas({
 
     try {
       await createNodeMutation.mutateAsync({
-        graphId: graph.id,
+        graphId: graph.graphId || graph.id,
         nodeId: nanoid(),
         label: newNodeLabel,
         type: newNodeType,
