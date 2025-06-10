@@ -292,6 +292,7 @@ export default function GraphCanvas({
           cursor: isDragging ? 'grabbing' : 'grab',
         }}
         viewBox="0 0 1200 800"
+        onContextMenu={handleContextMenu}
       />
 
       {/* Loading State */}
@@ -321,6 +322,74 @@ export default function GraphCanvas({
           </div>
         </div>
       )}
+
+      {/* Context Menu */}
+      {contextMenu.visible && (
+        <div
+          className="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
+          style={{
+            left: contextMenu.x,
+            top: contextMenu.y,
+          }}
+        >
+          <button
+            onClick={handleCreateNode}
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          >
+            <Plus className="h-4 w-4" />
+            Nieuwe knoop maken
+          </button>
+        </div>
+      )}
+
+      {/* Create Node Dialog */}
+      <Dialog open={showCreateNodeDialog} onOpenChange={setShowCreateNodeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nieuwe Knoop Maken</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="nodeLabel">Knoop Naam</Label>
+              <Input
+                id="nodeLabel"
+                value={newNodeLabel}
+                onChange={(e) => setNewNodeLabel(e.target.value)}
+                placeholder="Voer knoop naam in..."
+              />
+            </div>
+            <div>
+              <Label htmlFor="nodeType">Knoop Type</Label>
+              <Select value={newNodeType} onValueChange={setNewNodeType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecteer type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Standaard</SelectItem>
+                  <SelectItem value="person">Persoon</SelectItem>
+                  <SelectItem value="organization">Organisatie</SelectItem>
+                  <SelectItem value="event">Gebeurtenis</SelectItem>
+                  <SelectItem value="location">Locatie</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowCreateNodeDialog(false)}
+              >
+                Annuleren
+              </Button>
+              <Button 
+                onClick={handleCreateNodeSubmit}
+                disabled={createNodeMutation.isPending}
+              >
+                {createNodeMutation.isPending ? "Maken..." : "Knoop Maken"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

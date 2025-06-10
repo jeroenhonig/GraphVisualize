@@ -117,7 +117,7 @@ export default function GraphSidebar({
                     <span className="text-gray-600">ID:</span>
                     <span className="ml-2 font-mono text-xs">{selectedNode.id}</span>
                   </div>
-                  {nodeConnections && (
+                  {nodeConnections && Array.isArray((nodeConnections as any)?.connections) && (
                     <div>
                       <span className="text-gray-600">Connecties:</span>
                       <span className="ml-2 font-mono">{(nodeConnections as any)?.connections?.length || 0}</span>

@@ -199,7 +199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update graph node count
       await storage.updateGraph(graphId, {
-        nodeCount: graph.nodeCount + 1,
+        nodeCount: (graph.nodeCount || 0) + 1,
       });
 
       res.json(node);
@@ -245,7 +245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update graph edge count
       await storage.updateGraph(graphId, {
-        edgeCount: graph.edgeCount + 1,
+        edgeCount: (graph.edgeCount || 0) + 1,
       });
 
       res.json(edge);

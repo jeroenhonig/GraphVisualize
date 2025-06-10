@@ -1,6 +1,7 @@
 import { graphs, graphNodes, graphEdges, type Graph, type GraphNode, type GraphEdge, type InsertGraph, type InsertGraphNode, type InsertGraphEdge } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
+import { nanoid } from "nanoid";
 
 export interface IStorage {
   // Graph operations
@@ -208,6 +209,7 @@ export class DatabaseStorage implements IStorage {
     const [graph] = await db
       .insert(graphs)
       .values({
+        graphId: nanoid(),
         ...insertGraph,
         description: insertGraph.description || null,
         nodeCount: insertGraph.nodeCount || 0,
@@ -254,8 +256,8 @@ export class DatabaseStorage implements IStorage {
       .values({
         ...insertNode,
         data: insertNode.data || {},
-        x: insertNode.x || 0,
-        y: insertNode.y || 0,
+        x: insertNode.x ?? null,
+        y: insertNode.y ?? null,
       })
       .returning();
     return node;
@@ -310,7 +312,7 @@ export class DatabaseStorage implements IStorage {
       .insert(graphEdges)
       .values({
         ...insertEdge,
-        label: insertEdge.label || null,
+        label: insertEdge.label ?? null,
         data: insertEdge.data || {},
       })
       .returning();
