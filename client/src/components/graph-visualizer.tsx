@@ -5,14 +5,18 @@ import SparqlQueryPanel from "./sparql-query-panel";
 import GraphStatistics from "./graph-statistics";
 import FileUpload from "./file-upload";
 import GraphCreator from "./graph-creator";
+import SaveViewDialog from "./save-view-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RotateCcw, Download, Settings, Maximize, Search, Upload, FileText, BarChart3, Database, Network, TrendingUp, ChevronDown, ChevronRight } from "lucide-react";
+import { RotateCcw, Download, Settings, Maximize, Search, Upload, FileText, BarChart3, Database, Network, TrendingUp, ChevronDown, ChevronRight, Save, Eye, Trash2 } from "lucide-react";
 import { useGraph } from "@/hooks/use-graph";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function GraphVisualizer() {
   const {
@@ -35,7 +39,71 @@ export default function GraphVisualizer() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [expandedTreeItems, setExpandedTreeItems] = useState<Set<string>>(new Set(['nodes', 'relations']));
+  const [expandedTreeItems, setExpandedTreeItems] = useState<Set<string>>(new Set(['nodes', 'relations', 'saved-views']));
+  const [saveViewDialogOpen, setSaveViewDialogOpen] = useState(false);
+
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch saved views for current graph
+  const { data: savedViews = [] } = useQuery({
+    queryKey: ["/api/graphs", currentGraph?.graphId, "saved-views"],
+    queryFn: async () => {
+      if (!currentGraph?.graphId) return [];
+      const response = await apiRequest("GET", `/api/graphs/${currentGraph.graphId}/saved-views`);
+      return response.json();
+    },
+    enabled: !!currentGraph?.graphId
+  });
+
+  // Apply saved view mutation
+  const applySavedViewMutation = useMutation({
+    mutationFn: async (viewId: string) => {
+      const response = await apiRequest("POST", `/api/saved-views/${viewId}/apply`);
+      return response.json();
+    },
+    onSuccess: (viewData) => {
+      setVisibleNodes(new Set(viewData.visibleNodeIds));
+      setTransform(viewData.transform);
+      // Apply node positions if available
+      if (viewData.nodePositions && Object.keys(viewData.nodePositions).length > 0) {
+        // Node positions would be applied through the graph canvas component
+      }
+      toast({
+        title: "View toegepast",
+        description: "Opgeslagen view is succesvol geladen",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Fout",
+        description: "Kon opgeslagen view niet laden",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Delete saved view mutation
+  const deleteSavedViewMutation = useMutation({
+    mutationFn: async (viewId: string) => {
+      const response = await apiRequest("DELETE", `/api/saved-views/${viewId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/graphs", currentGraph?.graphId, "saved-views"] });
+      toast({
+        title: "View verwijderd",
+        description: "Opgeslagen view is verwijderd",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Fout",
+        description: "Kon view niet verwijderen",
+        variant: "destructive",
+      });
+    }
+  });
 
   const toggleTreeItem = (itemId: string) => {
     setExpandedTreeItems(prev => {
@@ -215,6 +283,81 @@ export default function GraphVisualizer() {
                           </span>
                         </div>
                       ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Saved Views Section */}
+                <div>
+                  <button
+                    onClick={() => toggleTreeItem('saved-views')}
+                    className="flex items-center w-full p-2 text-left hover:bg-gray-50 rounded"
+                  >
+                    {expandedTreeItems.has('saved-views') ? (
+                      <ChevronDown className="h-4 w-4 mr-2" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 mr-2" />
+                    )}
+                    <Save className="h-4 w-4 mr-2 text-purple-600" />
+                    <span className="font-medium">Opgeslagen Views</span>
+                    <span className="ml-auto text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                      {savedViews.length}
+                    </span>
+                  </button>
+                  
+                  {expandedTreeItems.has('saved-views') && (
+                    <div className="ml-6 mt-2 space-y-1">
+                      {/* Save Current View Button */}
+                      <button
+                        onClick={() => setSaveViewDialogOpen(true)}
+                        className="flex items-center w-full p-2 text-sm text-blue-600 hover:bg-blue-50 rounded border border-blue-200 border-dashed"
+                        disabled={!currentGraph}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        Huidige View Opslaan
+                      </button>
+                      
+                      {/* Saved Views List */}
+                      {savedViews.map((view: any) => (
+                        <div
+                          key={view.viewId}
+                          className="flex items-center justify-between p-2 text-sm hover:bg-gray-50 rounded group"
+                        >
+                          <div className="flex items-center min-w-0 flex-1">
+                            <div className="w-3 h-3 bg-purple-500 rounded mr-2 flex-shrink-0"></div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate">{view.name}</div>
+                              {view.description && (
+                                <div className="text-xs text-gray-500 truncate">{view.description}</div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => applySavedViewMutation.mutate(view.viewId)}
+                              className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                              title="View toepassen"
+                              disabled={applySavedViewMutation.isPending}
+                            >
+                              <Eye className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => deleteSavedViewMutation.mutate(view.viewId)}
+                              className="p-1 text-red-600 hover:bg-red-100 rounded"
+                              title="View verwijderen"
+                              disabled={deleteSavedViewMutation.isPending}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {savedViews.length === 0 && (
+                        <div className="text-xs text-gray-500 p-2 text-center">
+                          Geen opgeslagen views
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -450,6 +593,16 @@ export default function GraphVisualizer() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Save View Dialog */}
+      <SaveViewDialog
+        open={saveViewDialogOpen}
+        onOpenChange={setSaveViewDialogOpen}
+        graphId={currentGraph?.graphId || ""}
+        visibleNodeIds={Array.from(visibleNodes)}
+        transform={transform}
+        nodePositions={{}} // Would need to pass actual node positions from graph canvas
+      />
     </div>
   );
 }

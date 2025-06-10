@@ -270,6 +270,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Saved Views API endpoints
+  
+  // Create a saved view
+  app.post("/api/graphs/:graphId/saved-views", async (req, res) => {
+    try {
+      const { graphId } = req.params;
+      const result = insertSavedViewSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: "Invalid saved view data", errors: result.error.errors });
+      }
+
+      const viewId = nanoid();
+      const savedView = await storage.createSavedView({
+        ...result.data,
+        viewId,
+        graphId,
+      });
+
+      res.json(savedView);
+    } catch (error) {
+      console.error('Saved view creation error:', error);
+      res.status(500).json({ message: "Failed to create saved view" });
+    }
+  });
+
+  // Get all saved views for a graph
+  app.get("/api/graphs/:graphId/saved-views", async (req, res) => {
+    try {
+      const { graphId } = req.params;
+      const savedViews = await storage.getSavedViewsByGraph(graphId);
+      res.json(savedViews);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch saved views" });
+    }
+  });
+
+  // Get specific saved view
+  app.get("/api/saved-views/:viewId", async (req, res) => {
+    try {
+      const { viewId } = req.params;
+      const savedView = await storage.getSavedView(viewId);
+      if (!savedView) {
+        return res.status(404).json({ message: "Saved view not found" });
+      }
+      res.json(savedView);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch saved view" });
+    }
+  });
+
+  // Apply saved view
+  app.post("/api/saved-views/:viewId/apply", async (req, res) => {
+    try {
+      const { viewId } = req.params;
+      const viewData = await storage.applySavedView(viewId);
+      res.json(viewData);
+    } catch (error) {
+      console.error('Apply saved view error:', error);
+      res.status(500).json({ message: "Failed to apply saved view" });
+    }
+  });
+
+  // Update saved view
+  app.patch("/api/saved-views/:viewId", async (req, res) => {
+    try {
+      const { viewId } = req.params;
+      const updatedView = await storage.updateSavedView(viewId, req.body);
+      if (!updatedView) {
+        return res.status(404).json({ message: "Saved view not found" });
+      }
+      res.json(updatedView);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update saved view" });
+    }
+  });
+
+  // Delete saved view
+  app.delete("/api/saved-views/:viewId", async (req, res) => {
+    try {
+      const { viewId } = req.params;
+      const deleted = await storage.deleteSavedView(viewId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Saved view not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete saved view" });
+    }
+  });
+
   // Get raw RDF triples for debugging
   app.get("/api/graphs/:graphId/rdf-triples", async (req, res) => {
     try {
