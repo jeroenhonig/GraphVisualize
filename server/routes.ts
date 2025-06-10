@@ -530,6 +530,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // SPARQL-based visibility set management
+  app.post("/api/graphs/:graphId/visibility-sets", async (req, res) => {
+    try {
+      const { graphId } = req.params;
+      
+      const result = insertVisibilitySetSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: "Invalid visibility set data", errors: result.error.errors });
+      }
+
+      const setId = nanoid();
+      const visibilitySet = await storage.createVisibilitySet({
+        ...result.data,
+        setId,
+        graphId,
+      });
+
+      res.json(visibilitySet);
+    } catch (error) {
+      console.error('Visibility set creation error:', error);
+      res.status(500).json({ message: "Failed to create visibility set" });
+    }
+  });
+
+  // Get all visibility sets for a graph
+  app.get("/api/graphs/:graphId/visibility-sets", async (req, res) => {
+    try {
+      const { graphId } = req.params;
+      const visibilitySets = await storage.getVisibilitySetsByGraph(graphId);
+      res.json(visibilitySets);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch visibility sets" });
+    }
+  });
+
+  // Set active visibility set
+  app.post("/api/graphs/:graphId/visibility-sets/:setId/activate", async (req, res) => {
+    try {
+      const { graphId, setId } = req.params;
+      
+      await storage.setActiveVisibilitySet(graphId, setId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to activate visibility set" });
+    }
+  });
+
+  // Execute SPARQL query for visibility
+  app.post("/api/graphs/:graphId/sparql", async (req, res) => {
+    try {
+      const { graphId } = req.params;
+      const { query } = req.body;
+
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ message: "SPARQL query is required" });
+      }
+
+      const visibleNodeIds = await storage.executeVisibilityQuery(graphId, query);
+      res.json({ visibleNodeIds });
+    } catch (error) {
+      console.error('SPARQL query error:', error);
+      res.status(500).json({ message: "Failed to execute SPARQL query" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

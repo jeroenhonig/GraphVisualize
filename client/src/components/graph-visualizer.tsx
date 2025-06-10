@@ -1,12 +1,14 @@
 import { useState } from "react";
 import GraphSidebar from "./graph-sidebar";
 import GraphCanvas from "./graph-canvas";
+import SparqlQueryPanel from "./sparql-query-panel";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Plus, Minus, RotateCcw, Download, Settings, Maximize } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Minus, RotateCcw, Download, Settings, Maximize, Search } from "lucide-react";
 import { useGraph } from "@/hooks/use-graph";
 
 export default function GraphVisualizer() {
@@ -108,14 +110,39 @@ export default function GraphVisualizer() {
       </header>
 
       <div className="flex h-screen pt-16">
-        {/* Sidebar */}
-        <GraphSidebar
-          currentGraph={currentGraph}
-          selectedNode={selectedNode}
-          onNodeSelect={setSelectedNode}
-          onNodeExpand={expandNode}
-          onNodeCollapse={collapseNode}
-        />
+        {/* Sidebar with Tabs */}
+        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+          <Tabs defaultValue="nodes" className="flex-1 flex flex-col">
+            <TabsList className="grid w-full grid-cols-2 mx-4 mt-4">
+              <TabsTrigger value="nodes">Knopen</TabsTrigger>
+              <TabsTrigger value="sparql">
+                <Search className="h-4 w-4 mr-1" />
+                SPARQL
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="nodes" className="flex-1 overflow-hidden">
+              <GraphSidebar
+                currentGraph={currentGraph}
+                selectedNode={selectedNode}
+                onNodeSelect={setSelectedNode}
+                onNodeExpand={expandNode}
+                onNodeCollapse={collapseNode}
+              />
+            </TabsContent>
+            
+            <TabsContent value="sparql" className="flex-1 overflow-hidden p-4">
+              {currentGraph && (
+                <SparqlQueryPanel
+                  graphId={currentGraph.graphId}
+                  onVisibilityChange={(visibleNodeIds) => {
+                    setVisibleNodes(new Set(visibleNodeIds));
+                  }}
+                />
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
 
         {/* Main Graph Area */}
         <div className="flex-1 relative bg-graph-background">
