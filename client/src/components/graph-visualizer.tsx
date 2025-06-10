@@ -172,6 +172,7 @@ export default function GraphVisualizer() {
             onVisibleNodesChange={setVisibleNodes}
             transform={transform}
             onTransformChange={setTransform}
+            editMode={editMode}
           />
 
           {/* Graph Controls Overlay */}

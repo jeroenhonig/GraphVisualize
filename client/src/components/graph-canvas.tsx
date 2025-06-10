@@ -34,6 +34,7 @@ export default function GraphCanvas({
   onVisibleNodesChange,
   transform,
   onTransformChange,
+  editMode = false,
 }: GraphCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,7 +53,6 @@ export default function GraphCanvas({
   // Physics simulation state
   const [physicsEnabled, setPhysicsEnabled] = useState(true);
   const [animationId, setAnimationId] = useState<number | null>(null);
-  const [editMode, setEditMode] = useState(false);
   
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ 
