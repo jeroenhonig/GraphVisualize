@@ -250,18 +250,22 @@ export default function DraggablePanel({
         const constrainedX = Math.max(0, Math.min(rawX, maxX));
         const constrainedY = Math.max(headerHeight, Math.min(rawY, maxY));
         
-        // Check for collisions and snap zones with larger threshold
-        const snapThreshold = 80; // Increased from 40
+        // Improved snap zone detection that works across the entire screen
         let snapZone = null;
         
         // Define snap positions
         const leftSnapX = 10;
         const rightSnapX = window.innerWidth - currentWidth - 10;
-        const quarterWidth = window.innerWidth / 4;
+        const screenQuarter = window.innerWidth / 4;
+        const screenThreeQuarters = (window.innerWidth * 3) / 4;
         
-        // Check if we're close to snap zones (more generous detection)
-        const isNearLeftSnap = constrainedX < quarterWidth || Math.abs(constrainedX - leftSnapX) < snapThreshold;
-        const isNearRightSnap = constrainedX > (window.innerWidth - quarterWidth) || Math.abs(constrainedX - rightSnapX) < snapThreshold;
+        // More generous snap detection: left half of screen snaps left, right half snaps right
+        const isNearLeftSnap = constrainedX < window.innerWidth / 2;
+        const isNearRightSnap = constrainedX >= window.innerWidth / 2;
+        
+        // Also check for edge proximity for stronger snapping
+        const isCloseToLeftEdge = constrainedX < screenQuarter;
+        const isCloseToRightEdge = constrainedX > screenThreeQuarters;
         
         // Always check for collisions - no exceptions
         const hasCollision = checkCollision(constrainedX, constrainedY, currentWidth, currentHeight);
@@ -275,10 +279,11 @@ export default function DraggablePanel({
           finalPosition = { x: constrainedX, y: constrainedY };
         }
         
-        // Handle snapping with better positioning
-        if (isNearLeftSnap) {
-          // Force snap to left side and find safe Y position
-          finalPosition = findNonCollidingPosition(leftSnapX, finalPosition.y);
+        // Handle snapping based on screen position
+        if (isNearLeftSnap || isCloseToLeftEdge) {
+          // Snap to left side
+          const targetPosition = findNonCollidingPosition(leftSnapX, finalPosition.y);
+          finalPosition = targetPosition;
           
           snapZone = {
             type: 'left' as const,
@@ -287,9 +292,10 @@ export default function DraggablePanel({
             width: currentWidth,
             height: currentHeight
           };
-        } else if (isNearRightSnap) {
-          // Force snap to right side and find safe Y position
-          finalPosition = findNonCollidingPosition(rightSnapX, finalPosition.y);
+        } else if (isNearRightSnap || isCloseToRightEdge) {
+          // Snap to right side
+          const targetPosition = findNonCollidingPosition(rightSnapX, finalPosition.y);
+          finalPosition = targetPosition;
           
           snapZone = {
             type: 'right' as const,
