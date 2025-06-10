@@ -167,41 +167,64 @@ export default function GraphVisualizer() {
             
           </div>
           
-          <div className="flex items-center space-x-2">
-            <div className="flex items-center space-x-1">
-              <Button
-                variant="ghost"
-                onClick={() => setImportModalOpen(true)}
-                className="px-4 py-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50"
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Importeren
-              </Button>
-              
-              
-              <Button
-                variant="ghost"
-                onClick={() => setExportModalOpen(true)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                disabled={!currentGraph}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Exporteren
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setAnalyticsModalOpen(true)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-              >
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Analytics
-              </Button>
-            </div>
+          <div className="flex items-center space-x-3">
+            {/* Graph Dropdown Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800">
+                  <Network className="h-4 w-4 mr-2" />
+                  <div className="flex flex-col items-start text-left">
+                    <span className="font-medium text-sm">
+                      {currentGraph ? currentGraph.name : "Geen graph geselecteerd"}
+                    </span>
+                    {currentGraph && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {currentGraph.nodeCount} nodes • {currentGraph.edgeCount} edges
+                      </span>
+                    )}
+                  </div>
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <div className="px-2 py-1.5 text-sm font-semibold">Graph Operaties</div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setImportModalOpen(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Data Importeren
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setExportModalOpen(true)}
+                  disabled={!currentGraph}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Exporteren
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setSaveViewDialogOpen(true)}
+                  disabled={!currentGraph}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  View Opslaan
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setAnalyticsModalOpen(true)}>
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Analytics
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={rotateLayout}>
+                  <Layout className="h-4 w-4 mr-2" />
+                  Layout Roteren
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             
             <Button
               variant="ghost"
               size="sm"
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              onClick={() => setSettingsModalOpen(true)}
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+              title="Instellingen"
             >
               <Settings className="h-4 w-4" />
             </Button>
@@ -632,6 +655,73 @@ export default function GraphVisualizer() {
               editMode={editMode}
               onEditModeChange={setEditMode}
             />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Settings Modal */}
+      <Dialog open={settingsModalOpen} onOpenChange={setSettingsModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Instellingen</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Account</h3>
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                    U
+                  </div>
+                  <div>
+                    <div className="font-medium">Gebruiker</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">gebruiker@example.com</div>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => window.location.href = "/api/login"}
+                    className="w-full"
+                  >
+                    Inloggen met Replit
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Voorkeuren</h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="dark-mode">Donkere modus</Label>
+                  <Button variant="outline" size="sm">
+                    Systeem
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="notifications">Meldingen</Label>
+                  <Button variant="outline" size="sm">
+                    Aan
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Data</h3>
+              <div className="space-y-2">
+                <Button variant="outline" className="w-full justify-start">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export alle data
+                </Button>
+                <Button variant="outline" className="w-full justify-start text-red-600 hover:text-red-700">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Wis alle data
+                </Button>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
