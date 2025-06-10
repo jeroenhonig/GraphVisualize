@@ -256,7 +256,8 @@ export class DatabaseStorage implements IStorage {
 
         // Delete non-system properties
         for (const triple of existingTriples) {
-          if (!systemPredicates.includes(triple.predicate as any)) {
+          const isSystemProperty = systemPredicates.some(sysPred => sysPred === triple.predicate);
+          if (!isSystemProperty) {
             await db
               .delete(rdfTriples)
               .where(
