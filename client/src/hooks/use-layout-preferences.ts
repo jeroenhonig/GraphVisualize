@@ -1,21 +1,47 @@
 import { useState, useEffect } from "react";
 
-export interface LayoutPreferences {
-  leftSidebarCollapsed: boolean;
-  rightSidebarCollapsed: boolean;
-  leftSidebarPosition: { x: number; y: number };
-  rightSidebarPosition: { x: number; y: number };
-  leftSidebarWidth: number;
-  rightSidebarWidth: number;
+export interface LayoutPosition {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
+export interface LayoutPreferences {
+  currentLayout: 1 | 2 | 3; // Layout configuration number
+  collapsed: {
+    navigation: boolean;
+    details: boolean;
+    view: boolean;
+  };
+}
+
+// Define the three layout configurations
+export const LAYOUT_POSITIONS = {
+  1: {
+    navigation: { x: 20, y: 100, width: 320, height: 'calc(100vh - 140px)' },
+    view: { x: 'calc(50% - 160px)', y: 100, width: 320, height: 'calc(100vh - 140px)' },
+    details: { x: 'calc(100% - 340px)', y: 100, width: 320, height: 'calc(100vh - 140px)' }
+  },
+  2: {
+    navigation: { x: 20, y: 100, width: 320, height: 'calc(50vh - 90px)' },
+    details: { x: 20, y: 'calc(50vh + 10px)', width: 320, height: 'calc(50vh - 90px)' },
+    view: { x: 'calc(100% - 340px)', y: 100, width: 320, height: 'calc(100vh - 140px)' }
+  },
+  3: {
+    view: { x: 20, y: 100, width: 320, height: 'calc(100vh - 140px)' },
+    navigation: { x: 'calc(100% - 340px)', y: 100, width: 320, height: 'calc(50vh - 90px)' },
+    details: { x: 'calc(100% - 340px)', y: 'calc(50vh + 10px)', width: 320, height: 'calc(50vh - 90px)' }
+  }
+} as const;
+
 const DEFAULT_PREFERENCES: LayoutPreferences = {
-  leftSidebarCollapsed: false,
-  rightSidebarCollapsed: false,
-  leftSidebarPosition: { x: 20, y: 100 }, // Below header with margin
-  rightSidebarPosition: { x: typeof window !== 'undefined' ? window.innerWidth - 340 : 800, y: 100 }, // Right side with margin
-  leftSidebarWidth: 320,
-  rightSidebarWidth: 320,
+  currentLayout: 1,
+  collapsed: {
+    navigation: false,
+    details: false,
+    view: false,
+  },
 };
 
 export function useLayoutPreferences() {
@@ -43,43 +69,32 @@ export function useLayoutPreferences() {
     setPreferences(prev => ({ ...prev, ...updates }));
   };
 
-  const toggleLeftSidebar = () => {
-    updatePreferences({ leftSidebarCollapsed: !preferences.leftSidebarCollapsed });
+  const rotateLayout = () => {
+    const nextLayout = (preferences.currentLayout % 3) + 1 as 1 | 2 | 3;
+    updatePreferences({ currentLayout: nextLayout });
   };
 
-  const toggleRightSidebar = () => {
-    updatePreferences({ rightSidebarCollapsed: !preferences.rightSidebarCollapsed });
+  const togglePanelCollapse = (panel: 'navigation' | 'details' | 'view') => {
+    updatePreferences({ 
+      collapsed: { 
+        ...preferences.collapsed, 
+        [panel]: !preferences.collapsed[panel] 
+      } 
+    });
   };
 
-  const updateLeftPosition = (position: { x: number; y: number }) => {
-    updatePreferences({ leftSidebarPosition: position });
-  };
-
-  const updateRightPosition = (position: { x: number; y: number }) => {
-    updatePreferences({ rightSidebarPosition: position });
-  };
-
-  const updateLeftWidth = (width: number) => {
-    updatePreferences({ leftSidebarWidth: Math.max(200, Math.min(600, width)) });
-  };
-
-  const updateRightWidth = (width: number) => {
-    updatePreferences({ rightSidebarWidth: Math.max(200, Math.min(600, width)) });
-  };
-
-  const resetToDefault = () => {
-    setPreferences(DEFAULT_PREFERENCES);
+  const getCurrentPositions = () => {
+    if (typeof window === 'undefined') {
+      return LAYOUT_POSITIONS[1]; // Default for SSR
+    }
+    return LAYOUT_POSITIONS[preferences.currentLayout];
   };
 
   return {
     preferences,
     updatePreferences,
-    toggleLeftSidebar,
-    toggleRightSidebar,
-    updateLeftPosition,
-    updateRightPosition,
-    updateLeftWidth,
-    updateRightWidth,
-    resetToDefault,
+    rotateLayout,
+    togglePanelCollapse,
+    getCurrentPositions,
   };
 }

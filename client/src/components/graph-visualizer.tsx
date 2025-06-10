@@ -6,7 +6,7 @@ import GraphStatistics from "./graph-statistics";
 import FileUpload from "./file-upload";
 import GraphCreator from "./graph-creator";
 import SaveViewDialog from "./save-view-dialog";
-import DraggablePanel from "./draggable-panel";
+import LayoutPanel from "./layout-panel";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -48,27 +48,15 @@ export default function GraphVisualizer() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Layout preferences for draggable sidebars
+  // Layout preferences for 3-position system
   const {
     preferences,
-    toggleLeftSidebar,
-    toggleRightSidebar,
-    updateLeftPosition,
-    updateRightPosition,
-    updateLeftWidth,
-    updateRightWidth,
-    resetToDefault,
+    rotateLayout,
+    togglePanelCollapse,
+    getCurrentPositions,
   } = useLayoutPreferences();
 
-  // Set initial right sidebar position based on window width
-  useEffect(() => {
-    if (preferences.rightSidebarPosition.x === 0) {
-      updateRightPosition({ 
-        x: window.innerWidth - preferences.rightSidebarWidth - 20, 
-        y: 80 
-      });
-    }
-  }, []);
+  const positions = getCurrentPositions();
 
   // Fetch all graphs
   const { data: graphs = [] } = useQuery({
@@ -256,16 +244,16 @@ export default function GraphVisualizer() {
           editMode={editMode}
           panelConstraints={{
             leftPanel: {
-              x: preferences.leftSidebarPosition.x,
-              y: preferences.leftSidebarPosition.y,
-              width: preferences.leftSidebarWidth,
-              collapsed: preferences.leftSidebarCollapsed
+              x: typeof positions.navigation.x === 'string' ? 20 : positions.navigation.x,
+              y: typeof positions.navigation.y === 'string' ? 100 : positions.navigation.y,
+              width: typeof positions.navigation.width === 'string' ? 320 : positions.navigation.width,
+              collapsed: preferences.collapsed.navigation
             },
             rightPanel: {
-              x: preferences.rightSidebarPosition.x,
-              y: preferences.rightSidebarPosition.y,
-              width: preferences.rightSidebarWidth,
-              collapsed: preferences.rightSidebarCollapsed
+              x: typeof positions.details.x === 'string' ? 800 : positions.details.x,
+              y: typeof positions.details.y === 'string' ? 100 : positions.details.y,
+              width: typeof positions.details.width === 'string' ? 320 : positions.details.width,
+              collapsed: preferences.collapsed.details
             }
           }}
         />
@@ -288,24 +276,14 @@ export default function GraphVisualizer() {
           </Button>
         </div>
 
-        {/* Left Draggable Sidebar - Graph Navigation */}
-        <DraggablePanel
+        {/* Navigation Panel */}
+        <LayoutPanel
           title="Graph Navigatie"
-          position={preferences.leftSidebarPosition}
-          width={preferences.leftSidebarWidth}
-          collapsed={preferences.leftSidebarCollapsed}
-          side="left"
-          onPositionChange={updateLeftPosition}
-          onWidthChange={updateLeftWidth}
-          onToggleCollapse={toggleLeftSidebar}
-          otherPanels={[
-            {
-              position: preferences.rightSidebarPosition,
-              width: preferences.rightSidebarWidth,
-              collapsed: preferences.rightSidebarCollapsed,
-              side: "right"
-            }
-          ]}
+          panelType="navigation"
+          position={positions.navigation}
+          collapsed={preferences.collapsed.navigation}
+          onToggleCollapse={() => togglePanelCollapse('navigation')}
+          onRotateLayout={rotateLayout}
         >
           <div className="h-full flex flex-col">
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -493,26 +471,32 @@ export default function GraphVisualizer() {
               </TabsContent>
             </Tabs>
           </div>
-        </DraggablePanel>
+        </LayoutPanel>
 
-        {/* Right Draggable Sidebar - Node Details & Edit */}
-        <DraggablePanel
+        {/* View Panel */}
+        <LayoutPanel
+          title="Graph Weergave"
+          panelType="view"
+          position={positions.view}
+          collapsed={preferences.collapsed.view}
+          onToggleCollapse={() => togglePanelCollapse('view')}
+          onRotateLayout={rotateLayout}
+        >
+          <div className="p-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Graph visualisatie in het hoofdvenster
+            </p>
+          </div>
+        </LayoutPanel>
+
+        {/* Details Panel */}
+        <LayoutPanel
           title="Node Details"
-          position={preferences.rightSidebarPosition}
-          width={preferences.rightSidebarWidth}
-          collapsed={preferences.rightSidebarCollapsed}
-          side="right"
-          onPositionChange={updateRightPosition}
-          onWidthChange={updateRightWidth}
-          onToggleCollapse={toggleRightSidebar}
-          otherPanels={[
-            {
-              position: preferences.leftSidebarPosition,
-              width: preferences.leftSidebarWidth,
-              collapsed: preferences.leftSidebarCollapsed,
-              side: "left"
-            }
-          ]}
+          panelType="details"
+          position={positions.details}
+          collapsed={preferences.collapsed.details}
+          onToggleCollapse={() => togglePanelCollapse('details')}
+          onRotateLayout={rotateLayout}
         >
           <GraphSidebar
             currentGraph={currentGraph}
@@ -523,7 +507,7 @@ export default function GraphVisualizer() {
             editMode={editMode}
             onEditModeChange={setEditMode}
           />
-        </DraggablePanel>
+        </LayoutPanel>
       </div>
       {/* Import Modal */}
       <Dialog open={importModalOpen} onOpenChange={setImportModalOpen}>
