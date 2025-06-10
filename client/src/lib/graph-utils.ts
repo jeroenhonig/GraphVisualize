@@ -24,9 +24,9 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
     vy: 0,
   }));
 
-  // Simple force simulation
-  for (let i = 0; i < 100; i++) {
-    // Repulsion between nodes
+  // Enhanced force simulation with better spacing
+  for (let i = 0; i < 200; i++) {
+    // Stronger repulsion between nodes to reduce overlap
     for (let j = 0; j < layoutNodes.length; j++) {
       for (let k = j + 1; k < layoutNodes.length; k++) {
         const node1 = layoutNodes[j];
@@ -36,18 +36,22 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
         const dy = node2.y - node1.y;
         const distance = Math.sqrt(dx * dx + dy * dy) || 1;
         
-        const force = 1000 / (distance * distance);
-        const fx = (dx / distance) * force;
-        const fy = (dy / distance) * force;
-        
-        node1.vx -= fx;
-        node1.vy -= fy;
-        node2.vx += fx;
-        node2.vy += fy;
+        // Increased repulsion force and minimum distance
+        const minDistance = 150;
+        if (distance < minDistance) {
+          const force = (minDistance - distance) * 3;
+          const fx = (dx / distance) * force;
+          const fy = (dy / distance) * force;
+          
+          node1.vx -= fx * 0.1;
+          node1.vy -= fy * 0.1;
+          node2.vx += fx * 0.1;
+          node2.vy += fy * 0.1;
+        }
       }
     }
 
-    // Attraction along edges
+    // Moderate attraction along edges with optimal length
     edges.forEach(edge => {
       const source = layoutNodes.find(n => n.id === edge.source);
       const target = layoutNodes.find(n => n.id === edge.target);
@@ -57,7 +61,9 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
         const dy = target.y - source.y;
         const distance = Math.sqrt(dx * dx + dy * dy) || 1;
         
-        const force = distance * 0.01;
+        // Optimal edge length for better distribution
+        const optimalLength = 180;
+        const force = (distance - optimalLength) * 0.02;
         const fx = (dx / distance) * force;
         const fy = (dy / distance) * force;
         
@@ -68,16 +74,26 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
       }
     });
 
-    // Apply velocity and damping
+    // Center force to keep graph centered
+    const centerX = 600;
+    const centerY = 400;
     layoutNodes.forEach(node => {
-      node.x += node.vx;
-      node.y += node.vy;
-      node.vx *= 0.9;
-      node.vy *= 0.9;
+      const dx = centerX - node.x;
+      const dy = centerY - node.y;
+      node.vx += dx * 0.002;
+      node.vy += dy * 0.002;
+    });
+
+    // Apply velocity with improved damping
+    layoutNodes.forEach(node => {
+      node.x += node.vx * 0.8;
+      node.y += node.vy * 0.8;
+      node.vx *= 0.88;
+      node.vy *= 0.88;
       
-      // Keep nodes within bounds
-      node.x = Math.max(50, Math.min(1150, node.x));
-      node.y = Math.max(50, Math.min(750, node.y));
+      // Keep nodes within bounds with more padding
+      node.x = Math.max(100, Math.min(1100, node.x));
+      node.y = Math.max(100, Math.min(700, node.y));
     });
   }
 
@@ -111,29 +127,73 @@ export function renderGraph(
   const nodesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   mainGroup.appendChild(nodesGroup);
 
-  // Render edges
+  // Render edges with curved paths
   edges.forEach(edge => {
     const sourceNode = nodes.find(n => n.id === edge.source);
     const targetNode = nodes.find(n => n.id === edge.target);
     
     if (!sourceNode || !targetNode) return;
 
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('x1', sourceNode.x.toString());
-    line.setAttribute('y1', sourceNode.y.toString());
-    line.setAttribute('x2', targetNode.x.toString());
-    line.setAttribute('y2', targetNode.y.toString());
-    line.setAttribute('stroke', 'hsl(215, 20%, 65%)');
-    line.setAttribute('stroke-width', '2');
-    line.setAttribute('opacity', '0.6');
-    line.classList.add('transition-all', 'duration-200');
+    // Calculate curved path to avoid overlapping and reduce intersections
+    const dx = targetNode.x - sourceNode.x;
+    const dy = targetNode.y - sourceNode.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // Create curve based on distance and angle
+    const curvature = Math.min(distance * 0.25, 60);
+    const angle = Math.atan2(dy, dx);
+    const perpAngle = angle + Math.PI / 2;
+    
+    // Control point for the curve - offset to create natural curves
+    const midX = (sourceNode.x + targetNode.x) / 2;
+    const midY = (sourceNode.y + targetNode.y) / 2;
+    const controlX = midX + Math.cos(perpAngle) * curvature;
+    const controlY = midY + Math.sin(perpAngle) * curvature;
+
+    // Create curved path using quadratic Bézier curve
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const pathData = `M ${sourceNode.x} ${sourceNode.y} Q ${controlX} ${controlY} ${targetNode.x} ${targetNode.y}`;
+    path.setAttribute('d', pathData);
+    path.setAttribute('stroke', 'hsl(215, 30%, 55%)');
+    path.setAttribute('stroke-width', '3');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('opacity', '0.75');
+    path.setAttribute('stroke-linecap', 'round');
+    path.classList.add('transition-all', 'duration-200');
+    
+    // Add subtle shadow for depth
+    const shadowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    shadowPath.setAttribute('d', pathData);
+    shadowPath.setAttribute('stroke', 'rgba(0,0,0,0.08)');
+    shadowPath.setAttribute('stroke-width', '5');
+    shadowPath.setAttribute('fill', 'none');
+    shadowPath.setAttribute('stroke-linecap', 'round');
+    edgesGroup.appendChild(shadowPath);
     
     // Add edge label if exists
     if (edge.label) {
-      line.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'title')).textContent = edge.label;
+      const labelText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      labelText.setAttribute('x', controlX.toString());
+      labelText.setAttribute('y', (controlY + 4).toString());
+      labelText.setAttribute('text-anchor', 'middle');
+      labelText.setAttribute('class', 'text-xs fill-gray-700 font-medium pointer-events-none');
+      labelText.textContent = edge.label;
+      
+      // Background circle for label readability
+      const labelBg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      labelBg.setAttribute('cx', controlX.toString());
+      labelBg.setAttribute('cy', controlY.toString());
+      labelBg.setAttribute('r', '14');
+      labelBg.setAttribute('fill', 'white');
+      labelBg.setAttribute('opacity', '0.9');
+      labelBg.setAttribute('stroke', 'hsl(215, 20%, 75%)');
+      labelBg.setAttribute('stroke-width', '1');
+      
+      edgesGroup.appendChild(labelBg);
+      edgesGroup.appendChild(labelText);
     }
 
-    edgesGroup.appendChild(line);
+    edgesGroup.appendChild(path);
   });
 
   // Render nodes
