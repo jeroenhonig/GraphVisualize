@@ -50,7 +50,8 @@ export default function GraphSidebar({
   const updateNodeMutation = useMutation({
     mutationFn: async (updates: { label?: string; type?: string; data?: Record<string, any> }) => {
       if (!selectedNode) throw new Error('Geen node geselecteerd');
-      return apiRequest(`/api/nodes/${selectedNode.id}`, 'PATCH', updates);
+      const response = await apiRequest('PATCH', `/api/nodes/${selectedNode.id}`, updates);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/graphs'] });
