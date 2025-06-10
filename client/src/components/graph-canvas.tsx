@@ -53,6 +53,7 @@ export default function GraphCanvas({
   // Physics simulation state
   const [physicsEnabled, setPhysicsEnabled] = useState(true);
   const [animationId, setAnimationId] = useState<number | null>(null);
+  const [physicsTimeout, setPhysicsTimeout] = useState<NodeJS.Timeout | null>(null);
   
   // Drag threshold to distinguish between click and drag
   const [mouseDownPosition, setMouseDownPosition] = useState<{ x: number; y: number } | null>(null);
@@ -288,6 +289,8 @@ export default function GraphCanvas({
           onVisibleNodesChange(initialVisible);
         }
         
+        // Disable physics after initial layout to prevent position interference
+        setPhysicsEnabled(false);
         setIsLoading(false);
       }, 500);
     }
@@ -329,14 +332,31 @@ export default function GraphCanvas({
       {
         selectedNodeId: selectedNode?.id,
         onNodeClick: onNodeSelect,
-        onNodeDoubleClick: onNodeExpand,
+        onNodeDoubleClick: (nodeId: string) => {
+          // Temporarily enable physics for node expansion
+          setPhysicsEnabled(true);
+          
+          // Clear any existing timeout
+          if (physicsTimeout) {
+            clearTimeout(physicsTimeout);
+          }
+          
+          // Auto-disable physics after 3 seconds
+          const timeout = setTimeout(() => {
+            setPhysicsEnabled(false);
+          }, 3000);
+          setPhysicsTimeout(timeout);
+          
+          // Call the expand function
+          onNodeExpand(nodeId);
+        },
         onNodeContextMenu: (e: MouseEvent, nodeId: string) => {
           handleNodeContextMenu(e as any, nodeId);
         },
         transform,
       }
     );
-  }, [graph, visibleNodes, selectedNode, transform, onNodeSelect, onNodeExpand, localNodePositions, handleNodeContextMenu]);
+  }, [graph, visibleNodes, selectedNode, transform, onNodeSelect, onNodeExpand, localNodePositions, handleNodeContextMenu, physicsTimeout]);
 
   // Physics simulation loop
   useEffect(() => {
