@@ -154,6 +154,193 @@ function parseExcelToGraph(buffer: Buffer, filename: string) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Create empty graph manually
+  app.post("/api/graphs", async (req, res) => {
+    try {
+      const result = insertGraphSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: "Invalid graph data", errors: result.error.errors });
+      }
+
+      const graphId = nanoid();
+      const graph = await storage.createGraph({
+        ...result.data,
+        graphId,
+      });
+
+      res.json(graph);
+    } catch (error) {
+      console.error('Graph creation error:', error);
+      res.status(500).json({ message: "Failed to create graph" });
+    }
+  });
+
+  // Add node to graph
+  app.post("/api/graphs/:graphId/nodes", async (req, res) => {
+    try {
+      const { graphId } = req.params;
+      
+      const graph = await storage.getGraph(graphId);
+      if (!graph) {
+        return res.status(404).json({ message: "Graph not found" });
+      }
+
+      const result = insertGraphNodeSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: "Invalid node data", errors: result.error.errors });
+      }
+
+      const nodeId = result.data.nodeId || nanoid();
+      const node = await storage.createNode({
+        ...result.data,
+        nodeId,
+        graphId,
+      });
+
+      // Update graph node count
+      await storage.updateGraph(graphId, {
+        nodeCount: graph.nodeCount + 1,
+      });
+
+      res.json(node);
+    } catch (error) {
+      console.error('Node creation error:', error);
+      res.status(500).json({ message: "Failed to create node" });
+    }
+  });
+
+  // Add edge to graph
+  app.post("/api/graphs/:graphId/edges", async (req, res) => {
+    try {
+      const { graphId } = req.params;
+      
+      const graph = await storage.getGraph(graphId);
+      if (!graph) {
+        return res.status(404).json({ message: "Graph not found" });
+      }
+
+      const result = insertGraphEdgeSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: "Invalid edge data", errors: result.error.errors });
+      }
+
+      // Verify source and target nodes exist
+      const sourceNode = await storage.getNode(result.data.sourceId);
+      const targetNode = await storage.getNode(result.data.targetId);
+      
+      if (!sourceNode || !targetNode) {
+        return res.status(400).json({ message: "Source or target node not found" });
+      }
+
+      if (sourceNode.graphId !== graphId || targetNode.graphId !== graphId) {
+        return res.status(400).json({ message: "Nodes must belong to the same graph" });
+      }
+
+      const edgeId = result.data.edgeId || nanoid();
+      const edge = await storage.createEdge({
+        ...result.data,
+        edgeId,
+        graphId,
+      });
+
+      // Update graph edge count
+      await storage.updateGraph(graphId, {
+        edgeCount: graph.edgeCount + 1,
+      });
+
+      res.json(edge);
+    } catch (error) {
+      console.error('Edge creation error:', error);
+      res.status(500).json({ message: "Failed to create edge" });
+    }
+  });
+
+  // Update node
+  app.patch("/api/nodes/:nodeId", async (req, res) => {
+    try {
+      const { nodeId } = req.params;
+      
+      const node = await storage.getNode(nodeId);
+      if (!node) {
+        return res.status(404).json({ message: "Node not found" });
+      }
+
+      const allowedUpdates = ['label', 'type', 'data', 'x', 'y'];
+      const updates = Object.keys(req.body)
+        .filter(key => allowedUpdates.includes(key))
+        .reduce((obj, key) => {
+          obj[key] = req.body[key];
+          return obj;
+        }, {} as any);
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No valid updates provided" });
+      }
+
+      const updatedNode = await storage.updateNode(nodeId, updates);
+      res.json(updatedNode);
+    } catch (error) {
+      console.error('Node update error:', error);
+      res.status(500).json({ message: "Failed to update node" });
+    }
+  });
+
+  // Delete node
+  app.delete("/api/nodes/:nodeId", async (req, res) => {
+    try {
+      const { nodeId } = req.params;
+      
+      const node = await storage.getNode(nodeId);
+      if (!node) {
+        return res.status(404).json({ message: "Node not found" });
+      }
+
+      const deleted = await storage.deleteNode(nodeId);
+      if (deleted) {
+        // Update graph node count
+        const graph = await storage.getGraph(node.graphId);
+        if (graph) {
+          await storage.updateGraph(node.graphId, {
+            nodeCount: Math.max(0, graph.nodeCount - 1),
+          });
+        }
+      }
+
+      res.json({ success: deleted });
+    } catch (error) {
+      console.error('Node deletion error:', error);
+      res.status(500).json({ message: "Failed to delete node" });
+    }
+  });
+
+  // Delete edge
+  app.delete("/api/edges/:edgeId", async (req, res) => {
+    try {
+      const { edgeId } = req.params;
+      
+      const edge = await storage.getEdge(edgeId);
+      if (!edge) {
+        return res.status(404).json({ message: "Edge not found" });
+      }
+
+      const deleted = await storage.deleteEdge(edgeId);
+      if (deleted) {
+        // Update graph edge count
+        const graph = await storage.getGraph(edge.graphId);
+        if (graph) {
+          await storage.updateGraph(edge.graphId, {
+            edgeCount: Math.max(0, graph.edgeCount - 1),
+          });
+        }
+      }
+
+      res.json({ success: deleted });
+    } catch (error) {
+      console.error('Edge deletion error:', error);
+      res.status(500).json({ message: "Failed to delete edge" });
+    }
+  });
+
   // Upload and parse Excel file
   app.post("/api/graphs/upload", upload.single('file'), async (req, res) => {
     try {

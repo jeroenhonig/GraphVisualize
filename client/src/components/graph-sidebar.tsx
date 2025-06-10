@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import { ExpandIcon, EyeOff, Info } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import FileUpload from "./file-upload";
+import GraphCreator from "./graph-creator";
 import type { GraphData, VisualizationNode } from "@shared/schema";
 
 interface GraphSidebarProps {
