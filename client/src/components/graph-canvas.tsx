@@ -186,10 +186,10 @@ export default function GraphCanvas({
   useEffect(() => {
     if (!graph || !svgRef.current) return;
 
-    const visibleNodesArray = graph.nodes.filter(node => visibleNodes.has(node.id));
-    const visibleEdges = graph.edges.filter(
+    const visibleNodesArray = graph.nodes?.filter(node => visibleNodes.has(node.id)) || [];
+    const visibleEdges = graph.edges?.filter(
       edge => visibleNodes.has(edge.source) && visibleNodes.has(edge.target)
-    );
+    ) || [];
 
     renderGraph(
       svgRef.current,

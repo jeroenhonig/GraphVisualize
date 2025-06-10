@@ -45,6 +45,7 @@ export const insertGraphNodeSchema = createInsertSchema(graphNodes).omit({
 export const insertGraphEdgeSchema = createInsertSchema(graphEdges).omit({
   id: true,
   createdAt: true,
+  graphId: true,
 });
 
 export const insertGraphSchema = createInsertSchema(graphs).omit({

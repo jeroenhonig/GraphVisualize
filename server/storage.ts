@@ -254,7 +254,10 @@ export class DatabaseStorage implements IStorage {
     const [node] = await db
       .insert(graphNodes)
       .values({
-        ...insertNode,
+        nodeId: insertNode.nodeId,
+        label: insertNode.label,
+        type: insertNode.type,
+        graphId: insertNode.graphId,
         data: insertNode.data || {},
         x: insertNode.x ?? null,
         y: insertNode.y ?? null,
@@ -311,7 +314,11 @@ export class DatabaseStorage implements IStorage {
     const [edge] = await db
       .insert(graphEdges)
       .values({
-        ...insertEdge,
+        edgeId: insertEdge.edgeId,
+        sourceId: insertEdge.sourceId,
+        targetId: insertEdge.targetId,
+        type: insertEdge.type,
+        graphId: insertEdge.graphId,
         label: insertEdge.label ?? null,
         data: insertEdge.data || {},
       })

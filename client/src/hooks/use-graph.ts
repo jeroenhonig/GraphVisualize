@@ -48,7 +48,7 @@ export function useGraph() {
     // Add connected nodes to visible set
     const connectedNodeIds = new Set<string>();
     
-    currentGraph.edges.forEach(edge => {
+    currentGraph.edges?.forEach(edge => {
       if (edge.source === nodeId && !visibleNodes.has(edge.target)) {
         connectedNodeIds.add(edge.target);
       }

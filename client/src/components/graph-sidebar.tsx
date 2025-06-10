@@ -76,7 +76,7 @@ export default function GraphSidebar({
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Zichtbare Knopen:</span>
               <span className="text-sm font-mono font-medium text-blue-600">
-                {currentGraph.nodes.filter(n => n.visible !== false).length}
+                {currentGraph.nodes?.filter(n => n.visible !== false).length || 0}
               </span>
             </div>
             {selectedNode && (
