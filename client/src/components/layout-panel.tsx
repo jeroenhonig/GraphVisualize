@@ -35,12 +35,35 @@ export default function LayoutPanel({
     return collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />;
   };
 
+  // Calculate actual position based on window dimensions
+  const getActualPosition = () => {
+    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    const windowHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+    
+    let actualX = position.x;
+    let actualY = position.y;
+    
+    if (position.x === 'center') {
+      actualX = (windowWidth / 2) - 160;
+    } else if (position.x === 'right') {
+      actualX = windowWidth - 340;
+    }
+    
+    if (position.y === 'bottom-half') {
+      actualY = (windowHeight / 2) + 10;
+    }
+    
+    return { x: actualX, y: actualY };
+  };
+
+  const actualPosition = getActualPosition();
+
   return (
     <div
       className={`fixed bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-30 transition-all duration-300 ${className}`}
       style={{
-        left: position.x,
-        top: position.y,
+        left: actualPosition.x,
+        top: actualPosition.y,
         width: collapsed ? '48px' : position.width,
         height: collapsed ? '56px' : position.height,
       }}

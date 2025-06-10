@@ -193,12 +193,12 @@ export default function GraphVisualizer() {
               </Button>
               <Button
                 variant="ghost"
-                onClick={resetToDefault}
+                onClick={rotateLayout}
                 className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                title="Layout resetten"
+                title="Layout roteren"
               >
                 <Layout className="h-4 w-4 mr-2" />
-                Reset Layout
+                Roteer Layout
               </Button>
               <Button
                 variant="ghost"
@@ -244,15 +244,15 @@ export default function GraphVisualizer() {
           editMode={editMode}
           panelConstraints={{
             leftPanel: {
-              x: typeof positions.navigation.x === 'string' ? 20 : positions.navigation.x,
-              y: typeof positions.navigation.y === 'string' ? 100 : positions.navigation.y,
-              width: typeof positions.navigation.width === 'string' ? 320 : positions.navigation.width,
+              x: 20,
+              y: 100,
+              width: 320,
               collapsed: preferences.collapsed.navigation
             },
             rightPanel: {
-              x: typeof positions.details.x === 'string' ? 800 : positions.details.x,
-              y: typeof positions.details.y === 'string' ? 100 : positions.details.y,
-              width: typeof positions.details.width === 'string' ? 320 : positions.details.width,
+              x: window.innerWidth - 340,
+              y: 100,
+              width: 320,
               collapsed: preferences.collapsed.details
             }
           }}

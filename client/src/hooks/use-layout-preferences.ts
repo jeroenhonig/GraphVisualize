@@ -16,22 +16,22 @@ export interface LayoutPreferences {
   };
 }
 
-// Define the three layout configurations
+// Define the three layout configurations with dynamic positioning
 export const LAYOUT_POSITIONS = {
   1: {
     navigation: { x: 20, y: 100, width: 320, height: 'calc(100vh - 140px)' },
-    view: { x: 'calc(50% - 160px)', y: 100, width: 320, height: 'calc(100vh - 140px)' },
-    details: { x: 'calc(100% - 340px)', y: 100, width: 320, height: 'calc(100vh - 140px)' }
+    view: { x: 'center', y: 100, width: 320, height: 'calc(100vh - 140px)' },
+    details: { x: 'right', y: 100, width: 320, height: 'calc(100vh - 140px)' }
   },
   2: {
     navigation: { x: 20, y: 100, width: 320, height: 'calc(50vh - 90px)' },
-    details: { x: 20, y: 'calc(50vh + 10px)', width: 320, height: 'calc(50vh - 90px)' },
-    view: { x: 'calc(100% - 340px)', y: 100, width: 320, height: 'calc(100vh - 140px)' }
+    details: { x: 20, y: 'bottom-half', width: 320, height: 'calc(50vh - 90px)' },
+    view: { x: 'right', y: 100, width: 320, height: 'calc(100vh - 140px)' }
   },
   3: {
     view: { x: 20, y: 100, width: 320, height: 'calc(100vh - 140px)' },
-    navigation: { x: 'calc(100% - 340px)', y: 100, width: 320, height: 'calc(50vh - 90px)' },
-    details: { x: 'calc(100% - 340px)', y: 'calc(50vh + 10px)', width: 320, height: 'calc(50vh - 90px)' }
+    navigation: { x: 'right', y: 100, width: 320, height: 'calc(50vh - 90px)' },
+    details: { x: 'right', y: 'bottom-half', width: 320, height: 'calc(50vh - 90px)' }
   }
 } as const;
 
