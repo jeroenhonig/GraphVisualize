@@ -3,10 +3,13 @@ import {
   rdfTriples, 
   visibilitySets, 
   savedViews,
+  users,
   type Graph, 
   type RdfTriple, 
   type VisibilitySet, 
   type SavedView,
+  type User,
+  type UpsertUser,
   type InsertGraph, 
   type InsertRdfTriple, 
   type InsertVisibilitySet,
@@ -22,6 +25,10 @@ import { eq, and, not, or } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 export interface IStorage {
+  // User operations for Replit Auth
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  
   // Graph operations
   createGraph(graph: InsertGraph): Promise<Graph>;
   getGraph(graphId: string): Promise<Graph | undefined>;
@@ -68,6 +75,27 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // User operations for Replit Auth
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
   async createGraph(insertGraph: InsertGraph): Promise<Graph> {
     const [graph] = await db
       .insert(graphs)

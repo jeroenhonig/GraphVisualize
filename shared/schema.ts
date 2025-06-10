@@ -2,6 +2,28 @@ import { pgTable, text, serial, timestamp, varchar, jsonb, index } from "drizzle
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Session storage table for Replit Auth
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+// User storage table for Replit Auth
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().notNull(),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Minimal graphs table - only basic metadata
 export const graphs = pgTable("graphs", {
   id: serial("id").primaryKey(),
@@ -75,6 +97,10 @@ export const insertGraphSchema = createInsertSchema(graphs).omit({
 });
 
 // Type definitions
+// User types for Replit Auth
+export type UpsertUser = typeof users.$inferInsert;
+export type User = typeof users.$inferSelect;
+
 export type Graph = typeof graphs.$inferSelect;
 export type RdfTriple = typeof rdfTriples.$inferSelect;
 export type VisibilitySet = typeof visibilitySets.$inferSelect;
