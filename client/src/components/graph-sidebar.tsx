@@ -52,13 +52,6 @@ export default function GraphSidebar({
 
   return (
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-      {/* File Upload Section */}
-      <div className="p-6 border-b border-gray-200 space-y-4">
-        <FileUpload />
-        <GraphCreator onGraphCreated={(graphId) => {
-          // This will be handled by the useGraph hook's auto-selection
-        }} />
-      </div>
 
       {/* Graph Statistics */}
       {currentGraph && (

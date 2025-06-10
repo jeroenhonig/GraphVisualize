@@ -2,13 +2,15 @@ import { useState } from "react";
 import GraphSidebar from "./graph-sidebar";
 import GraphCanvas from "./graph-canvas";
 import SparqlQueryPanel from "./sparql-query-panel";
+import FileUpload from "./file-upload";
+import GraphCreator from "./graph-creator";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Minus, RotateCcw, Download, Settings, Maximize, Search } from "lucide-react";
+import { Plus, Minus, RotateCcw, Download, Settings, Maximize, Search, Upload, FileText } from "lucide-react";
 import { useGraph } from "@/hooks/use-graph";
 
 export default function GraphVisualizer() {
@@ -29,6 +31,7 @@ export default function GraphVisualizer() {
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState("png");
   const [exportQuality, setExportQuality] = useState("standard");
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const handleZoomIn = () => {
     setTransform(prev => ({
@@ -89,14 +92,25 @@ export default function GraphVisualizer() {
               </Button>
             </div>
             
-            <Button
-              variant="ghost"
-              onClick={() => setExportModalOpen(true)}
-              className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Exporteren
-            </Button>
+            {/* Import/Export Section */}
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                onClick={() => setImportModalOpen(true)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Importeren
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setExportModalOpen(true)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Exporteren
+              </Button>
+            </div>
             
             <Button
               variant="ghost"
@@ -176,6 +190,29 @@ export default function GraphVisualizer() {
           </div>
         </div>
       </div>
+
+      {/* Import Modal */}
+      <Dialog open={importModalOpen} onOpenChange={setImportModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Data Importeren of Grafiek Maken</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <Tabs defaultValue="upload" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="upload">Excel Uploaden</TabsTrigger>
+                <TabsTrigger value="create">Handmatig Maken</TabsTrigger>
+              </TabsList>
+              <TabsContent value="upload" className="space-y-4 mt-4">
+                <FileUpload onGraphCreated={() => setImportModalOpen(false)} />
+              </TabsContent>
+              <TabsContent value="create" className="space-y-4 mt-4">
+                <GraphCreator onGraphCreated={() => setImportModalOpen(false)} />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Export Modal */}
       <Dialog open={exportModalOpen} onOpenChange={setExportModalOpen}>
