@@ -410,10 +410,10 @@ export default function GraphCanvas({
         e.preventDefault();
         e.stopPropagation();
         
-        // Select node first for edit mode
+        // Select node immediately
         onNodeSelect(node);
         
-        // Set up potential dragging but don't start yet
+        // Set up dragging data for potential use
         const rect = svgRef.current?.getBoundingClientRect();
         if (rect) {
           const currentPos = localNodePositions[node.id] || { x: node.x, y: node.y };
@@ -444,7 +444,7 @@ export default function GraphCanvas({
       
       if (distance > DRAG_THRESHOLD) {
         setHasDraggedSignificantly(true);
-        // Only start actual dragging after threshold is exceeded
+        // Start dragging based on what was set up in mouseDown
         if (draggedNode) {
           setIsNodeDragging(true);
         } else {
@@ -453,7 +453,7 @@ export default function GraphCanvas({
       }
     }
 
-    if (isNodeDragging && draggedNode && hasDraggedSignificantly) {
+    if (isNodeDragging && draggedNode) {
       // Node dragging with proper coordinate transformation
       const rect = svgRef.current?.getBoundingClientRect();
       if (rect) {
@@ -469,7 +469,7 @@ export default function GraphCanvas({
           [draggedNode.id]: { x: newX, y: newY }
         }));
       }
-    } else if (isDragging && hasDraggedSignificantly) {
+    } else if (isDragging) {
       // Canvas panning
       const deltaX = e.clientX - dragStart.x;
       const deltaY = e.clientY - dragStart.y;

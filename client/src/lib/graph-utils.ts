@@ -541,37 +541,30 @@ export function renderGraph(
     text.textContent = labelText;
     nodeGroup.appendChild(text);
 
-    // Event handlers with double-click prevention for single clicks
-    let clickTimeout: NodeJS.Timeout | null = null;
+    // Simple event handlers - prioritize double-click
+    let clickCount = 0;
+    let clickTimer: NodeJS.Timeout | null = null;
     
     nodeGroup.addEventListener('click', (e) => {
       e.stopPropagation();
+      clickCount++;
       
-      // Delay single click to check for double click
-      if (clickTimeout) {
-        clearTimeout(clickTimeout);
-        clickTimeout = null;
-        return;
+      if (clickCount === 1) {
+        clickTimer = setTimeout(() => {
+          // Single click after delay
+          onNodeClick?.(node);
+          clickCount = 0;
+        }, 300);
+      } else if (clickCount === 2) {
+        // Double click detected
+        if (clickTimer) {
+          clearTimeout(clickTimer);
+          clickTimer = null;
+        }
+        clickCount = 0;
+        console.log('Double click detected on node:', node.id);
+        onNodeDoubleClick?.(node.id);
       }
-      
-      clickTimeout = setTimeout(() => {
-        onNodeClick?.(node);
-        clickTimeout = null;
-      }, 250);
-    });
-
-    nodeGroup.addEventListener('dblclick', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      
-      // Clear single click timeout
-      if (clickTimeout) {
-        clearTimeout(clickTimeout);
-        clickTimeout = null;
-      }
-      
-      console.log('Double click detected on node:', node.id);
-      onNodeDoubleClick?.(node.id);
     });
 
     nodeGroup.addEventListener('contextmenu', (e) => {
