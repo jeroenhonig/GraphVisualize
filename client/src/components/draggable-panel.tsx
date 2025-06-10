@@ -74,8 +74,8 @@ export default function DraggablePanel({
       const otherWidth = otherPanel.collapsed ? 48 : otherPanel.width;
       const otherHeight = otherPanel.collapsed ? 56 : Math.max(400, window.innerHeight - 180);
       
-      // Check if rectangles overlap (with small margin for tolerance)
-      const margin = 5;
+      // Check if rectangles overlap (with generous margin to prevent any overlap)
+      const margin = 20; // Increased from 5 to prevent any visual overlap
       if (!(currentPanel.x + currentPanel.width + margin <= otherPanel.position.x ||
             otherPanel.position.x + otherWidth + margin <= currentPanel.x ||
             currentPanel.y + currentPanel.height + margin <= otherPanel.position.y ||
@@ -90,7 +90,7 @@ export default function DraggablePanel({
   const findNonCollidingPosition = (desiredX: number, desiredY: number): { x: number; y: number } => {
     const headerHeight = 80;
     const snapMargin = 10;
-    const gap = 10; // Gap between panels
+    const gap = 25; // Increased gap between panels to prevent overlap
     const currentWidth = collapsed ? 48 : width;
     const currentHeight = collapsed ? 56 : Math.max(400, window.innerHeight - headerHeight - 100);
     
@@ -373,7 +373,7 @@ export default function DraggablePanel({
     };
   }, [isResizing, side, onWidthChange]);
 
-  // Automatic collision resolution effect
+  // Aggressive automatic collision resolution effect
   useEffect(() => {
     if (isDragging) return; // Don't interfere while dragging
     
@@ -383,12 +383,34 @@ export default function DraggablePanel({
     
     const hasCollision = checkCollision(position.x, position.y, currentWidth, currentHeight);
     if (hasCollision) {
-      // Auto-resolve collision
-      const safePosition = findNonCollidingPosition(position.x, position.y);
-      if (safePosition.x !== position.x || safePosition.y !== position.y) {
+      // Force immediate resolution with timeout to prevent infinite loops
+      const timer = setTimeout(() => {
+        const safePosition = findNonCollidingPosition(position.x, position.y);
+        onPositionChange(safePosition);
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [position, width, collapsed, otherPanels, isDragging]);
+
+  // Additional effect to handle window resize and ensure no overlaps
+  useEffect(() => {
+    const handleWindowResize = () => {
+      if (isDragging) return;
+      
+      const headerHeight = 80;
+      const currentWidth = collapsed ? 48 : width;
+      const currentHeight = collapsed ? 56 : Math.max(400, window.innerHeight - headerHeight - 100);
+      
+      const hasCollision = checkCollision(position.x, position.y, currentWidth, currentHeight);
+      if (hasCollision) {
+        const safePosition = findNonCollidingPosition(position.x, position.y);
         onPositionChange(safePosition);
       }
-    }
+    };
+    
+    window.addEventListener('resize', handleWindowResize);
+    return () => window.removeEventListener('resize', handleWindowResize);
   }, [position, width, collapsed, otherPanels, isDragging]);
 
   const handleDragStart = (e: React.MouseEvent) => {
