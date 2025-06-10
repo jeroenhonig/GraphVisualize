@@ -62,6 +62,8 @@ export const insertVisibilitySetSchema = createInsertSchema(visibilitySets).omit
 
 export const insertSavedViewSchema = createInsertSchema(savedViews).omit({
   id: true,
+  viewId: true,
+  graphId: true,
   createdAt: true,
   updatedAt: true,
 });
