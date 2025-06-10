@@ -73,7 +73,36 @@ export class DatabaseStorage implements IStorage {
       .insert(graphs)
       .values(insertGraph)
       .returning();
+    
+    // Create default "All Nodes & Relations" view for the new graph
+    await this.createDefaultView(graph.graphId);
+    
     return graph;
+  }
+
+  private async createDefaultView(graphId: string): Promise<void> {
+    try {
+      // Check if default view already exists
+      const existingView = await this.getSavedView(`default_${graphId}`);
+      if (existingView) {
+        return;
+      }
+
+      const defaultView = {
+        viewId: `default_${graphId}`,
+        graphId,
+        name: "Alle Nodes & Relaties",
+        description: "Default view met alle nodes en relaties - kan niet worden verwijderd",
+        sparqlQuery: "SELECT ?subject WHERE { ?subject rdf:type graph:Node . }",
+        visibleNodeIds: [] as string[],
+        transform: JSON.stringify({ scale: 1, translateX: 0, translateY: 0 }),
+        nodePositions: JSON.stringify({}),
+      };
+
+      await db.insert(savedViews).values(defaultView);
+    } catch (error) {
+      console.error('Error creating default view:', error);
+    }
   }
 
   async getGraph(graphId: string): Promise<Graph | undefined> {
@@ -572,6 +601,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSavedViewsByGraph(graphId: string): Promise<SavedView[]> {
+    // Ensure default view exists for this graph
+    await this.createDefaultView(graphId);
+    
     return await db
       .select()
       .from(savedViews)
@@ -597,6 +629,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteSavedView(viewId: string): Promise<boolean> {
+    // Prevent deletion of default views
+    if (viewId.startsWith('default_')) {
+      console.log('Cannot delete default view:', viewId);
+      return false;
+    }
+
     const result = await db
       .delete(savedViews)
       .where(eq(savedViews.viewId, viewId));
