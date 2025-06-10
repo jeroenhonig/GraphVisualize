@@ -145,16 +145,16 @@ export default function GraphCanvas({
       return response.json();
     },
     onSuccess: (data, variables) => {
-      // Only invalidate if we're not actively dragging this node
-      if (activeDragNodeId !== variables.nodeId) {
-        // Clear the local position for this node after successful update
-        setLocalNodePositions(prev => {
-          const updated = { ...prev };
-          delete updated[variables.nodeId];
-          return updated;
-        });
-        queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
-      }
+      // Clear the local position for this node after successful update
+      setLocalNodePositions(prev => {
+        const updated = { ...prev };
+        delete updated[variables.nodeId];
+        return updated;
+      });
+      
+      // Invalidate queries to refresh with server data
+      queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/graphs", graph?.graphId || graph?.id] });
     },
     onError: (error: Error, variables) => {
       // Also clear local position on error to prevent stuck state
@@ -408,9 +408,12 @@ export default function GraphCanvas({
         if (!isNodeDragging) {
           const newLocalPositions: Record<string, { x: number; y: number }> = {};
           updatedNodes.forEach(node => {
-            newLocalPositions[node.id] = { x: node.x, y: node.y };
+            // Don't override positions of nodes that were recently dragged
+            if (!localNodePositions[node.id] || !activeDragNodeId || activeDragNodeId !== node.id) {
+              newLocalPositions[node.id] = { x: node.x, y: node.y };
+            }
           });
-          setLocalNodePositions(newLocalPositions);
+          setLocalNodePositions(prev => ({ ...prev, ...newLocalPositions }));
         }
       }
 
@@ -507,10 +510,14 @@ export default function GraphCanvas({
         const newY = svgY - nodeDragStart.y;
         
         // Update local position for immediate visual feedback
-        setLocalNodePositions(prev => ({
-          ...prev,
-          [draggedNode.id]: { x: newX, y: newY }
-        }));
+        setLocalNodePositions(prev => {
+          const updated = {
+            ...prev,
+            [draggedNode.id]: { x: newX, y: newY }
+          };
+          console.log(`Dragging ${draggedNode.id} to:`, { x: newX, y: newY });
+          return updated;
+        });
       }
     } else if (isDragging) {
       // Canvas panning
@@ -529,38 +536,26 @@ export default function GraphCanvas({
       // Only save position if we actually dragged significantly
       const localPos = localNodePositions[draggedNode.id];
       if (localPos) {
+        console.log(`Saving position for ${draggedNode.id}:`, localPos);
         updateNodePositionMutation.mutate({
           nodeId: draggedNode.id,
           x: Math.round(localPos.x),
           y: Math.round(localPos.y)
         });
         
-        // Don't clear local position immediately - let it persist until server updates
-        // The mutation's onSuccess will trigger a refetch which will provide the new position
+        // Keep the local position until the mutation succeeds
+        // Don't clear it immediately to prevent visual jumping
       }
     }
     
-    // Reset all drag states
+    // Reset drag states but keep local positions for dragged node
     setIsDragging(false);
     setIsNodeDragging(false);
     setDraggedNode(null);
     setMouseDownPosition(null);
     setHasDraggedSignificantly(false);
-    
-    // Clear active drag and allow query invalidation after a delay
-    if (activeDragNodeId) {
-      setTimeout(() => {
-        setActiveDragNodeId(null);
-        // Clear local position and refresh data
-        setLocalNodePositions(prev => {
-          const updated = { ...prev };
-          delete updated[activeDragNodeId];
-          return updated;
-        });
-        queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
-      }, 200);
-    }
-  }, [isNodeDragging, draggedNode, hasDraggedSignificantly, localNodePositions, updateNodePositionMutation, activeDragNodeId, queryClient]);
+    setActiveDragNodeId(null);
+  }, [isNodeDragging, draggedNode, hasDraggedSignificantly, localNodePositions, updateNodePositionMutation]);
 
   const handleCreateRelation = useCallback((targetNodeId: string) => {
     if (relationSourceNode && targetNodeId !== relationSourceNode) {
