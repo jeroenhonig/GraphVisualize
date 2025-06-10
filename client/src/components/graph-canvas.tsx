@@ -79,9 +79,15 @@ export default function GraphCanvas({
       });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (newNode) => {
       queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/graphs", graph?.graphId || graph?.id] });
+      
+      // Add the new node to visible nodes immediately
+      if (newNode && newNode.nodeId) {
+        onVisibleNodesChange(new Set([...Array.from(visibleNodes), newNode.nodeId]));
+      }
+      
       setContextMenu({ ...contextMenu, visible: false });
       toast({
         title: "Knoop aangemaakt",
@@ -147,15 +153,19 @@ export default function GraphCanvas({
     }
 
     try {
-      await createNodeMutation.mutateAsync({
+      const newNodeId = nanoid();
+      const newNode = await createNodeMutation.mutateAsync({
         graphId: graph.graphId || graph.id,
-        nodeId: nanoid(),
+        nodeId: newNodeId,
         label: newNodeLabel,
         type: newNodeType,
         x: nodePosition.x,
         y: nodePosition.y,
         data: {},
       });
+
+      // Make the new node visible immediately
+      onVisibleNodesChange(new Set([...Array.from(visibleNodes), newNodeId]));
 
       setShowCreateNodeDialog(false);
       setNewNodeLabel("");
