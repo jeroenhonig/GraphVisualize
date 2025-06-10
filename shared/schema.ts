@@ -34,6 +34,21 @@ export const visibilitySets = pgTable("visibility_sets", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Saved views for storing graph states with SPARQL queries
+export const savedViews = pgTable("saved_views", {
+  id: serial("id").primaryKey(),
+  viewId: text("view_id").notNull().unique(),
+  graphId: text("graph_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  sparqlQuery: text("sparql_query").notNull(),
+  visibleNodeIds: text("visible_node_ids").array().notNull(),
+  transform: text("transform").notNull().default('{"scale": 1, "translateX": 0, "translateY": 0}'),
+  nodePositions: text("node_positions").default('{}'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Zod schemas for validation
 export const insertRdfTripleSchema = createInsertSchema(rdfTriples).omit({
   id: true,
@@ -43,6 +58,12 @@ export const insertRdfTripleSchema = createInsertSchema(rdfTriples).omit({
 export const insertVisibilitySetSchema = createInsertSchema(visibilitySets).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertSavedViewSchema = createInsertSchema(savedViews).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export const insertGraphSchema = createInsertSchema(graphs).omit({
@@ -55,10 +76,12 @@ export const insertGraphSchema = createInsertSchema(graphs).omit({
 export type Graph = typeof graphs.$inferSelect;
 export type RdfTriple = typeof rdfTriples.$inferSelect;
 export type VisibilitySet = typeof visibilitySets.$inferSelect;
+export type SavedView = typeof savedViews.$inferSelect;
 
 export type InsertGraph = z.infer<typeof insertGraphSchema>;
 export type InsertRdfTriple = z.infer<typeof insertRdfTripleSchema>;
 export type InsertVisibilitySet = z.infer<typeof insertVisibilitySetSchema>;
+export type InsertSavedView = z.infer<typeof insertSavedViewSchema>;
 
 // Visualization interfaces for frontend
 export interface VisualizationNode {
