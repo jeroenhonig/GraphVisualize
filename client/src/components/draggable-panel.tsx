@@ -328,5 +328,6 @@ export default function DraggablePanel({
         </div>
       )}
     </div>
+    </>
   );
 }
