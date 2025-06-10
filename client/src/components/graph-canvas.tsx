@@ -1,9 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileSpreadsheet, Upload } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FileSpreadsheet, Upload, Plus } from "lucide-react";
 import { createGraphLayout, renderGraph, type GraphTransform } from "@/lib/graph-utils";
 import type { GraphData, VisualizationNode, VisualizationEdge } from "@shared/schema";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { nanoid } from "nanoid";
 
 interface GraphCanvasProps {
   graph?: GraphData;
@@ -31,6 +39,128 @@ export default function GraphCanvas({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; visible: boolean }>({
+    x: 0,
+    y: 0,
+    visible: false,
+  });
+  const [showCreateNodeDialog, setShowCreateNodeDialog] = useState(false);
+  const [nodePosition, setNodePosition] = useState({ x: 0, y: 0 });
+  
+  // New node form state
+  const [newNodeLabel, setNewNodeLabel] = useState("");
+  const [newNodeType, setNewNodeType] = useState("default");
+  
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Create node mutation
+  const createNodeMutation = useMutation({
+    mutationFn: async (nodeData: {
+      graphId: string;
+      nodeId: string;
+      label: string;
+      type: string;
+      x: number;
+      y: number;
+      data: Record<string, any>;
+    }) => {
+      return await apiRequest(`/api/graphs/${nodeData.graphId}/nodes`, "POST", {
+        nodeId: nodeData.nodeId,
+        label: nodeData.label,
+        type: nodeData.type,
+        x: nodeData.x,
+        y: nodeData.y,
+        data: nodeData.data,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
+      toast({
+        title: "Knoop aangemaakt",
+        description: "Nieuwe knoop is succesvol toegevoegd aan de graaf",
+      });
+    },
+    onError: (error: Error) => {
+      console.error("Error creating node:", error);
+      toast({
+        title: "Fout",
+        description: "Kon knoop niet aanmaken",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Context menu handlers
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!graph?.id) return;
+    
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Convert screen coordinates to SVG coordinates
+    const svgX = (x - transform.translateX) / transform.scale;
+    const svgY = (y - transform.translateY) / transform.scale;
+    
+    setNodePosition({ x: svgX, y: svgY });
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      visible: true,
+    });
+  }, [graph?.id, transform]);
+
+  const handleCreateNode = () => {
+    setContextMenu({ ...contextMenu, visible: false });
+    setShowCreateNodeDialog(true);
+  };
+
+  const handleCreateNodeSubmit = async () => {
+    if (!newNodeLabel.trim() || !graph?.id) {
+      toast({
+        title: "Fout",
+        description: "Knoop naam is verplicht",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await createNodeMutation.mutateAsync({
+        graphId: graph.id,
+        nodeId: nanoid(),
+        label: newNodeLabel,
+        type: newNodeType,
+        x: nodePosition.x,
+        y: nodePosition.y,
+        data: {},
+      });
+
+      setShowCreateNodeDialog(false);
+      setNewNodeLabel("");
+      setNewNodeType("default");
+    } catch (error) {
+      console.error("Error creating node:", error);
+    }
+  };
+
+  // Close context menu when clicking elsewhere
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setContextMenu({ ...contextMenu, visible: false });
+    };
+
+    if (contextMenu.visible) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [contextMenu.visible]);
 
   // Initialize layout when graph changes
   useEffect(() => {
