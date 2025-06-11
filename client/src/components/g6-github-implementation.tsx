@@ -237,19 +237,19 @@ export default function G6GraphCanvas({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  if (!graph) {
-    return (
-      <div className="w-full h-full bg-gray-50 dark:bg-gray-900 rounded-lg flex items-center justify-center">
-        <p className="text-gray-500 dark:text-gray-400">Geen graph data beschikbaar</p>
-      </div>
-    );
-  }
-
   return (
-    <div 
-      ref={containerRef}
-      className="w-full h-full bg-gray-50 dark:bg-gray-900 rounded-lg"
-      style={{ minHeight: '600px' }}
-    />
+    <div className="w-full h-full bg-gray-50 dark:bg-gray-900 rounded-lg relative">
+      {!graph ? (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <p className="text-gray-500 dark:text-gray-400">Geen graph data beschikbaar</p>
+        </div>
+      ) : (
+        <div 
+          ref={containerRef}
+          className="w-full h-full"
+          style={{ minHeight: '600px', minWidth: '400px' }}
+        />
+      )}
+    </div>
   );
 }
