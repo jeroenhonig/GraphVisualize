@@ -72,7 +72,31 @@ const GraphCanvas = React.memo(({
   const [isLoading, setIsLoading] = useState(true);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [currentLayout, setCurrentLayout] = useState<'force' | 'circular' | 'radial' | 'dagre'>('circular');
+  const [g6Available, setG6Available] = useState(false);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+
+  // Check G6 availability on mount
+  useEffect(() => {
+    const checkG6Availability = () => {
+      const G6 = (window as any).G6;
+      if (G6) {
+        console.log('G6 library detected:', G6.version || 'unknown version');
+        setG6Available(true);
+      } else {
+        console.error('G6 library not found on window object');
+        setRenderError('G6 visualization library is not loaded. Please check your HTML includes.');
+        setIsLoading(false);
+      }
+    };
+
+    // Check immediately
+    checkG6Availability();
+
+    // Also check after a delay in case G6 is loading asynchronously
+    const timeout = setTimeout(checkG6Availability, 1000);
+
+    return () => clearTimeout(timeout);
+  }, []);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -192,7 +216,10 @@ const GraphCanvas = React.memo(({
 
   // Create G6 graph
   const createGraph = useCallback(async () => {
-    if (!containerRef.current || !processedGraphData) return;
+    if (!containerRef.current || !processedGraphData) {
+      console.warn('Cannot create graph: missing container or data');
+      return;
+    }
 
     const container = containerRef.current;
     const rect = container.getBoundingClientRect();
@@ -210,22 +237,32 @@ const GraphCanvas = React.memo(({
           graphRef.current.off();
           graphRef.current.destroy();
         } catch (error) {
-          console.warn('Graph cleanup warning:', error);
+          console.warn('Graph cleanup warning:', error?.message || 'Unknown cleanup error');
         }
         graphRef.current = null;
       }
-      
-      // Don't manually clear container - let G6 handle its own cleanup
-      // This prevents React/G6 DOM manipulation conflicts
 
-      // Check G6 availability
+      // Check G6 availability with detailed error
       const G6 = (window as any).G6;
       if (!G6) {
-        throw new Error('G6 library not available');
+        throw new Error('G6 library not loaded. Please ensure G6 is included in your HTML.');
+      }
+
+      // Validate processed data
+      if (!processedGraphData.nodes || processedGraphData.nodes.length === 0) {
+        throw new Error('No nodes available to render');
       }
 
       // Create G6 graph with proper v5 configuration  
       const layoutConfig = getLayoutConfig(currentLayout);
+
+      console.log('Creating G6 graph with config:', {
+        width,
+        height,
+        layout: layoutConfig.type,
+        nodes: processedGraphData.nodes.length,
+        edges: processedGraphData.edges.length
+      });
 
       const graph = new G6.Graph({
         container,
@@ -268,11 +305,21 @@ const GraphCanvas = React.memo(({
         fitViewPadding: [20, 40, 50, 20],
       });
 
+      // Validate graph creation
+      if (!graph) {
+        throw new Error('Failed to create G6 graph instance');
+      }
+
       console.log('Loading G6 data:', { nodes: processedGraphData.nodes.length, edges: processedGraphData.edges.length });
       
-      // Load data using G6 v5 API
-      graph.data(processedGraphData);
-      graph.render();
+      // Load data using G6 v5 API with error handling
+      try {
+        graph.data(processedGraphData);
+        graph.render();
+      } catch (dataError) {
+        console.error('Error loading data into G6:', dataError);
+        throw new Error(`Failed to load graph data: ${dataError?.message || 'Unknown data error'}`);
+      }
 
       // Bind events with proper error handling
       graph.on('node:click', (e: any) => {
@@ -396,8 +443,17 @@ const GraphCanvas = React.memo(({
       console.log(`Graph rendered successfully with ${processedGraphData.nodes.length} nodes`);
 
     } catch (error) {
-      console.error('Graph creation error:', error);
-      setRenderError(error instanceof Error ? error.message : 'Unknown error');
+      const errorMessage = error instanceof Error ? error.message : `Unknown error: ${JSON.stringify(error)}`;
+      console.error('Graph creation error:', {
+        message: errorMessage,
+        error: error,
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        processedGraphData: {
+          nodes: processedGraphData?.nodes?.length || 0,
+          edges: processedGraphData?.edges?.length || 0
+        }
+      });
+      setRenderError(errorMessage);
       setIsLoading(false);
     }
   }, [processedGraphData, currentLayout, cleanupGraph, onNodeSelect]);
@@ -406,12 +462,40 @@ const GraphCanvas = React.memo(({
   useEffect(() => {
     let isMounted = true;
     
-    if (processedGraphData && containerRef.current && isMounted) {
-      createGraph();
+    // Add global error handler for unhandled promise rejections
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.error('Unhandled promise rejection in graph component:', {
+        reason: event.reason,
+        promise: event.promise,
+        stack: event.reason?.stack
+      });
+      
+      // If the error is related to graph creation, update the error state
+      if (event.reason?.message?.includes('G6') || event.reason?.message?.includes('graph')) {
+        setRenderError(`Graph error: ${event.reason?.message || 'Unknown promise rejection'}`);
+        setIsLoading(false);
+      }
+      
+      // Prevent the error from being logged as unhandled
+      event.preventDefault();
+    };
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    
+    if (processedGraphData && containerRef.current && isMounted && g6Available) {
+      // Wrap createGraph in a promise with proper error handling
+      Promise.resolve(createGraph()).catch((error) => {
+        console.error('Async graph creation error:', error);
+        if (isMounted) {
+          setRenderError(error instanceof Error ? error.message : 'Async graph creation failed');
+          setIsLoading(false);
+        }
+      });
     }
 
     return () => {
       isMounted = false;
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
       // Use cleanup function instead of direct cleanup
       cleanupGraph();
     };
@@ -488,6 +572,16 @@ const GraphCanvas = React.memo(({
         {!isLoading && processedGraphData && (
           <div className="absolute top-4 left-4 text-sm text-gray-500 bg-white dark:bg-gray-800 px-2 py-1 rounded">
             {processedGraphData.nodes.length} nodes, {processedGraphData.edges.length} edges
+          </div>
+        )}
+
+        {!isLoading && !processedGraphData && !renderError && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center p-8">
+              <p className="text-gray-600 dark:text-gray-400">
+                No graph data available
+              </p>
+            </div>
           </div>
         )}
       </div>
