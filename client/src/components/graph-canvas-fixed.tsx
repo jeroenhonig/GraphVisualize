@@ -299,6 +299,11 @@ export default function GraphCanvas({
 
       } catch (error) {
         console.error('Graph creation error:', error);
+        console.error('Error details:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          name: error instanceof Error ? error.name : undefined
+        });
         setRenderError(`Failed to create graph: ${error instanceof Error ? error.message : 'Unknown error'}`);
         setIsLoading(false);
       }
@@ -375,21 +380,8 @@ export default function GraphCanvas({
     g6Available: typeof window !== 'undefined' && !!(window as any).G6
   };
 
-  if (isLoading) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-white dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Optimizing graph layout... ({nodeCount} nodes)
-          </p>
-          <div className="mt-4 text-xs text-gray-500">
-            Debug: {JSON.stringify(debugInfo)}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Always render container to force mounting - show loading inside
+  const shouldShowLoading = isLoading;
 
   return (
     <>
@@ -406,11 +398,25 @@ export default function GraphCanvas({
         }}
         data-testid="graph-container"
       >
-        <div className="absolute top-4 left-4 text-sm text-gray-500">
-          Container Status: {containerReady ? 'Ready' : 'Not Ready'} | 
-          Graph: {graph ? `${nodes.length} nodes` : 'No graph'} |
-          G6: {typeof window !== 'undefined' && (window as any).G6 ? 'Loaded' : 'Missing'}
-        </div>
+        {shouldShowLoading ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Optimizing graph layout... ({nodeCount} nodes)
+              </p>
+              <div className="mt-4 text-xs text-gray-500">
+                Debug: {JSON.stringify(debugInfo)}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="absolute top-4 left-4 text-sm text-gray-500">
+            Container Status: {containerReady ? 'Ready' : 'Not Ready'} | 
+            Graph: {graph ? `${nodes.length} nodes` : 'No graph'} |
+            G6: {typeof window !== 'undefined' && (window as any).G6 ? 'Loaded' : 'Missing'}
+          </div>
+        )}
       </div>
       
       <GraphContextMenu
