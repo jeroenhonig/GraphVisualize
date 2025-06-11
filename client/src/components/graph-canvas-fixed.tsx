@@ -212,20 +212,29 @@ export default function GraphCanvas({
           edges: g6Data.edges.length
         });
 
-        // G6 v5 configuration with explicit renderer
-        const graphConfig = {
+        // G6 v5 correct API - data is set during instantiation
+        const graphInstance = new G6.Graph({
           container: container,
           width: width,
           height: height,
           data: g6Data,
-          renderer: 'canvas',
-          modes: {
-            default: ['drag-canvas', 'zoom-canvas', 'drag-node']
-          }
-        };
-
-        // Create G6 graph instance
-        const graphInstance = new G6.Graph(graphConfig);
+          node: {
+            style: {
+              size: 20,
+              fill: '#e6f7ff',
+              stroke: '#1890ff',
+              lineWidth: 2
+            },
+            labelText: (d: any) => d.label
+          },
+          edge: {
+            style: {
+              stroke: '#91d5ff',
+              lineWidth: 1
+            }
+          },
+          behaviors: ['drag-canvas', 'zoom-canvas', 'drag-node']
+        });
         
         // Debug: Check if nodes have valid positions
         console.log('Sample node positions:', g6Data.nodes.slice(0, 3).map(n => ({
@@ -235,32 +244,63 @@ export default function GraphCanvas({
           label: n.label
         })));
         
-        // Force render and inspect DOM
+        // G6 v5 requires explicit render call after data
         setTimeout(() => {
           try {
             graphInstance.render();
             graphInstance.fitView();
             
-            // Debug DOM structure
+            // Check DOM creation
             const canvasElements = container.querySelectorAll('canvas');
             const svgElements = container.querySelectorAll('svg');
-            console.log('Canvas/SVG elements found:', {
+            console.log('DOM elements after render:', {
               canvas: canvasElements.length,
               svg: svgElements.length,
-              containerChildren: container.children.length
+              containerHTML: container.innerHTML.length > 0 ? 'Content exists' : 'Empty'
             });
             
-            // Force canvas visibility
-            canvasElements.forEach((canvas, i) => {
-              console.log(`Canvas ${i}:`, {
-                width: canvas.width,
-                height: canvas.height,
-                style: canvas.style.cssText,
-                visible: canvas.style.display !== 'none'
-              });
-            });
+            if (canvasElements.length === 0 && svgElements.length === 0) {
+              console.error('G6 failed to create rendering elements - trying alternative approach');
+              
+              // Fallback: Create simple canvas visualization
+              const fallbackCanvas = document.createElement('canvas');
+              fallbackCanvas.width = width;
+              fallbackCanvas.height = height;
+              fallbackCanvas.style.border = '1px solid #ccc';
+              container.appendChild(fallbackCanvas);
+              
+              const ctx = fallbackCanvas.getContext('2d');
+              if (ctx) {
+                // Draw simple node representation
+                g6Data.nodes.forEach(node => {
+                  ctx.beginPath();
+                  ctx.arc(node.x, node.y, 10, 0, 2 * Math.PI);
+                  ctx.fillStyle = '#1890ff';
+                  ctx.fill();
+                  ctx.strokeStyle = '#ffffff';
+                  ctx.lineWidth = 2;
+                  ctx.stroke();
+                });
+                
+                // Draw edges
+                ctx.strokeStyle = '#91d5ff';
+                ctx.lineWidth = 1;
+                g6Data.edges.forEach(edge => {
+                  const source = g6Data.nodes.find(n => n.id === edge.source);
+                  const target = g6Data.nodes.find(n => n.id === edge.target);
+                  if (source && target) {
+                    ctx.beginPath();
+                    ctx.moveTo(source.x, source.y);
+                    ctx.lineTo(target.x, target.y);
+                    ctx.stroke();
+                  }
+                });
+                
+                console.log('Fallback canvas visualization created');
+              }
+            }
             
-            console.log('Graph render and fit completed');
+            console.log('Graph render sequence completed');
           } catch (error) {
             console.error('Render error:', error);
           }
