@@ -144,15 +144,71 @@ const RDFGraphCanvas = React.memo(({
           label: edge.label
         }));
 
-      // Create force simulation
+      // Create advanced force simulation with multiple force types
       const simulation = d3.forceSimulation<D3Node, D3Link>(nodes)
+        // Link force - connects related nodes
         .force("link", d3.forceLink<D3Node, D3Link>(links)
           .id(d => d.id)
-          .distance(100)
+          .distance(d => {
+            // Vary distance based on node types for better grouping
+            const source = d.source as D3Node;
+            const target = d.target as D3Node;
+            if (source.type === target.type) return 80; // Same type closer
+            return 120; // Different types further apart
+          })
+          .strength(d => {
+            // Stronger links between same types
+            const source = d.source as D3Node;
+            const target = d.target as D3Node;
+            return source.type === target.type ? 1.2 : 0.8;
+          })
         )
-        .force("charge", d3.forceManyBody().strength(-300))
-        .force("center", d3.forceCenter(width / 2, height / 2))
-        .force("collision", d3.forceCollide().radius(30));
+        // Charge force - repulsion between nodes
+        .force("charge", d3.forceManyBody()
+          .strength(d => {
+            // Stronger repulsion for nodes with more connections
+            const connections = links.filter(l => 
+              (l.source as D3Node).id === d.id || (l.target as D3Node).id === d.id
+            ).length;
+            return Math.max(-500, -100 * (1 + connections * 0.3));
+          })
+          .distanceMax(300) // Limit repulsion distance
+        )
+        // Centering force - keeps graph centered
+        .force("center", d3.forceCenter(width / 2, height / 2).strength(0.1))
+        // Collision detection - prevents node overlap
+        .force("collision", d3.forceCollide()
+          .radius(d => {
+            // Larger collision radius for important nodes
+            const connections = links.filter(l => 
+              (l.source as D3Node).id === d.id || (l.target as D3Node).id === d.id
+            ).length;
+            return Math.max(25, 15 + connections * 2);
+          })
+          .strength(0.8)
+        )
+        // X-axis positioning force for type clustering
+        .force("x", d3.forceX()
+          .x(d => {
+            // Group nodes by type along x-axis
+            const typeHash = d.type.split('').reduce((hash, char) => 
+              ((hash << 5) - hash + char.charCodeAt(0)) & 0xffffffff, 0
+            );
+            return (width / 4) + (Math.abs(typeHash) % (width / 2));
+          })
+          .strength(0.05)
+        )
+        // Y-axis positioning force for hierarchical layout
+        .force("y", d3.forceY()
+          .y(d => {
+            // Arrange by node importance (connection count)
+            const connections = links.filter(l => 
+              (l.source as D3Node).id === d.id || (l.target as D3Node).id === d.id
+            ).length;
+            return height / 2 + (connections - 5) * 30;
+          })
+          .strength(0.03)
+        );
 
       simulationRef.current = simulation;
 
@@ -190,45 +246,136 @@ const RDFGraphCanvas = React.memo(({
         .text(d => truncateLabel(d.label, 15))
         .style("pointer-events", "none");
 
-      // Add interactions based on behavior mode
+      // Advanced D3 force simulation interactions
       if (behaviorMode !== 'readonly') {
-        // Drag behavior
+        // Enhanced drag behavior with magnetic clustering
         const drag = d3.drag<SVGCircleElement, D3Node>()
           .on("start", (event, d) => {
-            if (!event.active) simulation.alphaTarget(0.3).restart();
+            if (!event.active) simulation.alphaTarget(0.5).restart();
             d.fx = d.x;
             d.fy = d.y;
+            
+            // Highlight connected nodes during drag
+            const connectedIds = new Set(
+              links.filter(l => (l.source as D3Node).id === d.id || (l.target as D3Node).id === d.id)
+                   .map(l => (l.source as D3Node).id === d.id ? (l.target as D3Node).id : (l.source as D3Node).id)
+            );
+            
+            nodeSelection.attr("opacity", n => n.id === d.id || connectedIds.has(n.id) ? 1.0 : 0.4);
+            linkSelection.attr("opacity", l => 
+              (l.source as D3Node).id === d.id || (l.target as D3Node).id === d.id ? 1.0 : 0.2
+            );
           })
           .on("drag", (event, d) => {
             d.fx = event.x;
             d.fy = event.y;
+            
+            // Apply magnetic clustering for same-type nodes
+            nodes.forEach(node => {
+              if (node.id !== d.id && node.type === d.type) {
+                const dx = event.x - (node.x || 0);
+                const dy = event.y - (node.y || 0);
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < 120) {
+                  const magnetForce = (120 - distance) / 120 * 0.08;
+                  node.vx = (node.vx || 0) + dx * magnetForce;
+                  node.vy = (node.vy || 0) + dy * magnetForce;
+                }
+              }
+            });
           })
           .on("end", (event, d) => {
-            if (!event.active) simulation.alphaTarget(0);
-            d.fx = null;
-            d.fy = null;
+            if (!event.active) simulation.alphaTarget(0.1);
+            
+            // Pin node if shift key held, otherwise release
+            if (!event.sourceEvent.shiftKey) {
+              d.fx = null;
+              d.fy = null;
+            }
+            
+            // Reset visual highlighting
+            nodeSelection.attr("opacity", 1.0);
+            linkSelection.attr("opacity", 0.6);
           });
 
         nodeSelection.call(drag);
 
-        // Click events
-        nodeSelection.on("click", (event, d) => {
-          event.stopPropagation();
-          onNodeSelect(d);
-        });
+        // Double-click expansion with force effects
+        let clickTimeout: NodeJS.Timeout;
+        nodeSelection
+          .on("click", (event, d) => {
+            event.stopPropagation();
+            if (clickTimeout) clearTimeout(clickTimeout);
+            clickTimeout = setTimeout(() => onNodeSelect(d), 200);
+          })
+          .on("dblclick", (event, d) => {
+            event.stopPropagation();
+            if (clickTimeout) clearTimeout(clickTimeout);
+            
+            onNodeExpand(d.id);
+            
+            // Explosion effect for connected nodes
+            const connectedNodes = links
+              .filter(l => (l.source as D3Node).id === d.id || (l.target as D3Node).id === d.id)
+              .map(l => (l.source as D3Node).id === d.id ? (l.target as D3Node) : (l.source as D3Node));
+            
+            connectedNodes.forEach(node => {
+              const dx = (node.x || 0) - (d.x || 0);
+              const dy = (node.y || 0) - (d.y || 0);
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              const impulse = 80 / Math.max(distance, 10);
+              
+              node.vx = (node.vx || 0) + dx * impulse * 0.3;
+              node.vy = (node.vy || 0) + dy * impulse * 0.3;
+            });
+            
+            simulation.alpha(0.6).restart();
+          });
 
-        // Hover effects
+        // Animated hover effects
         nodeSelection
           .on("mouseover", function(event, d) {
+            const connectionCount = links.filter(l => 
+              (l.source as D3Node).id === d.id || (l.target as D3Node).id === d.id
+            ).length;
+            
             d3.select(this)
-              .attr("r", 16)
+              .transition()
+              .duration(150)
+              .attr("r", Math.max(16, 12 + connectionCount * 0.5))
               .attr("stroke-width", 3);
+              
+            // Enhance label visibility
+            labelSelection
+              .filter(n => n.id === d.id)
+              .transition()
+              .duration(150)
+              .attr("font-size", "12px")
+              .attr("font-weight", "bold");
           })
           .on("mouseout", function(event, d) {
             d3.select(this)
+              .transition()
+              .duration(150)
               .attr("r", 12)
               .attr("stroke-width", 2);
+              
+            labelSelection
+              .filter(n => n.id === d.id)
+              .transition()
+              .duration(150)
+              .attr("font-size", "10px")
+              .attr("font-weight", "normal");
           });
+
+        // Context menu for editing
+        if (onNodeEdit) {
+          nodeSelection.on("contextmenu", (event, d) => {
+            event.preventDefault();
+            onNodeEdit(d);
+          });
+        }
       }
 
       // Update positions on simulation tick

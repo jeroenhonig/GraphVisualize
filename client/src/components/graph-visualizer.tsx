@@ -287,9 +287,7 @@ export default function GraphVisualizer() {
           {/* Header */}
           <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
             <div className="flex items-center space-x-2">
-              <div className="text-sm font-medium text-gray-900 dark:text-white">
-                Graph Weergave (Direct Mount)
-              </div>
+              <div className="text-sm font-medium text-gray-900 dark:text-white">Graph Weergave</div>
               {currentGraph && (
                 <div className="text-xs text-gray-500">
                   {visibleNodes.size} van {currentGraph.nodeCount} nodes
@@ -692,7 +690,6 @@ export default function GraphVisualizer() {
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Node Details Modal */}
       <Dialog open={nodeDetailsModalOpen} onOpenChange={setNodeDetailsModalOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -718,7 +715,6 @@ export default function GraphVisualizer() {
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Settings Modal */}
       <Dialog open={settingsModalOpen} onOpenChange={setSettingsModalOpen}>
         <DialogContent className="max-w-md">
@@ -785,7 +781,6 @@ export default function GraphVisualizer() {
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Node Editor Dialog */}
       <Dialog open={nodeDetailsModalOpen} onOpenChange={setNodeDetailsModalOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
