@@ -224,6 +224,8 @@ export default function GraphCanvasOptimized({
         }
 
         const container = containerRef.current;
+        if (!container) throw new Error('Container not available');
+        
         container.innerHTML = '';
         const width = container.clientWidth || 800;
         const height = container.clientHeight || 600;
@@ -335,15 +337,12 @@ export default function GraphCanvasOptimized({
                 
                 onNodeSelect(visualizationNode as any);
                 
-                // Batch state updates for performance
+                // Update state for selected node
                 try {
-                  g6Graph.setAutoPaint(false);
                   nodes.forEach((node: any) => {
                     g6Graph.setElementState(node.id, 'selected', false);
                   });
                   g6Graph.setElementState(nodeId, 'selected', true);
-                  g6Graph.setAutoPaint(true);
-                  g6Graph.paint();
                 } catch (error) {
                   console.error('Selection state update failed:', error);
                 }
@@ -371,12 +370,9 @@ export default function GraphCanvasOptimized({
           if (selectedNodeId) {
             selectedNodeId = null;
             try {
-              g6Graph.setAutoPaint(false);
               nodes.forEach((node: any) => {
                 g6Graph.setElementState(node.id, 'selected', false);
               });
-              g6Graph.setAutoPaint(true);
-              g6Graph.paint();
             } catch (error) {
               console.error('Clear selection failed:', error);
             }
@@ -428,16 +424,10 @@ export default function GraphCanvasOptimized({
       }
     };
 
-    const cleanup = createOptimizedGraph();
+    createOptimizedGraph();
     
     // Return cleanup function
     return () => {
-      if (cleanup instanceof Promise) {
-        cleanup.then(cleanupFn => cleanupFn?.());
-      } else if (typeof cleanup === 'function') {
-        cleanup();
-      }
-      
       if (graphRef.current) {
         try {
           graphRef.current.clear();
@@ -447,6 +437,16 @@ export default function GraphCanvasOptimized({
         }
         graphRef.current = null;
       }
+      
+      // Remove any lingering event listeners
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setRelationMode(false);
+          setRelationSourceNode(null);
+          setContextMenu(prev => ({ ...prev, isOpen: false }));
+        }
+      };
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [graph, visibleNodes, nodeCount, edgeCount, nodes, edges, currentLayout, editMode, onNodeSelect, relationMode, relationSourceNode]);
 

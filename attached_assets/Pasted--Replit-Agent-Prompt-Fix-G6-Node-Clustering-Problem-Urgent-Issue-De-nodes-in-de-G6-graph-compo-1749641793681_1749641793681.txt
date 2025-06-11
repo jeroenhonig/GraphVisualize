@@ -1,0 +1,256 @@
+# Replit Agent Prompt: Fix G6 Node Clustering Problem
+
+## Urgent Issue
+De nodes in de G6 graph component worden naar een specifieke locatie getrokken in plaats van zich gelijkmatig te verdelen. Dit maakt de visualisatie onbruikbaar. Dit probleem moet met prioriteit opgelost worden.
+
+## Bestand om aan te passen
+`G6V5Working.tsx` (of vergelijkbaar genaamd G6 component bestand)
+
+## Root Cause Analyse
+Het probleem wordt veroorzaakt door:
+1. Een extreem hoge negatieve `nodeStrength` waarde (-500) in de force layout
+2. Ontbrekende `center` configuratie waardoor nodes naar een default positie trekken
+3. Geen initiële x,y posities voor nodes
+4. Mogelijk conflict met panel constraints die niet toegepast worden
+
+## Implementatie Instructies
+
+### Stap 1: Fix Force Layout Configuratie
+Zoek de layout configuratie in de Graph instantie en vervang deze VOLLEDIG met:
+
+```javascript
+layout: {
+  type: 'force',
+  center: [width / 2, height / 2],    // CRUCIAAL: Expliciet center
+  gravity: 10,                        // Milde center gravity
+  linkDistance: 150,                  // Optimale afstand tussen verbonden nodes
+  nodeStrength: -30,                  // BELANGRIJK: Was -500, moet VEEL lager
+  edgeStrength: 0.8,                  // Stabielere edges
+  preventOverlap: true,
+  nodeSize: 30,                       // Groter voor betere overlap preventie
+  alphaDecay: 0.01,                   // Langzamere stabilisatie
+  alphaMin: 0.001,                    // Stop threshold
+  workerEnabled: true                 // Performance voor grote graphs
+}
+```
+
+### Stap 2: Implementeer Panel-Aware Centering
+Voeg deze functie toe VOOR de graph creatie:
+
+```javascript
+// Bereken beschikbare ruimte op basis van panel constraints
+const calculateGraphCenter = () => {
+  const leftOffset = panelConstraints?.leftPanel && !panelConstraints.leftPanel.collapsed 
+    ? panelConstraints.leftPanel.width 
+    : 0;
+  const rightOffset = panelConstraints?.rightPanel && !panelConstraints.rightPanel.collapsed 
+    ? panelConstraints.rightPanel.width 
+    : 0;
+  
+  const availableWidth = width - leftOffset - rightOffset;
+  const centerX = leftOffset + (availableWidth / 2);
+  const centerY = height / 2;
+  
+  return [centerX, centerY];
+};
+```
+
+En gebruik dit in de layout config:
+```javascript
+center: calculateGraphCenter(),
+```
+
+### Stap 3: Geef Nodes Initiële Posities
+Vervang de node mapping sectie met:
+
+```javascript
+const nodes = graph.nodes
+  .filter(node => visibleNodeIds.includes(node.id))
+  .slice(0, 100)
+  .map((node, index) => {
+    const colorData = getNodeTypeColor(node.type);
+    
+    // Initiële posities in een cirkel of grid om clustering te voorkomen
+    const angle = (index / Math.min(graph.nodes.length, 100)) * Math.PI * 2;
+    const radius = Math.min(width, height) * 0.3;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    
+    return {
+      id: node.id,
+      // Gebruik bestaande positie of genereer nieuwe
+      x: node.x || (centerX + Math.cos(angle) * radius),
+      y: node.y || (centerY + Math.sin(angle) * radius),
+      data: {
+        ...node,
+        label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
+        fill: colorData.secondary,
+        stroke: colorData.primary
+      }
+    };
+  });
+```
+
+### Stap 4: Fix Drag Behavior
+Vervang de drag event handlers met deze verbeterde versie:
+
+```javascript
+g6Graph.on('node:dragstart', (event: any) => {
+  console.log('Node drag started');
+  const nodeId = event.itemId || event.target?.id;
+  if (nodeId) {
+    // Pauzeer force simulation voor deze node
+    const nodeData = g6Graph.getNodeData(nodeId);
+    if (nodeData) {
+      nodeData.fx = nodeData.x;  // Fix op huidige positie
+      nodeData.fy = nodeData.y;
+    }
+  }
+});
+
+g6Graph.on('node:drag', (event: any) => {
+  const nodeId = event.itemId || event.target?.id;
+  if (nodeId && event.canvas) {
+    const nodeData = g6Graph.getNodeData(nodeId);
+    if (nodeData) {
+      nodeData.fx = event.canvas.x;
+      nodeData.fy = event.canvas.y;
+      nodeData.x = event.canvas.x;  // Update ook de normale positie
+      nodeData.y = event.canvas.y;
+    }
+  }
+});
+
+g6Graph.on('node:dragend', (event: any) => {
+  console.log('Node drag ended');
+  const nodeId = event.itemId || event.target?.id;
+  if (nodeId) {
+    const nodeData = g6Graph.getNodeData(nodeId);
+    if (nodeData) {
+      // Behoud de positie maar laat force simulation weer werken
+      const currentX = nodeData.x;
+      const currentY = nodeData.y;
+      
+      delete nodeData.fx;
+      delete nodeData.fy;
+      
+      // Zorg dat positie behouden blijft
+      nodeData.x = currentX;
+      nodeData.y = currentY;
+    }
+  }
+});
+```
+
+### Stap 5: Voeg Debug Mode Toe (Tijdelijk)
+Voeg deze debug visualisatie toe om het center point te zien:
+
+```javascript
+// Debug mode om center te visualiseren
+if (process.env.NODE_ENV === 'development') {
+  const [centerX, centerY] = calculateGraphCenter();
+  nodes.push({
+    id: 'debug-center-point',
+    x: centerX,
+    y: centerY,
+    data: {
+      label: 'CENTER',
+      type: 'debug',
+      size: 15,
+      style: {
+        fill: 'red',
+        opacity: 0.3,
+        stroke: 'darkred',
+        lineWidth: 2
+      }
+    }
+  });
+}
+```
+
+### Stap 6: Monitor Layout Convergentie
+Voeg deze monitoring toe na graph.render():
+
+```javascript
+// Monitor layout stabilisatie
+let layoutIterations = 0;
+g6Graph.on('afterlayout', () => {
+  layoutIterations++;
+  console.log(`Layout iteration ${layoutIterations} completed`);
+  
+  // Stop layout als het te lang duurt
+  if (layoutIterations > 300) {
+    console.warn('Force layout taking too long, stopping...');
+    g6Graph.stopLayout();
+  }
+});
+
+// Log finale posities na 2 seconden
+setTimeout(() => {
+  const nodePositions = g6Graph.getNodes().map(node => {
+    const model = node.getModel();
+    return { id: model.id, x: model.x, y: model.y };
+  });
+  console.log('Node positions after layout:', nodePositions);
+}, 2000);
+```
+
+### Stap 7: Test Panel Constraints Reactivity
+Voeg een useEffect toe om te reageren op panel changes:
+
+```javascript
+// Reageer op panel constraint changes
+useEffect(() => {
+  if (graphRef.current && panelConstraints) {
+    const [newCenterX, newCenterY] = calculateGraphCenter();
+    
+    // Update layout center
+    graphRef.current.updateLayout({
+      center: [newCenterX, newCenterY]
+    });
+  }
+}, [panelConstraints]);
+```
+
+## Verificatie Stappen
+Na implementatie, verifieer dat:
+
+1. **Nodes verspreiden zich gelijkmatig** in plaats van te clusteren
+2. **Het center van de graph past zich aan** aan de panel constraints
+3. **Drag and drop blijft smooth werken** zonder dat nodes terugspringen
+4. **Console logs tonen** dat layout convergeert binnen 100 iteraties
+5. **De rode debug center marker** (in dev mode) toont het correcte center
+
+## Belangrijke Waarschuwingen
+- Verander `nodeStrength` NIET terug naar -500
+- Vergeet het `center` attribuut NIET in de layout config
+- Test met zowel 10 als 100 nodes om te verifiëren dat het schaalt
+
+## Expected Console Output
+```
+Creating G6 v5.0.48 working graph: { nodes: 50, edges: 75 }
+Layout iteration 1 completed
+Layout iteration 2 completed
+...
+Layout completed - nodes positioned
+Node positions after layout: [{ id: 'node1', x: 245, y: 389 }, ...]
+```
+
+Als nodes nog steeds clusteren na deze changes, voeg dan deze emergency fix toe:
+```javascript
+// Emergency fix als nodes blijven clusteren
+if (g6Graph.getNodes().every(node => Math.abs(node.getModel().x - width/2) < 50)) {
+  console.error('Nodes still clustering, applying emergency spread');
+  g6Graph.getNodes().forEach((node, index) => {
+    const angle = (index / g6Graph.getNodes().length) * Math.PI * 2;
+    const radius = 200;
+    g6Graph.updateItem(node, {
+      x: width/2 + Math.cos(angle) * radius,
+      y: height/2 + Math.sin(angle) * radius
+    });
+  });
+  g6Graph.layout();
+}
+```
+
+Implementeer deze wijzigingen in volgorde en test na elke stap.
