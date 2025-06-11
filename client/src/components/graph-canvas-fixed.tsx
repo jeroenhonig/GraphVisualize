@@ -131,7 +131,7 @@ const GraphCanvas = React.memo(({
   const cleanupGraph = useCallback(() => {
     if (graphRef.current) {
       try {
-        graphRef.current.clear();
+        // Properly destroy the G6 graph instance
         graphRef.current.destroy();
       } catch (error) {
         console.warn('Graph cleanup warning:', error);
@@ -142,6 +142,15 @@ const GraphCanvas = React.memo(({
     if (resizeObserverRef.current) {
       resizeObserverRef.current.disconnect();
       resizeObserverRef.current = null;
+    }
+
+    // Clear container content safely
+    if (containerRef.current) {
+      try {
+        containerRef.current.innerHTML = '';
+      } catch (error) {
+        console.warn('Container cleanup warning:', error);
+      }
     }
   }, []);
 
@@ -182,8 +191,19 @@ const GraphCanvas = React.memo(({
       setRenderError(null);
 
       // Clean up existing graph
-      cleanupGraph();
-      container.innerHTML = '';
+      if (graphRef.current) {
+        try {
+          graphRef.current.destroy();
+          graphRef.current = null;
+        } catch (error) {
+          console.warn('Graph cleanup warning:', error);
+        }
+      }
+      
+      // Clear container safely
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
 
       // Check G6 availability
       const G6 = (window as any).G6;
@@ -281,12 +301,21 @@ const GraphCanvas = React.memo(({
 
   // Effect for graph creation
   useEffect(() => {
-    if (processedGraphData) {
+    if (processedGraphData && containerRef.current) {
       createGraph();
     }
 
-    return cleanupGraph;
-  }, [processedGraphData, createGraph, cleanupGraph]);
+    return () => {
+      if (graphRef.current) {
+        try {
+          graphRef.current.destroy();
+        } catch (error) {
+          console.warn('Graph cleanup error:', error);
+        }
+        graphRef.current = null;
+      }
+    };
+  }, [processedGraphData, createGraph]);
 
   // Update selected node highlight
   useEffect(() => {

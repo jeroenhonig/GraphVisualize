@@ -28,15 +28,19 @@ validateEnvironment();
 const app = express();
 
 // Configure trust proxy for Replit environment
-app.set('trust proxy', true);
+app.set('trust proxy', 1);
 
-// Rate limiting
+// Rate limiting with proper trust proxy configuration
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for development
+    return process.env.NODE_ENV === 'development';
+  }
 });
 
 // Apply rate limiting to API routes
