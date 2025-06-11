@@ -430,6 +430,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     const allTriples = await this.getRdfTriplesByGraph(graphId);
+    console.log(`Processing ${allTriples.length} RDF triples for graph ${graphId}`);
     
     // Group triples by subject to construct nodes and edges
     const subjectTriples = new Map<string, RdfTriple[]>();
@@ -545,6 +546,8 @@ export class DatabaseStorage implements IStorage {
         visible: true
       });
 
+      console.log(`Created node: ${nodeLabel} (${nodeType}) at (${x}, ${y})`);
+
       // Find relationships to other nodes (edges)
       for (const triple of subjectTripleList) {
         // Skip system predicates and literal values
@@ -568,6 +571,8 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    console.log(`Final result: ${nodes.length} nodes, ${edges.length} edges`);
+    
     return {
       id: graph.id.toString(),
       graphId: graph.graphId,
