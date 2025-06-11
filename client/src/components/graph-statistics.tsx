@@ -72,7 +72,7 @@ export default function GraphStatistics({ graphData }: GraphStatisticsProps) {
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-blue-50 p-3 rounded">
               <div className="text-2xl font-bold text-blue-600">{graphData.nodeCount}</div>
-              <div className="text-xs text-blue-600">Knopen</div>
+              <div className="text-xs text-blue-600">Nodes</div>
             </div>
             <div className="bg-green-50 p-3 rounded">
               <div className="text-2xl font-bold text-green-600">{graphData.edgeCount}</div>
