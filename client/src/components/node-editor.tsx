@@ -24,6 +24,8 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
   const [newPropertyValue, setNewPropertyValue] = useState("");
   const [customType, setCustomType] = useState("");
   const [showCustomTypeInput, setShowCustomTypeInput] = useState(false);
+  const [customPropertyKey, setCustomPropertyKey] = useState("");
+  const [showCustomPropertyInput, setShowCustomPropertyInput] = useState(false);
   const [editingProperties, setEditingProperties] = useState<Set<string>>(new Set());
   const [newPropertyAdded, setNewPropertyAdded] = useState(false);
   
@@ -392,25 +394,101 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
             <div className="space-y-2 p-3 bg-blue-50 rounded border border-blue-200">
               <Label className="text-sm font-medium text-blue-800">Nieuwe Eigenschap</Label>
               <div className="space-y-2">
-                <Select value={newPropertyKey} onValueChange={setNewPropertyKey}>
+                <Select 
+                  value={showCustomPropertyInput ? "custom" : newPropertyKey} 
+                  onValueChange={(value) => {
+                    if (value === "custom") {
+                      setShowCustomPropertyInput(true);
+                      setCustomPropertyKey("");
+                    } else {
+                      setShowCustomPropertyInput(false);
+                      setNewPropertyKey(value);
+                    }
+                  }}
+                >
                   <SelectTrigger className="text-sm">
                     <SelectValue placeholder="Selecteer eigenschap type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="schema:name">Naam</SelectItem>
-                    <SelectItem value="schema:age">Leeftijd</SelectItem>
-                    <SelectItem value="ex:city">Stad</SelectItem>
-                    <SelectItem value="ex:country">Land</SelectItem>
-                    <SelectItem value="schema:email">Email</SelectItem>
-                    <SelectItem value="schema:telephone">Telefoon</SelectItem>
-                    <SelectItem value="ex:company">Bedrijf</SelectItem>
-                    <SelectItem value="ex:department">Afdeling</SelectItem>
-                    <SelectItem value="schema:jobTitle">Functie</SelectItem>
-                    <SelectItem value="schema:address">Adres</SelectItem>
-                    <SelectItem value="schema:description">Beschrijving</SelectItem>
-                    <SelectItem value="schema:birthDate">Geboortedatum</SelectItem>
+                    {/* Building/Construction Properties */}
+                    <SelectItem value="property:materialType">Material Type</SelectItem>
+                    <SelectItem value="property:structuralSystem">Structural System</SelectItem>
+                    <SelectItem value="property:foundationDepth">Foundation Depth</SelectItem>
+                    <SelectItem value="property:numberOfPiles">Number of Piles</SelectItem>
+                    <SelectItem value="property:pileType">Pile Type</SelectItem>
+                    <SelectItem value="property:columnSpacing">Column Spacing</SelectItem>
+                    <SelectItem value="property:facadeArea">Facade Area</SelectItem>
+                    <SelectItem value="property:materialStrength">Material Strength</SelectItem>
+                    <SelectItem value="property:height">Height</SelectItem>
+                    <SelectItem value="property:width">Width</SelectItem>
+                    <SelectItem value="property:length">Length</SelectItem>
+                    <SelectItem value="property:area">Area</SelectItem>
+                    <SelectItem value="property:volume">Volume</SelectItem>
+                    <SelectItem value="property:weight">Weight</SelectItem>
+                    <SelectItem value="property:loadCapacity">Load Capacity</SelectItem>
+                    <SelectItem value="property:thermalResistance">Thermal Resistance</SelectItem>
+                    <SelectItem value="property:fireRating">Fire Rating</SelectItem>
+                    <SelectItem value="property:acousticRating">Acoustic Rating</SelectItem>
+                    <SelectItem value="property:installationDate">Installation Date</SelectItem>
+                    <SelectItem value="property:manufacturer">Manufacturer</SelectItem>
+                    <SelectItem value="property:modelNumber">Model Number</SelectItem>
+                    <SelectItem value="property:maintenanceSchedule">Maintenance Schedule</SelectItem>
+                    <SelectItem value="property:warranty">Warranty</SelectItem>
+                    <SelectItem value="property:cost">Cost</SelectItem>
+                    <SelectItem value="property:supplier">Supplier</SelectItem>
+                    {/* Generic Properties */}
+                    <SelectItem value="rdfs:label">Label</SelectItem>
+                    <SelectItem value="rdfs:comment">Comment</SelectItem>
+                    <SelectItem value="schema:name">Name</SelectItem>
+                    <SelectItem value="schema:description">Description</SelectItem>
+                    <SelectItem value="schema:identifier">Identifier</SelectItem>
+                    <SelectItem value="schema:url">URL</SelectItem>
+                    <div className="border-t my-1"></div>
+                    <SelectItem value="custom">+ Aangepaste eigenschap</SelectItem>
                   </SelectContent>
                 </Select>
+                
+                {showCustomPropertyInput && (
+                  <div className="space-y-2 p-2 bg-gray-50 rounded border">
+                    <Label className="text-xs text-gray-700">Aangepaste Eigenschap</Label>
+                    <Input
+                      placeholder="namespace:propertyName (bijv. property:customField)"
+                      value={customPropertyKey}
+                      onChange={(e) => setCustomPropertyKey(e.target.value)}
+                      className="text-sm"
+                    />
+                    <div className="flex space-x-2">
+                      <Button
+                        onClick={() => {
+                          if (customPropertyKey.trim()) {
+                            let propertyKey = customPropertyKey.trim();
+                            if (!propertyKey.includes(':')) {
+                              propertyKey = `property:${propertyKey}`;
+                            }
+                            setNewPropertyKey(propertyKey);
+                            setShowCustomPropertyInput(false);
+                            setCustomPropertyKey("");
+                          }
+                        }}
+                        size="sm"
+                        disabled={!customPropertyKey.trim()}
+                      >
+                        Gebruik
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setShowCustomPropertyInput(false);
+                          setCustomPropertyKey("");
+                        }}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Annuleer
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
                 <Input
                   placeholder="Waarde"
                   value={newPropertyValue}
