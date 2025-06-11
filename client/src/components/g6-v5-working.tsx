@@ -512,11 +512,6 @@ export default function G6V5Working({
         // Render graph
         await g6Graph.render();
 
-        // Initialize force layout with better distribution
-        setTimeout(() => {
-          g6Graph.layout();
-        }, 100);
-
         // Check if rendering worked
         setTimeout(() => {
           const hasElements = container.children.length > 0;
