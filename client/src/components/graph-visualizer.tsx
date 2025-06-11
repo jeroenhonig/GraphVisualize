@@ -47,6 +47,8 @@ export default function GraphVisualizer() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [behaviorMode, setBehaviorMode] = useState<'default' | 'connect' | 'select' | 'edit' | 'readonly'>('default');
+  const [selectedNodes, setSelectedNodes] = useState<any[]>([]);
   const [expandedTreeItems, setExpandedTreeItems] = useState<Set<string>>(new Set(['nodes', 'relations', 'saved-views']));
   const [saveViewDialogOpen, setSaveViewDialogOpen] = useState(false);
   const [nodeDetailsModalOpen, setNodeDetailsModalOpen] = useState(false);

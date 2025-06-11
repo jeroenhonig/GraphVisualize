@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { GraphData, VisualizationNode, GraphTransform } from "@shared/schema";
 import { getNodeTypeColor } from "@/lib/color-utils";
-import { getLayoutConfig, G6_PERFORMANCE_CONFIG } from "@/lib/g6-config";
+import { getLayoutConfig, G6_PERFORMANCE_CONFIG, getBehaviorConfig, G6_STATES } from "@/lib/g6-config";
 import GraphContextMenu from "./graph-context-menu";
 
 interface GraphCanvasProps {
@@ -15,6 +15,9 @@ interface GraphCanvasProps {
   transform: GraphTransform;
   onTransformChange: (transform: GraphTransform) => void;
   editMode?: boolean;
+  behaviorMode?: 'default' | 'connect' | 'select' | 'edit' | 'readonly';
+  onNodesSelected?: (nodes: VisualizationNode[]) => void;
+  onEdgeCreated?: (source: string, target: string) => void;
   panelConstraints?: {
     leftPanel?: { x: number; y: number; width: number; collapsed: boolean };
     rightPanel?: { x: number; y: number; width: number; collapsed: boolean };
@@ -59,6 +62,9 @@ const GraphCanvas = React.memo(({
   transform,
   onTransformChange,
   editMode = false,
+  behaviorMode = 'default',
+  onNodesSelected,
+  onEdgeCreated,
   panelConstraints
 }: GraphCanvasProps) => {
   const graphRef = useRef<any>(null);
@@ -218,7 +224,7 @@ const GraphCanvas = React.memo(({
         throw new Error('G6 library not available');
       }
 
-      // Create G6 graph with proper v5 configuration
+      // Create G6 graph with proper v5 configuration  
       const layoutConfig = getLayoutConfig(currentLayout);
 
       const graph = new G6.Graph({
@@ -227,24 +233,44 @@ const GraphCanvas = React.memo(({
         height,
         data: processedGraphData,
         layout: layoutConfig,
+        behaviors: [
+          'drag-canvas',
+          'zoom-canvas', 
+          'drag-element', 
+          'click-select',
+          'hover-activate'
+        ],
         node: {
           style: {
             size: 25,
-            fill: '#e6f7ff',
+            fill: (d: any) => getNodeTypeColor(d.type),
             stroke: '#1890ff',
             lineWidth: 2,
           },
           labelText: (d: any) => d.label || d.id,
           labelPosition: 'bottom',
+          state: {
+            selected: G6_STATES.node.selected,
+            hover: G6_STATES.node.hover,
+            inactive: G6_STATES.node.inactive,
+          },
         },
         edge: {
           style: {
             stroke: '#91d5ff',
             lineWidth: 1,
             opacity: 0.8,
+            endArrow: {
+              path: 'M 0,0 L 8,4 L 8,-4 Z',
+              fill: '#91d5ff',
+            },
+          },
+          state: {
+            selected: G6_STATES.edge.selected,
+            hover: G6_STATES.edge.hover,
+            inactive: G6_STATES.edge.inactive,
           },
         },
-        behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element'],
         autoFit: 'view',
       });
 
@@ -253,29 +279,122 @@ const GraphCanvas = React.memo(({
       // Render the graph
       graph.render();
 
-      // Bind events
+      // Bind events with proper error handling
       graph.on('node:click', (e: any) => {
-        const nodeModel = e.item?.getModel?.() || e.item;
-        const originalNode = processedGraphData.nodes.find(n => n.id === nodeModel.id)?.originalNode;
-        if (originalNode) {
-          onNodeSelect(originalNode);
+        try {
+          const nodeModel = e.item?.getModel?.() || e.item;
+          const originalNode = processedGraphData.nodes.find(n => n.id === nodeModel.id)?.originalNode;
+          if (originalNode) {
+            onNodeSelect(originalNode);
+          }
+        } catch (error) {
+          console.warn('Node click error:', error);
         }
       });
 
       graph.on('node:contextmenu', (e: any) => {
-        e.preventDefault();
-        const nodeModel = e.item?.getModel?.() || e.item;
-        if (nodeModel) {
-          setContextMenu({
-            isOpen: true,
-            position: { x: e.canvasX || e.x, y: e.canvasY || e.y },
-            targetNodeId: nodeModel.id as string,
-          });
+        try {
+          e.preventDefault();
+          const nodeModel = e.item?.getModel?.() || e.item;
+          if (nodeModel) {
+            setContextMenu({
+              isOpen: true,
+              position: { x: e.canvasX || e.x, y: e.canvasY || e.y },
+              targetNodeId: nodeModel.id as string,
+            });
+          }
+        } catch (error) {
+          console.warn('Context menu error:', error);
         }
       });
 
+      // Node selection events for multi-select behavior
+      graph.on('node:selected', (e: any) => {
+        try {
+          const selectedItems = graph.getSelectedNodes();
+          const selectedNodes = selectedItems.map((item: any) => {
+            const nodeModel = item.getModel();
+            return processedGraphData.nodes.find(n => n.id === nodeModel.id)?.originalNode;
+          }).filter(Boolean);
+          
+          if (onNodesSelected && selectedNodes.length > 0) {
+            onNodesSelected(selectedNodes);
+          }
+        } catch (error) {
+          console.warn('Node selection error:', error);
+        }
+      });
+
+      // Edge creation events
+      graph.on('edge:created', (e: any) => {
+        try {
+          const { source, target } = e.edge;
+          if (onEdgeCreated && source && target) {
+            onEdgeCreated(source, target);
+          }
+        } catch (error) {
+          console.warn('Edge creation error:', error);
+        }
+      });
+
+      // Canvas interaction events
       graph.on('canvas:click', () => {
-        setContextMenu(prev => ({ ...prev, isOpen: false }));
+        try {
+          setContextMenu(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          console.warn('Canvas click error:', error);
+        }
+      });
+
+      // Keyboard shortcuts
+      graph.on('keydown', (e: any) => {
+        try {
+          const { key, ctrlKey, metaKey, shiftKey } = e.originalEvent;
+          const isModKey = ctrlKey || metaKey;
+          
+          switch (key.toLowerCase()) {
+            case 'delete':
+            case 'backspace':
+              // Delete selected nodes/edges
+              const selectedNodes = graph.getSelectedNodes();
+              const selectedEdges = graph.getSelectedEdges();
+              if (selectedNodes.length > 0 || selectedEdges.length > 0) {
+                console.log('Delete selected items:', { nodes: selectedNodes.length, edges: selectedEdges.length });
+              }
+              break;
+              
+            case 'a':
+              if (isModKey) {
+                e.preventDefault();
+                graph.selectAllNodes();
+              }
+              break;
+              
+            case '=':
+            case '+':
+              if (isModKey) {
+                e.preventDefault();
+                graph.zoomIn();
+              }
+              break;
+              
+            case '-':
+              if (isModKey) {
+                e.preventDefault();
+                graph.zoomOut();
+              }
+              break;
+              
+            case '0':
+              if (isModKey) {
+                e.preventDefault();
+                graph.fitView();
+              }
+              break;
+          }
+        } catch (error) {
+          console.warn('Keyboard shortcut error:', error);
+        }
       });
 
       // Setup resize observer with G6 v5 compatible methods
