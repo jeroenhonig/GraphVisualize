@@ -79,11 +79,13 @@ export default function G6V5Working({
               id: node.id,
               x: randomX,
               y: randomY,
+              size: 20, // Add size for collision detection
               data: {
                 ...node,
                 label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
                 fill: colorData.secondary,
-                stroke: colorData.primary
+                stroke: colorData.primary,
+                size: 20
               }
             };
           });
@@ -161,14 +163,18 @@ export default function G6V5Working({
           layout: {
             type: 'force',
             preventOverlap: true,
-            nodeSize: 25,
-            linkDistance: 120,
-            nodeStrength: -300,
-            edgeStrength: 0.6,
-            alpha: 0.3,
-            alphaDecay: 0.02,
-            velocityDecay: 0.8,
-            collideStrength: 1
+            nodeSize: 30,
+            nodeSpacing: 15,
+            linkDistance: 200,
+            nodeStrength: -800,
+            edgeStrength: 0.2,
+            alpha: 0.8,
+            alphaDecay: 0.01,
+            velocityDecay: 0.3,
+            collideStrength: 3,
+            // Additional force layout parameters for better spacing
+            gravity: 0.1,
+            center: [width / 2, height / 2]
           },
           behaviors: ['zoom-canvas', 'drag-element']
         });
