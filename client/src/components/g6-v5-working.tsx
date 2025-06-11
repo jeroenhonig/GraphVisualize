@@ -422,14 +422,26 @@ export default function G6V5Working({
         });
 
         // Enhanced drag behavior following G6 v3 pattern
+        let layoutCompleted = false;
         g6Graph.on('afterlayout', () => {
           console.log('Layout completed - nodes positioned');
+          if (!layoutCompleted) {
+            layoutCompleted = true;
+            // Stop continuous layout simulation after initial positioning
+            setTimeout(() => {
+              try {
+                g6Graph.stopLayout();
+                console.log('Force simulation stopped - nodes stabilized');
+              } catch (e) {
+                console.warn('Could not stop layout:', e);
+              }
+            }, 2000);
+          }
         });
 
         g6Graph.on('node:dragstart', (event: any) => {
           console.log('Node drag started');
-          // Restart layout calculation during drag
-          g6Graph.layout();
+          // Don't restart layout - just fix the position
           refreshDraggedNodePosition(event);
         });
 
