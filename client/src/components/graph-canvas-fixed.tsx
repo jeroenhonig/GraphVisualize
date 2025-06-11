@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import type { GraphData, VisualizationNode, GraphTransform } from "@shared/schema";
 import { getNodeTypeColor } from "@/lib/color-utils";
 import { getLayoutConfig } from "@/lib/g6-config";
@@ -58,73 +58,19 @@ export default function GraphCanvas({
   const nodes = graph?.nodes || [];
   const edges = graph?.edges || [];
 
-  // Aggressive container mounting with interval checking
-  useEffect(() => {
-    if (!containerReady && graph && nodes.length > 0) {
-      console.log('Starting aggressive container mounting...');
-      
-      let attempts = 0;
-      const maxAttempts = 20;
-      
-      const findContainer = () => {
-        attempts++;
-        console.log(`Container search attempt ${attempts}/${maxAttempts}`);
-        
-        const container = document.querySelector('[data-testid="graph-container"]') as HTMLDivElement;
-        if (container && container.offsetWidth > 0 && container.offsetHeight > 0) {
-          console.log('SUCCESS: Container found and has dimensions:', {
-            offsetWidth: container.offsetWidth,
-            offsetHeight: container.offsetHeight,
-            isConnected: container.isConnected
-          });
-          setContainerElement(container);
-          setContainerReady(true);
-          return true;
-        }
-        return false;
-      };
-      
-      // Try immediately
-      if (!findContainer()) {
-        // If not found, start interval checking
-        const interval = setInterval(() => {
-          if (findContainer() || attempts >= maxAttempts) {
-            clearInterval(interval);
-            if (attempts >= maxAttempts) {
-              console.error('Failed to find container after', maxAttempts, 'attempts');
-            }
-          }
-        }, 100);
-        
-        return () => clearInterval(interval);
-      }
-    }
-  }, [graph, nodes.length, containerReady]);
-
-  // Force container ref with immediate effect and timeout fallback
+  // Simple callback ref that works immediately
   const setContainerRef = useCallback((node: HTMLDivElement | null) => {
     console.log('Container callback ref called with node:', !!node);
     if (node) {
-      console.log('Container DOM element ready:', {
+      console.log('Container mounting immediately:', {
         offsetWidth: node.offsetWidth,
         offsetHeight: node.offsetHeight,
-        isConnected: node.isConnected,
-        parentElement: !!node.parentElement
+        isConnected: node.isConnected
       });
-      
-      // Set immediately
       setContainerElement(node);
       setContainerReady(true);
-      
-      // Also set after a small delay to ensure DOM is fully ready
-      setTimeout(() => {
-        if (node.offsetWidth > 0 && node.offsetHeight > 0) {
-          console.log('Container dimensions confirmed:', node.offsetWidth, 'x', node.offsetHeight);
-          setContainerElement(node);
-          setContainerReady(true);
-        }
-      }, 50);
     } else {
+      console.log('Container ref cleared');
       setContainerElement(null);
       setContainerReady(false);
     }
@@ -419,6 +365,16 @@ export default function GraphCanvas({
     );
   }
 
+  // Always show container status for debugging
+  const debugInfo = {
+    hasGraph: !!graph,
+    nodeCount: nodes.length,
+    edgeCount: edges.length,
+    containerReady,
+    hasContainer: !!containerElement,
+    g6Available: typeof window !== 'undefined' && !!(window as any).G6
+  };
+
   if (isLoading) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-white dark:bg-gray-900">
@@ -427,6 +383,9 @@ export default function GraphCanvas({
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Optimizing graph layout... ({nodeCount} nodes)
           </p>
+          <div className="mt-4 text-xs text-gray-500">
+            Debug: {JSON.stringify(debugInfo)}
+          </div>
         </div>
       </div>
     );
