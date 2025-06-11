@@ -49,6 +49,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all existing node types from the dataset (RDF-compliant)
+  app.get("/api/node-types", async (req, res) => {
+    try {
+      const nodeTypes = await storage.getExistingNodeTypes();
+      res.json(nodeTypes);
+    } catch (error) {
+      console.error('Node types fetch error:', error);
+      res.status(500).json({ message: "Failed to fetch node types" });
+    }
+  });
+
   // Add node to graph via RDF triples
   app.post("/api/graphs/:graphId/nodes", async (req, res) => {
     try {

@@ -72,6 +72,9 @@ export interface IStorage {
   // Data management
   clearAllData(): Promise<void>;
   loadBuildingDataset(): Promise<void>;
+  
+  // RDF Type management
+  getExistingNodeTypes(): Promise<string[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1096,6 +1099,28 @@ export class DatabaseStorage implements IStorage {
 
     // Insert all triples
     await db.insert(rdfTriples).values(buildingTriples);
+  }
+
+  async getExistingNodeTypes(): Promise<string[]> {
+    try {
+      // Get all distinct node types from RDF triples using rdf:type predicate
+      const typeTriples = await db
+        .selectDistinct({ nodeType: rdfTriples.object })
+        .from(rdfTriples)
+        .where(eq(rdfTriples.predicate, RDF_PREDICATES.TYPE));
+
+      // Extract the type names (keep full RDF URIs for proper RDF compliance)
+      const types = typeTriples
+        .map(t => t.nodeType)
+        .filter(type => type && type.trim().length > 0)
+        .filter((type, index, array) => array.indexOf(type) === index) // Remove duplicates
+        .sort();
+
+      return types;
+    } catch (error) {
+      console.error('Error fetching existing node types:', error);
+      return [];
+    }
   }
 }
 

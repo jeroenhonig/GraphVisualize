@@ -30,8 +30,8 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch all existing node types from the dataset
-  const { data: existingTypes = [] } = useQuery({
+  // Fetch all existing node types from the dataset (RDF-compliant)
+  const { data: existingTypes = [] } = useQuery<string[]>({
     queryKey: ["/api/node-types"],
     enabled: isEditing,
   });

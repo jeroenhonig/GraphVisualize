@@ -741,6 +741,24 @@ export default function GraphVisualizer() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Node Editor Dialog */}
+      <Dialog open={nodeDetailsModalOpen} onOpenChange={setNodeDetailsModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Node Details</DialogTitle>
+          </DialogHeader>
+          {editingNode && (
+            <NodeEditor 
+              node={editingNode} 
+              onNodeUpdate={() => {
+                setNodeDetailsModalOpen(false);
+                setEditingNode(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
