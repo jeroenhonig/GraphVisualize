@@ -91,7 +91,18 @@ export default function GraphCanvasOptimized({
 
   // Memoized data preparation with performance optimization
   const { nodes, edges } = useMemo(() => {
-    if (!graph) return { nodes: [], edges: [] };
+    console.log('Data preparation started:', { graph: !!graph, nodeCount, loadedNodeCount });
+    
+    if (!graph) {
+      console.log('No graph data available');
+      return { nodes: [], edges: [] };
+    }
+
+    console.log('Graph data:', { 
+      totalNodes: graph.nodes?.length || 0, 
+      totalEdges: graph.edges?.length || 0,
+      visibleNodesSize: visibleNodes.size 
+    });
 
     // Performance warning for large datasets
     if (nodeCount > G6_PERFORMANCE_CONFIG.MAX_NODES_WARNING) {
@@ -101,6 +112,8 @@ export default function GraphCanvasOptimized({
     const visibleNodeIds = visibleNodes.size > 0 
       ? Array.from(visibleNodes) 
       : graph.nodes.map((n: any) => n.id);
+    
+    console.log('Visible node IDs:', visibleNodeIds.slice(0, 5));
     
     const processedNodes = graph.nodes
       .filter((node: any) => visibleNodeIds.includes(node.id))
@@ -128,6 +141,8 @@ export default function GraphCanvasOptimized({
         };
       });
 
+    console.log('Processed nodes count:', processedNodes.length);
+
     const processedEdges = graph.edges
       .filter((edge: any) => 
         processedNodes.find((n: any) => n.id === edge.source) && 
@@ -142,8 +157,14 @@ export default function GraphCanvasOptimized({
         type: edge.type || 'line'
       }));
 
+    console.log('Final processed data:', { 
+      nodes: processedNodes.length, 
+      edges: processedEdges.length,
+      firstNode: processedNodes[0] 
+    });
+    
     return { nodes: processedNodes, edges: processedEdges };
-  }, [graph, visibleNodes, nodeCount]);
+  }, [graph, visibleNodes, nodeCount, loadedNodeCount]);
 
   // Layout switching with error handling
   const switchLayout = useCallback((layoutType: typeof currentLayout) => {
@@ -283,6 +304,13 @@ export default function GraphCanvasOptimized({
           return [centerX, centerY];
         };
 
+        console.log('Creating G6 graph with:', { 
+          nodeCount: nodes.length, 
+          edgeCount: edges.length,
+          containerDimensions: { width, height },
+          firstNodeSample: nodes[0]
+        });
+
         // Create optimized G6 graph with performance configuration
         const g6Graph = new Graph({
           container,
@@ -344,7 +372,9 @@ export default function GraphCanvasOptimized({
 
         // Render with error handling
         try {
+          console.log('Attempting to render G6 graph...');
           g6Graph.render();
+          console.log('G6 graph render completed successfully');
         } catch (renderError) {
           console.error('G6 render failed:', renderError);
           throw new Error(`Render failed: ${renderError instanceof Error ? renderError.message : 'Unknown error'}`);
