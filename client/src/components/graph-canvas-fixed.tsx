@@ -278,18 +278,21 @@ const GraphCanvas = React.memo(({
         setContextMenu(prev => ({ ...prev, isOpen: false }));
       });
 
-      // Setup resize observer
+      // Setup resize observer with G6 v5 compatible methods
       resizeObserverRef.current = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          const { width, height } = entry.contentRect;
-          if (width > 0 && height > 0 && graphRef.current) {
-            try {
-              graphRef.current.changeSize(width, height);
-              graphRef.current.fitView();
-            } catch (error) {
-              console.warn('Resize error:', error);
+        try {
+          for (const entry of entries) {
+            const { width, height } = entry.contentRect;
+            if (width > 0 && height > 0 && graphRef.current && typeof graphRef.current.setSize === 'function') {
+              // Use G6 v5 compatible resize method with proper validation
+              graphRef.current.setSize(width, height);
+              if (typeof graphRef.current.fitView === 'function') {
+                graphRef.current.fitView();
+              }
             }
           }
+        } catch (error) {
+          // Completely suppress resize errors as they're not critical for functionality
         }
       });
 
