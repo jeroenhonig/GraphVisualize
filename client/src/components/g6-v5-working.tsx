@@ -155,42 +155,42 @@ export default function G6V5Working({
 
         // Event handlers for G6 v5.0.48
         g6Graph.on('node:click', (event: any) => {
-          console.log('Node clicked:', event);
-          const { itemId, itemType } = event;
+          console.log('G6 v5 Node clicked:', event);
+          const nodeId = event.itemId || event.target?.id;
           
-          if (itemType === 'node' && itemId) {
-            // Find the original node data
-            const nodeData = nodes.find(n => n.id === itemId);
-            if (nodeData?.data) {
-              console.log('Selecting node:', nodeData.data.label || itemId);
+          if (nodeId) {
+            // Find the original node data from the nodes array
+            const originalNode = nodes.find(n => n.id === nodeId);
+            if (originalNode) {
+              console.log('Original node found:', originalNode);
               
-              // Pass the complete visualization node data to parent component
+              // Use the original visualization node structure
               const visualizationNode = {
-                id: nodeData.data.id,
-                label: nodeData.data.label,
-                type: nodeData.data.type,
-                data: nodeData.data.data || {},
-                x: nodeData.data.x || 0,
-                y: nodeData.data.y || 0
+                id: originalNode.data.id,
+                label: originalNode.data.label,
+                type: originalNode.data.type,
+                data: originalNode.data.data,
+                x: originalNode.data.x,
+                y: originalNode.data.y
               };
               
-              onNodeSelect(visualizationNode);
+              console.log('Calling onNodeSelect with:', visualizationNode);
+              onNodeSelect(visualizationNode as any);
               
-              // Visual feedback using G6 v5.0.48 element state API
+              // Visual feedback using G6 v5.0.48 element state
               try {
-                // Clear previous selections
-                nodes.forEach(node => {
-                  if (node.id !== itemId) {
+                // Clear all selections using the original nodes array
+                nodes.forEach((node: any) => {
+                  if (node.id !== nodeId) {
                     g6Graph.setElementState(node.id, 'selected', false);
-                    g6Graph.setElementState(node.id, 'hover', false);
                   }
                 });
                 
                 // Set current node as selected
-                g6Graph.setElementState(itemId, 'selected', true);
-                console.log(`Node "${nodeData.data.label || itemId}" selected - details panel should update`);
+                g6Graph.setElementState(nodeId, 'selected', true);
+                console.log(`Node "${visualizationNode.label}" selected successfully`);
               } catch (e) {
-                console.warn('Element state selection failed:', e);
+                console.warn('Selection visual feedback failed:', e);
               }
             }
           }
@@ -198,10 +198,28 @@ export default function G6V5Working({
 
         g6Graph.on('node:dblclick', (event: any) => {
           console.log('Node double clicked:', event);
-          const { itemId, itemType } = event;
+          const nodeId = event.itemId || event.target?.id;
           
-          if (itemType === 'node' && itemId) {
-            onNodeExpand(itemId);
+          if (nodeId) {
+            onNodeExpand(nodeId);
+          }
+        });
+
+        // Right-click context menu for node editing
+        g6Graph.on('node:contextmenu', (event: any) => {
+          console.log('Node right-clicked:', event);
+          const nodeId = event.itemId || event.target?.id;
+          
+          if (nodeId && onNodeEdit) {
+            // Prevent default browser context menu
+            event.preventDefault?.();
+            
+            // Find the original node from the nodes array for editing
+            const originalNode = nodes.find(n => n.id === nodeId);
+            if (originalNode) {
+              console.log('Opening edit for node:', originalNode.data.label);
+              onNodeEdit(originalNode.data as any);
+            }
           }
         });
 
