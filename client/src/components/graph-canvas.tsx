@@ -75,22 +75,12 @@ export default function GraphCanvasOptimized({
     const processedNodes = graph.nodes
       .filter((node: any) => visibleNodeIds.includes(node.id))
       .slice(0, G6_PERFORMANCE_CONFIG.MAX_NODES_DISPLAY)
-      .map((node: any, index: number) => {
+      .map((node: any) => {
         const colorData = getNodeTypeColor(node.type);
-        
-        // Initiële posities in een cirkel om clustering te voorkomen
-        const totalNodes = Math.min(graph.nodes.length, G6_PERFORMANCE_CONFIG.MAX_NODES_DISPLAY);
-        const angle = (index / totalNodes) * Math.PI * 2;
-        const radius = Math.min(800, 600) * 0.3; // Use default dimensions for initial calculation
-        const centerX = 400; // Will be adjusted by layout center
-        const centerY = 300;
         
         return {
           id: node.id,
           label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
-          // Gebruik bestaande positie of genereer nieuwe circulaire positie
-          x: node.x || (centerX + Math.cos(angle) * radius),
-          y: node.y || (centerY + Math.sin(angle) * radius),
           data: {
             ...node,
             colorData,
@@ -305,8 +295,9 @@ export default function GraphCanvasOptimized({
             }
           },
           layout: {
-            ...getLayoutConfig(currentLayout),
-            center: calculateGraphCenter(),
+            type: 'grid',
+            rows: Math.ceil(Math.sqrt(processedNodes.length)),
+            cols: Math.ceil(Math.sqrt(processedNodes.length))
           },
           behaviors: ['zoom-canvas', 'drag-canvas', 'drag-element']
         });
@@ -319,61 +310,17 @@ export default function GraphCanvasOptimized({
           throw new Error(`Render failed: ${renderError instanceof Error ? renderError.message : 'Unknown error'}`);
         }
 
-        // Monitor layout convergentie
-        let layoutIterations = 0;
-        g6Graph.on('afterlayout', () => {
-          layoutIterations++;
-          console.log(`Layout iteration ${layoutIterations} completed`);
-          
-          // Stop layout als het te lang duurt
-          if (layoutIterations > 300) {
-            console.warn('Force layout taking too long, stopping...');
-            g6Graph.stopLayout();
-          }
-        });
-
-        // Emergency clustering prevention
+        // Stop layout after short time to prevent hanging
         setTimeout(() => {
           try {
-            const currentNodes = g6Graph.getNodes ? g6Graph.getNodes() : [];
-            if (currentNodes.length > 0) {
-              const nodePositions = currentNodes.map((node: any) => {
-                const model = node.getModel ? node.getModel() : node.data || node;
-                return { id: model.id, x: model.x || 0, y: model.y || 0 };
-              });
-              
-              console.log('Node positions after layout:', nodePositions.slice(0, 5));
-              
-              // Check for clustering (all nodes within 50px of center)
-              const [centerX, centerY] = calculateGraphCenter();
-              const clustered = nodePositions.every(pos => 
-                Math.abs(pos.x - centerX) < 50 && Math.abs(pos.y - centerY) < 50
-              );
-              
-              if (clustered && nodePositions.length > 1) {
-                console.warn('Nodes clustering detected, applying emergency spread');
-                nodePositions.forEach((pos, index) => {
-                  const angle = (index / nodePositions.length) * Math.PI * 2;
-                  const radius = 200;
-                  const newX = centerX + Math.cos(angle) * radius;
-                  const newY = centerY + Math.sin(angle) * radius;
-                  
-                  try {
-                    g6Graph.updateData('node', {
-                      id: pos.id,
-                      data: { x: newX, y: newY }
-                    });
-                  } catch (updateError) {
-                    console.warn('Failed to update node position:', updateError);
-                  }
-                });
-                g6Graph.render();
-              }
+            if (g6Graph.stopLayout) {
+              g6Graph.stopLayout();
             }
+            console.log('Layout stopped to prevent hanging');
           } catch (error) {
-            console.warn('Position check failed:', error);
+            console.warn('Layout stop failed:', error);
           }
-        }, 2000);
+        }, 1000);
 
         // Enhanced event handling with batch updates for performance
         let selectedNodeId: string | null = null;
