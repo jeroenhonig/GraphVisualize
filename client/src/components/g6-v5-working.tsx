@@ -162,22 +162,22 @@ export default function G6V5Working({
             // Find the original node data
             const nodeData = nodes.find(n => n.id === itemId);
             if (nodeData?.data) {
-              console.log('Selecting node:', nodeData.data);
+              console.log('Selecting node:', nodeData.data.label || itemId);
               onNodeSelect(nodeData.data);
               
               // Visual feedback using G6 v5.0.48 element state API
               try {
-                // Clear previous selections by iterating through nodes
+                // Clear previous selections
                 nodes.forEach(node => {
                   if (node.id !== itemId) {
                     g6Graph.setElementState(node.id, 'selected', false);
+                    g6Graph.setElementState(node.id, 'hover', false);
                   }
                 });
                 
                 // Set current node as selected
                 g6Graph.setElementState(itemId, 'selected', true);
-                g6Graph.render();
-                console.log('Node selection applied successfully');
+                console.log(`Node "${nodeData.data.label || itemId}" selected with yellow highlight`);
               } catch (e) {
                 console.warn('Element state selection failed:', e);
               }
@@ -194,17 +194,30 @@ export default function G6V5Working({
           }
         });
 
+        // Hover effects
+        g6Graph.on('node:mouseenter', (event: any) => {
+          const { itemId } = event;
+          if (itemId) {
+            g6Graph.setElementState(itemId, 'hover', true);
+          }
+        });
+
+        g6Graph.on('node:mouseleave', (event: any) => {
+          const { itemId } = event;
+          if (itemId) {
+            g6Graph.setElementState(itemId, 'hover', false);
+          }
+        });
+
         // Edge selection
         g6Graph.on('edge:click', (event: any) => {
           console.log('Edge clicked:', event);
           const { itemId, itemType } = event;
           
           if (itemType === 'edge' && itemId) {
-            // Find the original edge data
             const edgeData = edges.find(e => e.id === itemId);
             if (edgeData) {
-              console.log('Edge selected:', edgeData);
-              // Could trigger edge selection callback if needed
+              console.log('Edge selected:', edgeData.label || itemId);
             }
           }
         });
