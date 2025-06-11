@@ -156,6 +156,36 @@ export default function G6GraphCanvas({
         graphRef.current = g6Graph;
         setIsLoading(false);
         console.log('G6 Simple: Graph created successfully');
+        
+        // Debug rendering
+        setTimeout(() => {
+          const canvas = container.querySelector('canvas');
+          const svg = container.querySelector('svg');
+          const children = Array.from(container.children);
+          console.log('G6 Debug:', {
+            hasCanvas: !!canvas,
+            hasSvg: !!svg,
+            childrenCount: children.length,
+            childrenTypes: children.map(c => c.tagName),
+            containerSize: { width: container.clientWidth, height: container.clientHeight }
+          });
+          
+          // Force container to be visible and have size
+          container.style.width = '100%';
+          container.style.height = '100%';
+          container.style.minHeight = '400px';
+          container.style.backgroundColor = '#f9f9f9';
+          container.style.border = '1px solid #ddd';
+          
+          // Try to force render
+          if (graphRef.current) {
+            try {
+              graphRef.current.fitView();
+            } catch (e) {
+              console.log('G6 fitView failed:', e);
+            }
+          }
+        }, 500);
 
       } catch (error) {
         console.error('G6 Simple: Failed to create graph:', error);
