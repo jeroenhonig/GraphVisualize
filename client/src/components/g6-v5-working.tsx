@@ -172,16 +172,7 @@ export default function G6V5Working({
             collideStrength: 1.0,
             clustering: false
           },
-          behaviors: [
-            'drag-canvas', 
-            'zoom-canvas', 
-            {
-              type: 'drag-element',
-              enable: true,
-              multiple: false,
-              onlyChangeComboSize: false
-            }
-          ]
+          behaviors: ['zoom-canvas', 'drag-element']
         });
 
         // Store selected node for manual highlighting
@@ -426,7 +417,7 @@ export default function G6V5Working({
           }
         });
 
-        // Simplified drag behavior for G6 v5
+        // Standard G6 drag event monitoring
         g6Graph.on('afterlayout', () => {
           console.log('Layout completed - nodes positioned');
         });
