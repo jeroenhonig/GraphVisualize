@@ -1,0 +1,137 @@
+# Replit Agent Prompt: G6 Graph Implementatie Optimaliseren
+
+## Context
+Ik heb een React component `G6V5Working` die een graph visualisatie implementeert met AntV G6. De huidige implementatie heeft performance issues en gebruikt mogelijk de verkeerde G6 versie API. De code moet geoptimaliseerd worden voor grote datasets (100+ nodes, 200+ edges) en moet robuuster worden.
+
+## Hoofdtaak
+Refactor het bestand `G6V5Working.tsx` (of vergelijkbaar genoemd bestand in de components folder) volgens de onderstaande specificaties. Behoud alle huidige functionaliteit maar verbeter de implementatie.
+
+## Specifieke Implementatie Vereisten
+
+### 1. Versie Compatibiliteit
+- Check welke versie van @antv/g6 geïnstalleerd is in package.json
+- Als het G6 v5.x is, behoud de huidige moderne API syntax
+- Als het G6 v3.x is, refactor naar v3 API syntax:
+  - Vervang `node.style` met `defaultNode` en `nodeStateStyles`
+  - Vervang `edge.style` met `defaultEdge` en `edgeStateStyles`
+  - Update data structuur voor v3 compatibiliteit
+
+### 2. Performance Optimalisaties
+Voeg deze performance verbeteringen toe aan de layout configuratie:
+```javascript
+layout: {
+  type: 'force',
+  workerEnabled: true, // Enable web worker voor non-blocking layout
+  preventOverlap: true,
+  nodeSize: 25,
+  linkDistance: 200,
+  nodeStrength: -500,
+  edgeStrength: 0.3,
+  maxIteration: 1000, // Limiteer iteraties
+  gpuEnabled: false // Alleen indien G6 v4+ en GPU beschikbaar
+}
+```
+
+### 3. Memory Leak Fixes
+In de cleanup functie van useEffect, zorg voor complete cleanup:
+- Verwijder alle DOM elementen die dynamisch gecreëerd zijn (zoals context menu)
+- Verwijder alle event listeners
+- Roep `graph.clear()` aan voor `graph.destroy()`
+- Set graphRef.current naar null
+
+### 4. Data Handling Optimalisatie
+Implementeer batch updates voor betere performance:
+```javascript
+// Voor meerdere node updates
+g6Graph.setAutoPaint(false);
+// doe updates
+g6Graph.paint();
+g6Graph.setAutoPaint(true);
+```
+
+### 5. State Management Verbetering
+Vervang huidige state management met G6's ingebouwde systeem:
+- Gebruik `graph.clearItemStates(node)` in plaats van forEach loops
+- Gebruik `graph.setItemState(nodeId, stateName, value)` consistent
+- Implementeer proper state cleanup bij mode switches
+
+### 6. Event Handling Refactoring
+Verbeter de drag-and-drop relatie builder:
+- Voeg visual feedback toe tijdens het slepen (bijv. een tijdelijke edge)
+- Implementeer escape key om relatie modus te annuleren
+- Toon cursor changes tijdens verschillende modi
+
+### 7. Error Handling
+Wrap alle G6 operaties in try-catch blocks met specifieke error messages:
+- Graph creation errors
+- Layout errors (met fallback naar 'circular' layout)
+- Render errors
+- Event handling errors
+
+### 8. Context Menu Verbetering
+- Maak context menu een React component in plaats van vanilla DOM
+- Gebruik React portal voor rendering
+- Voeg keyboard navigation toe (arrow keys)
+- Sluit menu met Escape key
+
+### 9. Nieuwe Features Toevoegen
+Implementeer deze nuttige features:
+```javascript
+// Layout switcher functie
+const switchLayout = (layoutType: 'force' | 'circular' | 'radial' | 'dagre') => {
+  const layoutConfig = getLayoutConfig(layoutType);
+  g6Graph.updateLayout(layoutConfig);
+};
+
+// Zoom controls
+const zoomIn = () => g6Graph.zoomTo(g6Graph.getZoom() * 1.2);
+const zoomOut = () => g6Graph.zoomTo(g6Graph.getZoom() * 0.8);
+const fitView = () => g6Graph.fitView(20);
+```
+
+### 10. TypeScript Improvements
+- Voeg proper types toe voor alle G6 events
+- Create interfaces voor node en edge data
+- Type all callback functions properly
+
+## Code Structuur Vereisten
+
+1. **Houd de code clean en leesbaar**:
+   - Splits complexe functies op in kleinere helper functies
+   - Voeg duidelijke comments toe bij complexe logica
+   - Gebruik descriptieve variabele namen
+
+2. **Performance monitoring**:
+   - Log render times in development mode
+   - Monitor aantal nodes/edges in de console
+   - Waarschuw bij > 500 nodes
+
+3. **Configuratie object**:
+   - Maak een apart config object voor herbruikbare settings
+   - Maak node/edge styles configureerbaar
+
+## Test Scenarios
+Zorg dat deze scenarios werken:
+1. Graph rendert correct met 0, 1, 100, en 500 nodes
+2. Drag and drop werkt smooth
+3. Context menu opent/sluit correct
+4. Relatie creatie mode werkt intuïtief
+5. Memory usage blijft stabiel bij herhaald renderen
+6. Layout updates blokkeren de UI niet
+
+## Belangrijke Aandachtspunten
+- Breek GEEN bestaande functionaliteit
+- Behoud alle props en callbacks
+- Zorg dat de component blijft werken met de parent components
+- Test met zowel light als dark theme
+- Houd console.logs alleen in development mode
+
+## Output Verwachtingen
+Na implementatie moet de component:
+- 50% sneller renderen bij grote datasets
+- Geen memory leaks hebben
+- Robuuste error handling hebben
+- Betere user experience bieden
+- Makkelijker te maintainen zijn
+
+Implementeer deze wijzigingen stap voor stap en test na elke major wijziging.
