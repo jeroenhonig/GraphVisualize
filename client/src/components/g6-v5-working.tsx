@@ -74,12 +74,15 @@ export default function G6V5Working({
             
             return {
               id: node.id,
-              data: {
-                ...node,
-                label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
+              label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
+              x: node.x,
+              y: node.y,
+              style: {
                 fill: colorData.secondary,
                 stroke: colorData.primary
-              }
+              },
+              data: node.data,
+              type: node.type
             };
           });
 
@@ -102,7 +105,7 @@ export default function G6V5Working({
 
         console.log('Creating G6 v5.0.48 working graph:', { nodes: nodes.length, edges: edges.length });
 
-        // Use G6 v5.0.48 API
+        // Use optimized G6 v5.0.48 API with performance improvements
         const g6Graph = new Graph({
           container,
           width,
@@ -112,15 +115,15 @@ export default function G6V5Working({
             style: {
               size: 20,
               fill: (d: any) => {
-                const colorData = getNodeTypeColor(d.data?.type || 'unknown');
+                const colorData = getNodeTypeColor(d.type || 'unknown');
                 return colorData.secondary;
               },
               stroke: (d: any) => {
-                const colorData = getNodeTypeColor(d.data?.type || 'unknown');
+                const colorData = getNodeTypeColor(d.type || 'unknown');
                 return colorData.primary;
               },
               lineWidth: 2,
-              labelText: (d: any) => d.data?.label || d.id,
+              labelText: (d: any) => d.label || d.id,
               labelFill: '#333',
               labelFontSize: 12,
               labelPosition: 'bottom',
@@ -156,16 +159,14 @@ export default function G6V5Working({
           layout: {
             type: 'force',
             preventOverlap: true,
-            nodeSize: 25,
-            linkDistance: 200,
-            nodeStrength: -500,
-            edgeStrength: 0.3
+            nodeSize: 30,
+            linkDistance: 150,
+            nodeStrength: -300,
+            edgeStrength: 0.6,
+            maxIteration: 500,
+            collideStrength: 1
           },
-          behaviors: [
-            'zoom-canvas',
-            'drag-canvas',
-            'drag-element'
-          ]
+          behaviors: ['zoom-canvas', 'drag-canvas', 'drag-element']
         });
 
         // Store selected node for manual highlighting
@@ -249,14 +250,17 @@ export default function G6V5Working({
               
               onNodeSelect(visualizationNode as any);
               
-              // Clear all node selections and highlight current
+              // Use G6 v5 element state management
               try {
+                // Clear all selections first
                 nodes.forEach((node: any) => {
                   g6Graph.setElementState(node.id, 'selected', false);
                 });
+                
+                // Set selected state on clicked node
                 g6Graph.setElementState(nodeId, 'selected', true);
                 
-                console.log(`Node "${originalNode.data.label}" highlighted`);
+                console.log(`Node "${originalNode.label}" highlighted`);
               } catch (e) {
                 console.warn('Selection highlighting failed:', e);
               }

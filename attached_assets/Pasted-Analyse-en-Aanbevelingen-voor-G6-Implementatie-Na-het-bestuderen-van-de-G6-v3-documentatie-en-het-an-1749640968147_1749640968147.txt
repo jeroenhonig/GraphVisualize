@@ -1,0 +1,214 @@
+Analyse en Aanbevelingen voor G6 Implementatie
+Na het bestuderen van de G6 v3 documentatie en het analyseren van je code, zie ik dat je code eigenlijk voor G6 v5 is geschreven, niet v3. Dit verklaart enkele discrepanties. Hier zijn mijn belangrijkste bevindingen en aanbevelingen:
+1. Versie Mismatch - Kritieke Fout
+Je code gebruikt G6 v5 API, maar je vraagt om verificatie met v3 documentatie. De belangrijkste verschillen:
+In G6 v3.1, de Graph constructor gebruikt defaultNode, defaultEdge, nodeStateStyles en edgeStateStyles Graph | G6, maar jouw code gebruikt v5 syntax met node.style en edge.style.
+Aanbeveling: Update naar G6 v3 API structuur:
+javascriptconst g6Graph = new Graph({
+  container,
+  width,
+  height,
+  defaultNode: {
+    size: 20,
+    style: {
+      fill: '#e6f3ff',
+      stroke: '#1890ff',
+      lineWidth: 2
+    },
+    labelCfg: {
+      style: {
+        fill: '#333',
+        fontSize: 12
+      },
+      position: 'bottom',
+      offset: 8
+    }
+  },
+  defaultEdge: {
+    style: {
+      stroke: '#999',
+      lineWidth: 1.5,
+      endArrow: true
+    }
+  },
+  nodeStateStyles: {
+    selected: {
+      fill: '#ffeb3b',
+      stroke: '#ff9800',
+      lineWidth: 4
+    },
+    hover: {
+      fill: '#ffc107',
+      stroke: '#ff6f00',
+      lineWidth: 3
+    },
+    'relation-source': {
+      fill: '#4caf50',
+      stroke: '#2e7d32',
+      lineWidth: 4,
+      shadowColor: '#4caf50',
+      shadowBlur: 10
+    }
+  },
+  modes: {
+    default: ['drag-canvas', 'drag-node', 'zoom-canvas']
+  },
+  layout: {
+    type: 'force',
+    preventOverlap: true,
+    nodeSize: 25,
+    linkDistance: 200,
+    nodeStrength: -500,
+    edgeStrength: 0.3
+  }
+});
+2. Performance Optimalisatie
+Voor grote datasets met 100+ nodes en 200+ edges:
+Voor alle general graph layout algoritmes in G6, kun je web-worker inschakelen door workerEnabled: true te configureren in de layout configuratie Graph Layout | G6
+javascriptlayout: {
+  type: 'force',
+  workerEnabled: true, // Voorkomt UI blocking
+  preventOverlap: true,
+  nodeSize: 25,
+  linkDistance: 200,
+  nodeStrength: -500,
+  edgeStrength: 0.3,
+  maxIteration: 1000 // Beperk iteraties voor performance
+}
+3. Event Handling Verbeteringen
+G6 behaviors hebben drie callbacks: shouldBegin, shouldUpdate, en shouldEnd
+Verbeter de drag behavior:
+javascriptmodes: {
+  default: [
+    {
+      type: 'drag-node',
+      enableDelegate: true,
+      shouldBegin: (e) => {
+        // Voorkom drag tijdens relatie modus
+        return !relationMode;
+      }
+    },
+    'drag-canvas',
+    'zoom-canvas'
+  ]
+}
+4. Data Structuur Optimalisatie
+Voor G6 v3, gebruik de juiste data structuur:
+javascriptconst nodes = graph.nodes
+  .filter(node => visibleNodeIds.includes(node.id))
+  .slice(0, 100)
+  .map(node => {
+    const colorData = getNodeTypeColor(node.type);
+    return {
+      id: node.id,
+      label: node.label.length > 15 
+        ? node.label.substring(0, 15) + '...' 
+        : node.label,
+      x: node.x, // Behoud positie indien beschikbaar
+      y: node.y,
+      style: {
+        fill: colorData.secondary,
+        stroke: colorData.primary
+      },
+      // Bewaar originele data
+      data: node.data,
+      type: node.type
+    };
+  });
+5. Memory Leaks Voorkomen
+Context menu cleanup verbeteren:
+javascriptuseEffect(() => {
+  // ... graph creation code ...
+
+  // Cleanup function
+  return () => {
+    // Verwijder context menu
+    const contextMenu = document.querySelector('.g6-context-menu');
+    if (contextMenu) {
+      contextMenu.remove();
+    }
+    
+    // Verwijder event listeners
+    document.removeEventListener('click', hideContextMenu);
+    
+    // Destroy graph
+    if (graphRef.current) {
+      try {
+        graphRef.current.clear();
+        graphRef.current.destroy();
+      } catch (e) {
+        console.warn('Cleanup error:', e);
+      }
+      graphRef.current = null;
+    }
+  };
+}, [graph, visibleNodes]);
+6. Relatie Creatie Verbetering
+Gebruik G6's built-in edge toevoeg methodes:
+javascript// In plaats van g6Graph.addEdgeData(), gebruik:
+g6Graph.addItem('edge', {
+  id: newEdgeId,
+  source: relationSourceNode,
+  target: nodeId,
+  label: 'nieuwe relatie',
+  type: 'line'
+});
+7. Layout Switching
+G6 ondersteunt Custom Layout mechanisme voor gebruikers om hun eigen layout algoritme te ontwerpen Graph Layout | G6
+Voeg layout switching toe voor betere visualisatie:
+javascriptconst switchLayout = (layoutType) => {
+  const newLayout = {
+    type: layoutType,
+    workerEnabled: true,
+    preventOverlap: true
+  };
+  
+  g6Graph.updateLayout(newLayout);
+};
+8. State Management Optimalisatie
+Gebruik G6's ingebouwde state management effectiever:
+javascript// Reset alle states
+g6Graph.getNodes().forEach(node => {
+  g6Graph.clearItemStates(node);
+});
+
+// Set nieuwe state
+g6Graph.setItemState(nodeId, 'selected', true);
+9. Batch Updates
+Voor betere performance bij veel updates:
+javascriptg6Graph.setAutoPaint(false); // Stop auto rendering
+// Doe meerdere updates
+nodes.forEach(node => {
+  g6Graph.updateItem(node.id, { /* updates */ });
+});
+g6Graph.paint(); // Render één keer
+g6Graph.setAutoPaint(true); // Herstart auto rendering
+10. Error Handling Verbetering
+Voeg robuustere error handling toe:
+javascripttry {
+  await g6Graph.render();
+  
+  // Valideer rendering
+  if (g6Graph.getNodes().length === 0) {
+    throw new Error('No nodes rendered');
+  }
+} catch (error) {
+  console.error('Render failed:', error);
+  setRenderError(`Failed to render graph: ${error.message}`);
+  
+  // Probeer fallback layout
+  try {
+    g6Graph.updateLayout({ type: 'circular' });
+  } catch (fallbackError) {
+    console.error('Fallback failed:', fallbackError);
+  }
+}
+Conclusie
+De belangrijkste issues zijn:
+
+Je gebruikt G6 v5 API syntax terwijl je mogelijk v3 nodig hebt
+Performance optimalisaties zoals web workers zijn niet ingeschakeld
+Memory leaks door incomplete cleanup
+Suboptimale event handling voor complexe interacties
+
+Focus eerst op het corrigeren van de versie mismatch, daarna op performance optimalisaties voor grote datasets.
