@@ -1,0 +1,20 @@
+[vite] connecting...
+[vite] connected.
+G6 library detected: 5.0.48
+Creating G6 graph with config: 
+Object {width: 662, height: 500, layout: "circular", nodes: 78, edges: 120}
+Available G6 methods: 
+Object {hasData: undefined, hasRead: undefined, hasChangeData: undefined, version: "5.0.48"}
+Graph creation error: 
+Object {message: "Cannot read properties of undefined (reading 'triangle')", error: TypeError, stack: "TypeError: Cannot read properties of undefined (reading 'triangle')↵    at…", processedGraphData: {…}}
+error: Error
+message: "Cannot read properties of undefined (reading 'triangle')"
+processedGraphData: Object
+stack: "TypeError: Cannot read properties of undefined (reading 'triangle')↵ at https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/src/components/graph-canvas-fixed.tsx:244:30↵ at https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/src/components/graph-canvas-fixed.tsx:397:23↵ at commitHookEffectListMount (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=45c945ac:16915:34)↵ at commitPassiveMountOnFiber (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=45c945ac:18156:19)↵ at commitPassiveMountEffects_complete (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=45c945ac:18129:17)↵ at commitPassiveMountEffects_begin (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=45c945ac:18119:15)↵ at commitPassiveMountEffects (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=45c945ac:18109:11)↵ at flushPassiveEffectsImpl (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=45c945ac:19490:11)↵ at flushPassiveEffects (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=45c945ac:19447:22)↵ at commitRootImpl (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=45c945ac:19416:13)"
+[[Prototype]]: Object
+
+at t.value (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+G6 library detected: 5.0.48
