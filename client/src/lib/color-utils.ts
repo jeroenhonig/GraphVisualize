@@ -4,6 +4,9 @@ export interface NodeTypeColor {
   secondary: string;
   hover: string;
   text: string;
+  // Legacy properties for backward compatibility
+  color: string;
+  bgColor: string;
 }
 
 // Predefined color palette for different node types

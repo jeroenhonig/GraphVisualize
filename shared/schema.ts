@@ -120,6 +120,10 @@ export interface VisualizationNode {
   y: number;
   expanded?: boolean;
   visible?: boolean;
+  // Physics simulation properties
+  vx?: number;
+  vy?: number;
+  mass?: number;
 }
 
 export interface VisualizationEdge {
