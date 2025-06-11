@@ -109,11 +109,18 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
       console.log(`Found prefix: ${prefix} -> ${uri}`);
     }
     
-    // Remove all prefix declarations and comments
-    const rdfContent = content
-      .replace(/@prefix[^.]*\./g, '')
-      .replace(/#[^\r\n]*/g, '')
-      .trim();
+    // Remove prefix declarations and comments more carefully
+    const lines = content.split('\n');
+    const rdfLines: string[] = [];
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('@prefix') && !trimmed.startsWith('#') && trimmed) {
+        rdfLines.push(line);
+      }
+    }
+    
+    const rdfContent = rdfLines.join('\n');
     
     // Use a simple but effective approach: split on dots and parse each statement
     const statementTexts = splitStatements(rdfContent);
@@ -219,46 +226,101 @@ function splitStatements(content: string): string[] {
   return statements;
 }
 
-// Parse individual statement (handles semicolon syntax)
+// Enhanced statement parser with better error handling
 function parseStatement(
   statement: string,
   prefixes: Map<string, string>,
   statements: { subject: string, predicate: string, object: string, objectType: string }[],
   subjects: Set<string>
 ) {
-  const normalized = statement.replace(/\s+/g, ' ').trim();
-  
-  // Find subject (first token)
-  const tokens = normalized.split(/\s+/);
-  if (tokens.length < 3) return;
-  
-  const subject = expandPrefix(tokens[0], prefixes);
-  subjects.add(subject);
-  
-  // Handle predicate-object pairs (separated by semicolons)
-  const predicateSection = tokens.slice(1).join(' ');
-  const predicateParts = predicateSection.split(';');
-  
-  for (const part of predicateParts) {
-    const trimmed = part.trim();
-    if (!trimmed) continue;
+  try {
+    const normalized = statement.replace(/\s+/g, ' ').trim();
     
-    const partTokens = trimmed.split(/\s+/);
-    if (partTokens.length < 2) continue;
+    // Skip empty statements
+    if (!normalized) return;
     
-    const predicate = expandPrefix(partTokens[0], prefixes);
-    const objectStr = partTokens.slice(1).join(' ');
+    // Split into tokens, being careful with quoted strings
+    const tokens = tokenizeStatement(normalized);
+    if (tokens.length < 3) return;
     
-    // Parse object value
-    const { value, type } = parseObjectValue(objectStr, prefixes);
+    const subject = expandPrefix(tokens[0], prefixes);
+    if (!subject) return;
     
-    statements.push({
-      subject,
-      predicate,
-      object: value,
-      objectType: type
-    });
+    subjects.add(subject);
+    
+    // Parse predicate-object pairs
+    let i = 1;
+    while (i < tokens.length) {
+      if (i + 1 >= tokens.length) break;
+      
+      const predicate = expandPrefix(tokens[i], prefixes);
+      if (!predicate) {
+        i++;
+        continue;
+      }
+      
+      const objectStr = tokens[i + 1];
+      const { value, type } = parseObjectValue(objectStr, prefixes);
+      
+      statements.push({
+        subject,
+        predicate,
+        object: value,
+        objectType: type
+      });
+      
+      i += 2;
+      
+      // Skip semicolon if present
+      if (i < tokens.length && tokens[i] === ';') {
+        i++;
+      }
+    }
+  } catch (error) {
+    console.error('Error parsing statement:', statement.substring(0, 100), error);
   }
+}
+
+// Better tokenizer that handles TTL syntax properly
+function tokenizeStatement(statement: string): string[] {
+  const tokens: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  let quoteChar = '';
+  
+  for (let i = 0; i < statement.length; i++) {
+    const char = statement[i];
+    const prevChar = i > 0 ? statement[i - 1] : '';
+    
+    if (!inQuotes && (char === '"' || char === "'")) {
+      inQuotes = true;
+      quoteChar = char;
+      current += char;
+    } else if (inQuotes && char === quoteChar && prevChar !== '\\') {
+      inQuotes = false;
+      quoteChar = '';
+      current += char;
+    } else if (!inQuotes && /\s/.test(char)) {
+      if (current.trim()) {
+        tokens.push(current.trim());
+        current = '';
+      }
+    } else if (!inQuotes && char === ';') {
+      if (current.trim()) {
+        tokens.push(current.trim());
+        current = '';
+      }
+      tokens.push(';');
+    } else {
+      current += char;
+    }
+  }
+  
+  if (current.trim()) {
+    tokens.push(current.trim());
+  }
+  
+  return tokens;
 }
 
 // Helper function to expand prefixed URIs
@@ -624,7 +686,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upload RDF/TTL file
+  // Upload RDF/TTL file to existing graph
+  app.post("/api/graphs/:graphId/upload", upload.single('file'), async (req, res) => {
+    try {
+      const { graphId } = req.params;
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const fileContent = req.file.buffer.toString('utf8');
+      const fileExtension = req.file.originalname.split('.').pop()?.toLowerCase();
+
+      // Validate file type
+      if (!['ttl', 'rdf', 'n3', 'nt'].includes(fileExtension || '')) {
+        return res.status(400).json({ message: "Unsupported file format. Only TTL, RDF, N3, and NT files are supported." });
+      }
+
+      // Verify graph exists
+      const graph = await storage.getGraph(graphId);
+      if (!graph) {
+        return res.status(404).json({ message: "Graph not found" });
+      }
+
+      // Parse RDF content and create triples
+      await parseRdfAndCreateTriples(fileContent, fileExtension || 'ttl', graphId);
+
+      res.json({ 
+        success: true, 
+        message: "RDF file uploaded successfully",
+        graphId: graphId
+      });
+    } catch (error) {
+      console.error('RDF upload error:', error);
+      res.status(500).json({ 
+        message: "Failed to upload RDF file", 
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  // Upload RDF/TTL file (create new graph)
   app.post("/api/upload-rdf", upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
