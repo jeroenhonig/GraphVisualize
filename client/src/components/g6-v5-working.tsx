@@ -71,8 +71,14 @@ export default function G6V5Working({
           .slice(0, 100)
           .map(node => {
             const colorData = getNodeTypeColor(node.type);
+            // Random starting positions to prevent clustering at center
+            const randomX = (Math.random() - 0.5) * width * 0.6;
+            const randomY = (Math.random() - 0.5) * height * 0.6;
+            
             return {
               id: node.id,
+              x: randomX,
+              y: randomY,
               data: {
                 ...node,
                 label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
@@ -145,10 +151,17 @@ export default function G6V5Working({
           },
           layout: {
             type: 'force',
+            center: [width / 2, height / 2],
+            linkDistance: 150,
+            nodeStrength: -800,
+            edgeStrength: 0.3,
             preventOverlap: true,
-            linkDistance: 100,
-            nodeStrength: -300,
-            edgeStrength: 0.5
+            nodeSize: 30,
+            alpha: 0.5,
+            alphaDecay: 0.02,
+            velocityDecay: 0.4,
+            collideStrength: 1.0,
+            clustering: false
           },
           behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element']
         });
@@ -268,6 +281,11 @@ export default function G6V5Working({
 
         // Render graph
         await g6Graph.render();
+
+        // Initialize force layout with better distribution
+        setTimeout(() => {
+          g6Graph.layout();
+        }, 100);
 
         // Check if rendering worked
         setTimeout(() => {
