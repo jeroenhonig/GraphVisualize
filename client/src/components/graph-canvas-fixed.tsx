@@ -58,7 +58,50 @@ export default function GraphCanvas({
   const nodes = graph?.nodes || [];
   const edges = graph?.edges || [];
 
-  // Simple container ref callback that always works
+  // Aggressive container mounting with interval checking
+  useEffect(() => {
+    if (!containerReady && graph && nodes.length > 0) {
+      console.log('Starting aggressive container mounting...');
+      
+      let attempts = 0;
+      const maxAttempts = 20;
+      
+      const findContainer = () => {
+        attempts++;
+        console.log(`Container search attempt ${attempts}/${maxAttempts}`);
+        
+        const container = document.querySelector('[data-testid="graph-container"]') as HTMLDivElement;
+        if (container && container.offsetWidth > 0 && container.offsetHeight > 0) {
+          console.log('SUCCESS: Container found and has dimensions:', {
+            offsetWidth: container.offsetWidth,
+            offsetHeight: container.offsetHeight,
+            isConnected: container.isConnected
+          });
+          setContainerElement(container);
+          setContainerReady(true);
+          return true;
+        }
+        return false;
+      };
+      
+      // Try immediately
+      if (!findContainer()) {
+        // If not found, start interval checking
+        const interval = setInterval(() => {
+          if (findContainer() || attempts >= maxAttempts) {
+            clearInterval(interval);
+            if (attempts >= maxAttempts) {
+              console.error('Failed to find container after', maxAttempts, 'attempts');
+            }
+          }
+        }, 100);
+        
+        return () => clearInterval(interval);
+      }
+    }
+  }, [graph, nodes.length, containerReady]);
+
+  // Force container ref with immediate effect and timeout fallback
   const setContainerRef = useCallback((node: HTMLDivElement | null) => {
     console.log('Container callback ref called with node:', !!node);
     if (node) {
@@ -68,8 +111,19 @@ export default function GraphCanvas({
         isConnected: node.isConnected,
         parentElement: !!node.parentElement
       });
+      
+      // Set immediately
       setContainerElement(node);
       setContainerReady(true);
+      
+      // Also set after a small delay to ensure DOM is fully ready
+      setTimeout(() => {
+        if (node.offsetWidth > 0 && node.offsetHeight > 0) {
+          console.log('Container dimensions confirmed:', node.offsetWidth, 'x', node.offsetHeight);
+          setContainerElement(node);
+          setContainerReady(true);
+        }
+      }, 50);
     } else {
       setContainerElement(null);
       setContainerReady(false);

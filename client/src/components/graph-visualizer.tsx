@@ -248,42 +248,57 @@ export default function GraphVisualizer() {
       </header>
       {/* Main Layout - Allow scrolling */}
       <div className="min-h-screen pt-16 relative bg-graph-background overflow-y-auto">
-        {/* View Panel - Graph Canvas */}
-        <LayoutPanel
-          title="Graph Weergave"
-          panelType="view"
-          position={positions.view}
-          collapsed={false}
-          onToggleCollapse={() => togglePanelCollapse('view')}
-          onRotateLayout={rotateLayout}
-          graphInfo={currentGraph ? {
-            name: currentGraph.name,
-            description: currentGraph.description,
-            nodeCount: currentGraph.nodeCount,
-            visibleCount: visibleNodes.size
-          } : undefined}
+        {/* Direct Graph Canvas - Bypass LayoutPanel mounting issues */}
+        <div
+          className="fixed bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20"
+          style={{
+            left: positions.view.x,
+            top: positions.view.y,
+            width: positions.view.width,
+            height: positions.view.height
+          }}
         >
-          <GraphCanvas
-            graph={currentGraph}
-            selectedNode={selectedNode}
-            onNodeSelect={setSelectedNode}
-            onNodeExpand={expandNode}
-            onNodeEdit={handleNodeEdit}
-            visibleNodes={visibleNodes}
-            onVisibleNodesChange={setVisibleNodes}
-            transform={transform}
-            onTransformChange={setTransform}
-            editMode={editMode}
-            panelConstraints={{
-              leftPanel: {
-                x: 20,
-                y: 100,
-                width: 320,
-                collapsed: preferences.collapsed.navigation
-              }
-            }}
-          />
-        </LayoutPanel>
+          {/* Header */}
+          <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <div className="flex items-center space-x-2">
+              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                Graph Weergave (Direct Mount)
+              </div>
+              {currentGraph && (
+                <div className="text-xs text-gray-500">
+                  {visibleNodes.size} van {currentGraph.nodeCount} nodes
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Graph Canvas Container */}
+          <div 
+            className="w-full bg-white dark:bg-gray-900"
+            style={{ height: 'calc(100% - 56px)' }}
+          >
+            <GraphCanvas
+              graph={currentGraph}
+              selectedNode={selectedNode}
+              onNodeSelect={setSelectedNode}
+              onNodeExpand={expandNode}
+              onNodeEdit={handleNodeEdit}
+              visibleNodes={visibleNodes}
+              onVisibleNodesChange={setVisibleNodes}
+              transform={transform}
+              onTransformChange={setTransform}
+              editMode={editMode}
+              panelConstraints={{
+                leftPanel: {
+                  x: 20,
+                  y: 100,
+                  width: 320,
+                  collapsed: preferences.collapsed.navigation
+                }
+              }}
+            />
+          </div>
+        </div>
 
         {/* Graph Controls Overlay - Fixed positioning to be always visible */}
         <div className="fixed bottom-6 right-6 flex flex-col space-y-2 z-50">
