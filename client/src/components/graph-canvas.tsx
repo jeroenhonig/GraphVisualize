@@ -254,6 +254,29 @@ export default function GraphCanvas({
       const response = await apiRequest("PATCH", `/api/nodes/${nodeId}/position`, { x, y });
       return response.json();
     },
+    onMutate: async (variables) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ["/api/graphs", graph?.graphId || graph?.id] });
+      
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData(["/api/graphs", graph?.graphId || graph?.id]);
+      
+      // Optimistically update the cache
+      queryClient.setQueryData(["/api/graphs", graph?.graphId || graph?.id], (old: any) => {
+        if (!old) return old;
+        
+        return {
+          ...old,
+          nodes: old.nodes.map((node: any) => 
+            node.id === variables.nodeId 
+              ? { ...node, x: variables.x, y: variables.y }
+              : node
+          )
+        };
+      });
+      
+      return { previousData };
+    },
     onSuccess: (data, variables) => {
       // Clear the local position for this node after successful update
       setLocalNodePositions(prev => {
@@ -262,17 +285,25 @@ export default function GraphCanvas({
         return updated;
       });
       
-      // Invalidate queries to refresh with server data
-      queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/graphs", graph?.graphId || graph?.id] });
+      // Delay the invalidation to prevent visual jump
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/graphs", graph?.graphId || graph?.id] });
+      }, 100);
     },
-    onError: (error: Error, variables) => {
-      // Also clear local position on error to prevent stuck state
+    onError: (error: Error, variables, context) => {
+      // Rollback the optimistic update
+      if (context?.previousData) {
+        queryClient.setQueryData(["/api/graphs", graph?.graphId || graph?.id], context.previousData);
+      }
+      
+      // Clear local position on error
       setLocalNodePositions(prev => {
         const updated = { ...prev };
         delete updated[variables.nodeId];
         return updated;
       });
+      
       toast({
         title: "Fout",
         description: "Kon node positie niet bijwerken",
