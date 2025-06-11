@@ -277,7 +277,9 @@ const GraphCanvas = React.memo(({
         width,
         height,
         layout: layoutConfig,
-        mode: 'default',
+        modes: {
+          default: ['drag-canvas', 'zoom-canvas', 'drag-node', 'click-select'],
+        },
         defaultNode: {
           type: 'circle',
           size: 25,
@@ -302,7 +304,7 @@ const GraphCanvas = React.memo(({
             lineWidth: 1,
             opacity: 0.8,
             endArrow: {
-              path: G6.Arrow.triangle(10, 8, 0),
+              path: 'M 0,0 L 8,4 L 8,-4 Z',
               fill: '#91d5ff',
             },
           },
@@ -322,9 +324,19 @@ const GraphCanvas = React.memo(({
       
       // Load data using correct G6 v5 API
       try {
-        // According to G6 v5 documentation, use data() method
-        graph.data(processedGraphData);
-        graph.render();
+        // G6 v5 uses read() method for loading data
+        if (typeof graph.read === 'function') {
+          graph.read(processedGraphData);
+        } else {
+          // Fallback: set data directly and call render
+          graph.data = processedGraphData;
+          graph.render();
+        }
+        
+        // Always call render after data loading
+        if (typeof graph.render === 'function') {
+          graph.render();
+        }
         
         console.log('G6 graph rendered successfully');
       } catch (dataError) {
