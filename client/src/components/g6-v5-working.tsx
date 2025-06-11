@@ -160,17 +160,15 @@ export default function G6V5Working({
           },
           layout: {
             type: 'force',
-            center: [width / 2, height / 2],
-            linkDistance: 200,
-            nodeStrength: -1000,
-            edgeStrength: 0.8,
             preventOverlap: true,
-            nodeSize: 30,
+            nodeSize: 25,
+            linkDistance: 120,
+            nodeStrength: -300,
+            edgeStrength: 0.6,
             alpha: 0.3,
-            alphaDecay: 0.028,
-            velocityDecay: 0.4,
-            collideStrength: 1.0,
-            clustering: false
+            alphaDecay: 0.02,
+            velocityDecay: 0.8,
+            collideStrength: 1
           },
           behaviors: ['zoom-canvas', 'drag-element']
         });
@@ -417,22 +415,56 @@ export default function G6V5Working({
           }
         });
 
-        // Standard G6 drag event monitoring
+        // Enhanced drag behavior following G6 v3 pattern
         g6Graph.on('afterlayout', () => {
           console.log('Layout completed - nodes positioned');
         });
 
         g6Graph.on('node:dragstart', (event: any) => {
           console.log('Node drag started');
+          // Restart layout calculation during drag
+          g6Graph.layout();
+          refreshDraggedNodePosition(event);
         });
 
         g6Graph.on('node:drag', (event: any) => {
           console.log('Node dragging');
+          refreshDraggedNodePosition(event);
         });
 
         g6Graph.on('node:dragend', (event: any) => {
           console.log('Node drag ended');
+          const nodeId = event.itemId || event.target?.id;
+          if (nodeId) {
+            try {
+              const nodeData = g6Graph.getNodeData(nodeId);
+              if (nodeData) {
+                // Release fixed position to allow natural layout
+                delete nodeData.fx;
+                delete nodeData.fy;
+              }
+            } catch (e) {
+              console.warn('Failed to release drag position:', e);
+            }
+          }
         });
+
+        // Function to handle dragged node position (adapted from G6 v3 docs)
+        const refreshDraggedNodePosition = (event: any) => {
+          const nodeId = event.itemId || event.target?.id;
+          if (nodeId && event.canvas) {
+            try {
+              const nodeData = g6Graph.getNodeData(nodeId);
+              if (nodeData) {
+                // Fix position during drag to prevent layout interference
+                nodeData.fx = event.canvas.x;
+                nodeData.fy = event.canvas.y;
+              }
+            } catch (e) {
+              console.warn('Failed to update drag position:', e);
+            }
+          }
+        };
 
         // Hover effects
         g6Graph.on('node:mouseenter', (event: any) => {
