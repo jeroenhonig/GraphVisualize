@@ -1,7 +1,6 @@
-
 import Anthropic from '@anthropic-ai/sdk';
 
-// Validate API key on startup
+// Validate API key on module load
 if (!process.env.ANTHROPIC_API_KEY) {
   throw new Error('ANTHROPIC_API_KEY environment variable is required');
 }
@@ -96,11 +95,11 @@ Format your response as JSON with this structure:
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown error');
       console.error(`Code review attempt ${attempt} failed:`, lastError.message);
-      
+
       if (attempt === maxRetries) {
         break;
       }
-      
+
       // Wait before retrying (exponential backoff)
       await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
     }
@@ -153,11 +152,11 @@ Please return only the corrected code without explanations or markdown formattin
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown error');
       console.error(`Bug fixing attempt ${attempt} failed:`, lastError.message);
-      
+
       if (attempt === maxRetries) {
         break;
       }
-      
+
       // Wait before retrying (exponential backoff)
       await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
     }

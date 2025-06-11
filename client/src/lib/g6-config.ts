@@ -1,3 +1,4 @@
+
 // G6 Graph Configuration
 export interface G6LayoutConfig {
   type: 'force' | 'circular' | 'radial' | 'dagre';
@@ -28,8 +29,15 @@ export const G6_PERFORMANCE_CONFIG = {
   MAX_NODES_WARNING: 500,
   MAX_NODES_DISPLAY: 1000,
   LAYOUT_ITERATIONS: 300,
-  BATCH_UPDATE_THRESHOLD: 50
+  BATCH_UPDATE_THRESHOLD: 50,
+  ANIMATION_DURATION: 500,
+  DEBOUNCE_DELAY: 100,
 } as const;
+
+// Runtime validation for layout type
+export function validateLayoutType(type: string): type is G6LayoutConfig['type'] {
+  return ['force', 'circular', 'radial', 'dagre'].includes(type);
+}
 
 export const getLayoutConfig = (type: G6LayoutConfig['type']): G6LayoutConfig => {
   const baseConfig = {
@@ -50,6 +58,7 @@ export const getLayoutConfig = (type: G6LayoutConfig['type']): G6LayoutConfig =>
         edgeStrength: 0.8,
         alphaDecay: 0.01,
         alphaMin: 0.001,
+        collideStrength: 0.8,
       };
     case 'circular':
       return {
@@ -78,8 +87,21 @@ export const getLayoutConfig = (type: G6LayoutConfig['type']): G6LayoutConfig =>
         ranksep: 50,
       };
     default:
+      console.warn(`Unknown layout type: ${type}, falling back to force`);
       return { ...baseConfig, type: 'force' };
   }
+};
+
+// Dynamic performance settings based on node count
+export const getDynamicPerformanceConfig = (nodeCount: number) => {
+  if (nodeCount > G6_PERFORMANCE_CONFIG.MAX_NODES_WARNING) {
+    return {
+      ...G6_PERFORMANCE_CONFIG,
+      LAYOUT_ITERATIONS: Math.max(100, 300 - (nodeCount - 500) / 10),
+      ANIMATION_DURATION: 200,
+    };
+  }
+  return G6_PERFORMANCE_CONFIG;
 };
 
 export const NODE_STYLES = {
@@ -93,6 +115,7 @@ export const NODE_STYLES = {
     size: 30,
     lineWidth: 4,
     shadowBlur: 10,
+    shadowColor: '#1890ff',
   },
   hover: {
     size: 28,
@@ -102,17 +125,58 @@ export const NODE_STYLES = {
     size: 32,
     lineWidth: 4,
     shadowBlur: 15,
-  }
+  },
 } as const;
 
 export const EDGE_STYLES = {
   default: {
     lineWidth: 1.5,
-    endArrow: true,
+    endArrow: {
+      path: 'M 0,0 L 8,4 L 8,-4 Z',
+      fill: '#91d5ff',
+    },
     labelFontSize: 10,
   },
   hover: {
     lineWidth: 3,
     shadowBlur: 5,
-  }
+    shadowColor: '#91d5ff',
+  },
+  selected: {
+    lineWidth: 2.5,
+    shadowBlur: 8,
+    shadowColor: '#1890ff',
+  },
+} as const;
+
+// G6 state configuration
+export const G6_STATES = {
+  node: {
+    selected: {
+      lineWidth: 4,
+      shadowBlur: 10,
+      shadowColor: '#1890ff',
+    },
+    hover: {
+      lineWidth: 3,
+    },
+    inactive: {
+      opacity: 0.5,
+    },
+  },
+  edge: {
+    selected: {
+      lineWidth: 2.5,
+      shadowBlur: 8,
+      shadowColor: '#1890ff',
+    },
+    hover: {
+      lineWidth: 3,
+      shadowBlur: 5,
+      shadowColor: '#91d5ff',
+    },
+    inactive: {
+      opacity: 0.3,
+    },
+  },
 } as const;

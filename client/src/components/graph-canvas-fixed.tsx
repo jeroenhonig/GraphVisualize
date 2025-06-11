@@ -1,7 +1,7 @@
-import React, { forwardRef, useRef, useImperativeHandle, useEffect, useState, useCallback } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { GraphData, VisualizationNode, GraphTransform } from "@shared/schema";
 import { getNodeTypeColor } from "@/lib/color-utils";
-import { getLayoutConfig } from "@/lib/g6-config";
+import { getLayoutConfig, G6_PERFORMANCE_CONFIG } from "@/lib/g6-config";
 import GraphContextMenu from "./graph-context-menu";
 
 interface GraphCanvasProps {
@@ -21,28 +21,52 @@ interface GraphCanvasProps {
   };
 }
 
-const GraphCanvas = forwardRef<any, GraphCanvasProps>((
-  {
-    graph,
-    selectedNode,
-    onNodeSelect,
-    onNodeExpand,
-    onNodeEdit,
-    visibleNodes,
-    onVisibleNodesChange,
-    transform,
-    onTransformChange,
-    editMode = false,
-    panelConstraints
-  }: GraphCanvasProps, ref) => {
+// Error Boundary Component
+class GraphErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback: React.ReactNode },
+  { hasError: boolean; error?: Error }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Graph rendering error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+
+    return this.props.children;
+  }
+}
+
+const GraphCanvas = React.memo(({
+  graph,
+  selectedNode,
+  onNodeSelect,
+  onNodeExpand,
+  onNodeEdit,
+  visibleNodes,
+  onVisibleNodesChange,
+  transform,
+  onTransformChange,
+  editMode = false,
+  panelConstraints
+}: GraphCanvasProps) => {
   const graphRef = useRef<any>(null);
-  const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null);
-  const [containerReady, setContainerReady] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [currentLayout, setCurrentLayout] = useState<'force' | 'circular' | 'radial' | 'dagre'>('circular');
-  const [loadedNodeCount, setLoadedNodeCount] = useState(100);
-  const [nodeCount, setNodeCount] = useState(0);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -55,36 +79,80 @@ const GraphCanvas = forwardRef<any, GraphCanvasProps>((
     targetNodeId: null
   });
 
-  // Extract nodes and edges from graph data
-  const nodes = graph?.nodes || [];
-  const edges = graph?.edges || [];
+  // Memoize processed graph data
+  const processedGraphData = useMemo(() => {
+    if (!graph?.nodes?.length) return null;
 
-  // Simple callback ref that works immediately
-  const setContainerRef = useCallback((node: HTMLDivElement | null) => {
-    console.log('Container callback ref called with node:', !!node);
-    if (node) {
-      console.log('Container mounting immediately:', {
-        offsetWidth: node.offsetWidth,
-        offsetHeight: node.offsetHeight,
-        isConnected: node.isConnected
-      });
-      setContainerElement(node);
-      setContainerReady(true);
-    } else {
-      console.log('Container ref cleared');
-      setContainerElement(null);
-      setContainerReady(false);
+    const nodes = graph.nodes.slice(0, G6_PERFORMANCE_CONFIG.MAX_NODES_DISPLAY);
+    const edges = graph.edges?.filter(edge => 
+      nodes.some(n => n.id === edge.source) && 
+      nodes.some(n => n.id === edge.target)
+    ) || [];
+
+    return {
+      nodes: nodes.map(node => {
+        const colors = getNodeTypeColor(node.type);
+        return {
+          id: node.id,
+          label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
+          type: 'circle',
+          size: 25,
+          style: {
+            fill: colors.primary,
+            stroke: colors.secondary,
+            lineWidth: 2,
+          },
+          labelCfg: {
+            style: {
+              fill: '#333',
+              fontSize: 10,
+            },
+            position: 'bottom',
+            offset: 5,
+          },
+          originalNode: node,
+        };
+      }),
+      edges: edges.map(edge => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        label: edge.label || '',
+        style: {
+          stroke: '#91d5ff',
+          lineWidth: 1,
+          opacity: 0.8,
+        },
+      }))
+    };
+  }, [graph?.nodes, graph?.edges]);
+
+  // Cleanup function
+  const cleanupGraph = useCallback(() => {
+    if (graphRef.current) {
+      try {
+        graphRef.current.clear();
+        graphRef.current.destroy();
+      } catch (error) {
+        console.warn('Graph cleanup warning:', error);
+      }
+      graphRef.current = null;
+    }
+
+    if (resizeObserverRef.current) {
+      resizeObserverRef.current.disconnect();
+      resizeObserverRef.current = null;
     }
   }, []);
 
   // Handle context menu actions
   const handleContextMenuAction = useCallback((action: string) => {
-    const targetNode = nodes.find(n => n.id === contextMenu.targetNodeId);
+    const targetNode = graph?.nodes?.find(n => n.id === contextMenu.targetNodeId);
     if (!targetNode) return;
 
     switch (action) {
       case 'edit':
-        if (onNodeEdit) onNodeEdit(targetNode);
+        onNodeEdit?.(targetNode);
         break;
       case 'expand':
         onNodeExpand(targetNode.id);
@@ -98,388 +166,158 @@ const GraphCanvas = forwardRef<any, GraphCanvasProps>((
     }
 
     setContextMenu(prev => ({ ...prev, isOpen: false }));
-  }, [contextMenu.targetNodeId, nodes, onNodeEdit, onNodeExpand]);
+  }, [contextMenu.targetNodeId, graph?.nodes, onNodeEdit, onNodeExpand]);
 
-  // Main graph creation effect
-  useEffect(() => {
-    console.log('Graph creation useEffect triggered:', { 
-      hasContainer: !!containerElement, 
-      containerReady,
-      hasGraph: !!graph,
-      nodeCount: nodes.length,
-      edgeCount: edges.length
-    });
+  // Create G6 graph
+  const createGraph = useCallback(async () => {
+    if (!containerRef.current || !processedGraphData) return;
 
-    if (!graph || nodes.length === 0 || !containerReady || !containerElement) {
-      console.log('Early return: missing requirements', {
-        hasGraph: !!graph,
-        hasNodes: nodes.length > 0,
-        containerReady,
-        hasContainer: !!containerElement
+    const container = containerRef.current;
+    const rect = container.getBoundingClientRect();
+    const width = rect.width || 800;
+    const height = rect.height || 600;
+
+    try {
+      setIsLoading(true);
+      setRenderError(null);
+
+      // Clean up existing graph
+      cleanupGraph();
+      container.innerHTML = '';
+
+      // Check G6 availability
+      const G6 = (window as any).G6;
+      if (!G6) {
+        throw new Error('G6 library not available');
+      }
+
+      // Create G6 graph with proper v5 configuration
+      const layoutConfig = getLayoutConfig(currentLayout);
+
+      const graph = new G6.Graph({
+        container,
+        width,
+        height,
+        layout: {
+          type: layoutConfig.type,
+          ...layoutConfig,
+        },
+        defaultNode: {
+          type: 'circle',
+          size: 25,
+          style: {
+            fill: '#e6f7ff',
+            stroke: '#1890ff',
+            lineWidth: 2,
+          },
+          labelCfg: {
+            style: {
+              fill: '#333',
+              fontSize: 10,
+            },
+            position: 'bottom',
+            offset: 5,
+          },
+        },
+        defaultEdge: {
+          style: {
+            stroke: '#91d5ff',
+            lineWidth: 1,
+            opacity: 0.8,
+          },
+        },
+        modes: {
+          default: ['drag-canvas', 'zoom-canvas', 'drag-node'],
+        },
+        fitView: true,
+        fitViewPadding: [20, 40, 50, 20],
       });
-      return;
+
+      // Set data and render
+      graph.data(processedGraphData);
+      graph.render();
+
+      // Bind events
+      graph.on('node:click', (e: any) => {
+        const nodeModel = e.item?.getModel?.() || e.item;
+        const originalNode = processedGraphData.nodes.find(n => n.id === nodeModel.id)?.originalNode;
+        if (originalNode) {
+          onNodeSelect(originalNode);
+        }
+      });
+
+      graph.on('node:contextmenu', (e: any) => {
+        e.preventDefault();
+        const nodeModel = e.item?.getModel?.() || e.item;
+        if (nodeModel) {
+          setContextMenu({
+            isOpen: true,
+            position: { x: e.canvasX || e.x, y: e.canvasY || e.y },
+            targetNodeId: nodeModel.id as string,
+          });
+        }
+      });
+
+      graph.on('canvas:click', () => {
+        setContextMenu(prev => ({ ...prev, isOpen: false }));
+      });
+
+      // Setup resize observer
+      resizeObserverRef.current = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const { width, height } = entry.contentRect;
+          if (width > 0 && height > 0 && graphRef.current) {
+            try {
+              graphRef.current.changeSize(width, height);
+              graphRef.current.fitView();
+            } catch (error) {
+              console.warn('Resize error:', error);
+            }
+          }
+        }
+      });
+
+      resizeObserverRef.current.observe(container);
+      graphRef.current = graph;
+      setIsLoading(false);
+
+      console.log(`Graph rendered successfully with ${processedGraphData.nodes.length} nodes`);
+
+    } catch (error) {
+      console.error('Graph creation error:', error);
+      setRenderError(error instanceof Error ? error.message : 'Unknown error');
+      setIsLoading(false);
+    }
+  }, [processedGraphData, currentLayout, cleanupGraph, onNodeSelect]);
+
+  // Effect for graph creation
+  useEffect(() => {
+    if (processedGraphData) {
+      createGraph();
     }
 
-    const createOptimizedGraph = () => {
-      const startTime = performance.now();
+    return cleanupGraph;
+  }, [processedGraphData, createGraph, cleanupGraph]);
 
-      try {
-        setIsLoading(true);
-        setRenderError(null);
-
-        const container = containerElement;
-        if (!container) {
-          throw new Error('Container reference is null');
-        }
-
-        console.log('Container validation passed:', {
-          tagName: container.tagName,
-          offsetWidth: container.offsetWidth,
-          offsetHeight: container.offsetHeight,
-          isConnected: container.isConnected
-        });
-
-        // Clear existing graph
-        if (graphRef.current) {
-          try {
-            graphRef.current.clear();
-            graphRef.current.destroy();
-          } catch (cleanupError) {
-            console.warn('Cleanup warning:', cleanupError);
-          }
-          graphRef.current = null;
-        }
-
-        container.innerHTML = '';
-        const width = container.clientWidth || 800;
-        const height = container.clientHeight || 600;
-
-        // Progressive loading strategy
-        const targetNodeCount = Math.min(nodes.length, loadedNodeCount);
-        const nodesToRender = nodes.slice(0, targetNodeCount);
-        const edgesToRender = edges.filter(edge => 
-          nodesToRender.some(n => n.id === edge.source) && 
-          nodesToRender.some(n => n.id === edge.target)
-        );
-
-        console.log('Creating G6 graph with:', { 
-          totalNodes: nodes.length,
-          renderingNodes: nodesToRender.length, 
-          edgeCount: edgesToRender.length,
-          containerDimensions: { width, height }
-        });
-
-        // Get G6 library
-        const G6 = (window as any).G6;
-        if (!G6) {
-          throw new Error('G6 library not available');
-        }
-
-        // Full graph data for native canvas implementation
-        const g6Data = {
-          nodes: nodesToRender.map((node, index) => {
-            const colors = getNodeTypeColor(node.type);
-            return {
-              id: node.id,
-              label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
-              type: node.type,
-              originalNode: node,
-              colors: colors
-            };
-          }),
-          edges: edgesToRender.map(edge => ({
-            id: edge.id,
-            source: edge.source,
-            target: edge.target,
-            label: edge.label || ''
-          }))
-        };
-
-        console.log('Loading G6 data:', {
-          nodes: g6Data.nodes.length,
-          edges: g6Data.edges.length
-        });
-
-        // Debug G6 v5.0.48 actual API structure
-        console.log('G6 API available methods:', Object.getOwnPropertyNames(G6.Graph.prototype));
-        console.log('G6 version info:', G6.version || 'unknown');
-
-        // Simplified G6 v5.0.48 configuration to ensure visibility
-        const graph = new G6.Graph({
-          container: container,
-          width: width,
-          height: height,
-          layout: {
-            type: 'circular',
-            radius: Math.min(width, height) * 0.3,
-            center: [width / 2, height / 2]
-          },
-          defaultNode: {
-            size: 20,
-            style: {
-              fill: '#1890ff',
-              stroke: '#ffffff',
-              lineWidth: 2
-            },
-            labelCfg: {
-              style: {
-                fill: '#000',
-                fontSize: 10
-              },
-              position: 'bottom'
-            }
-          },
-          defaultEdge: {
-            style: {
-              stroke: '#91d5ff',
-              lineWidth: 1
-            }
-          },
-          modes: {
-            default: ['drag-canvas', 'zoom-canvas', 'drag-node']
-          },
-          fitView: true
-        });
-
-        // Test if basic graph instance works and creates DOM elements
-        console.log('G6 graph instance created:', !!graph);
-        console.log('Graph container after creation:', container.innerHTML.length);
-
-        const createNativeCanvas = () => {
-          const fallbackCanvas = document.createElement('canvas');
-          fallbackCanvas.width = width;
-          fallbackCanvas.height = height;
-          fallbackCanvas.style.width = '100%';
-          fallbackCanvas.style.height = '100%';
-          fallbackCanvas.style.border = '1px solid #e0e0e0';
-          fallbackCanvas.style.cursor = 'pointer';
-          container.appendChild(fallbackCanvas);
-
-          const ctx = fallbackCanvas.getContext('2d');
-          if (!ctx) return;
-
-          // Clear and setup canvas
-          ctx.clearRect(0, 0, width, height);
-          ctx.fillStyle = '#fafafa';
-          ctx.fillRect(0, 0, width, height);
-
-          // Force-directed layout simulation for better distribution
-          const nodePositions = g6Data.nodes.map((node, index) => {
-            const angle = (index / g6Data.nodes.length) * 2 * Math.PI;
-            const layers = Math.ceil(Math.sqrt(g6Data.nodes.length / 10));
-            const layer = Math.floor(index / (g6Data.nodes.length / layers));
-            const radiusBase = Math.min(width, height) * 0.15;
-            const radius = radiusBase + (layer * radiusBase * 0.8);
-
-            return {
-              x: width/2 + Math.cos(angle) * radius,
-              y: height/2 + Math.sin(angle) * radius,
-              node: node
-            };
-          });
-
-          // Draw edges first
-          ctx.strokeStyle = '#e0e0e0';
-          ctx.lineWidth = 1;
-          g6Data.edges.forEach(edge => {
-            const sourcePos = nodePositions.find(p => p.node.id === edge.source);
-            const targetPos = nodePositions.find(p => p.node.id === edge.target);
-
-            if (sourcePos && targetPos) {
-              ctx.beginPath();
-              ctx.moveTo(sourcePos.x, sourcePos.y);
-              ctx.lineTo(targetPos.x, targetPos.y);
-              ctx.stroke();
-            }
-          });
-
-          // Draw nodes with type-based colors
-          nodePositions.forEach((pos, index) => {
-            const colors = pos.node.colors || { primary: '#1890ff', secondary: '#e6f7ff' };
-
-            // Node circle
-            ctx.beginPath();
-            ctx.arc(pos.x, pos.y, 8, 0, 2 * Math.PI);
-            ctx.fillStyle = colors.primary;
-            ctx.fill();
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            // Add node click handler
-            fallbackCanvas.addEventListener('click', (e) => {
-              const rect = fallbackCanvas.getBoundingClientRect();
-              const clickX = e.clientX - rect.left;
-              const clickY = e.clientY - rect.top;
-              const distance = Math.sqrt((clickX - pos.x) ** 2 + (clickY - pos.y) ** 2);
-
-              if (distance <= 8 && pos.node.originalNode) {
-                onNodeSelect(pos.node.originalNode);
-                console.log('Node selected:', pos.node.originalNode.label);
-              }
-            });
-          });
-
-          // Draw title and stats
-          ctx.fillStyle = '#333333';
-          ctx.font = 'bold 14px Arial';
-          ctx.textAlign = 'left';
-          ctx.fillText(`Infrastructure Graph: ${g6Data.nodes.length} nodes, ${g6Data.edges.length} edges`, 20, 25);
-
-          console.log('Native canvas visualization created with', g6Data.nodes.length, 'nodes and', g6Data.edges.length, 'edges');
-        };
-
-        // G6 v5.0.48 attempt with immediate fallback for known issue
-        try {
-          graph.setData(g6Data);
-          graph.render();
-          console.log('G6 setData and render completed successfully');
-
-          // Immediate fallback since G6 v5.0.48 CDN has rendering issues
-          setTimeout(() => {
-            console.log('G6 rendering check - activating native canvas fallback');
-            container.innerHTML = '';
-            createNativeCanvas();
-          }, 100);
-
-        } catch (error) {
-          console.error('G6 rendering error:', error);
-          createNativeCanvas();
-        }
-
-        // Debug: Check if nodes have valid positions
-        console.log('Sample node positions:', g6Data.nodes.slice(0, 3).map(n => ({
-          id: n.id,
-          x: n.x,
-          y: n.y,
-          label: n.label
-        })));
-
-        // Store graph reference and bind events
-        graphRef.current = graph;
-
-        // Bind G6 events
-        graph.on('node:click', (e: any) => {
-          const node = e.item.getModel();
-          const nodeData = nodes.find(n => n.id === node.id);
-          if (nodeData) {
-            onNodeSelect(nodeData);
-          }
-        });
-
-        graph.on('canvas:click', () => {
-          onNodeSelect(undefined as any);
-        });
-
-        // Debug render completion
-        setTimeout(() => {
-          const canvasElements = container.querySelectorAll('canvas');
-          const svgElements = container.querySelectorAll('svg');
-          console.log('G6 rendering completed:', {
-            canvas: canvasElements.length,
-            svg: svgElements.length,
-            graphExists: !!graph
-          });
-        }, 100);
-
-        console.log('G6 v5 graph created, will render with delay');
-
-        // Bind events  
-        graph.on('node:click', (e: any) => {
-          const nodeData = e.item?.getModel ? e.item.getModel() : e.item;
-          if (nodeData && onNodeSelect) {
-            const originalNode = nodes.find(n => n.id === nodeData.id);
-            if (originalNode) {
-              onNodeSelect(originalNode);
-            }
-          }
-        });
-
-        graph.on('node:contextmenu', (e: any) => {
-          e.preventDefault();
-          const nodeData = e.item?.getModel ? e.item.getModel() : e.item;
-          if (nodeData) {
-            setContextMenu({
-              isOpen: true,
-              position: { x: e.canvasX || e.x, y: e.canvasY || e.y },
-              targetNodeId: nodeData.id as string,
-            });
-          }
-        });
-
-        graph.on('canvas:click', () => {
-          setContextMenu(prev => ({ ...prev, isOpen: false }));
-        });
-
-        // Store graph reference
-        graphRef.current = graph;
-
-        // Performance monitoring
-        const endTime = performance.now();
-        console.log(`Graph rendered successfully in ${(endTime - startTime).toFixed(2)}ms`);
-
-        setIsLoading(false);
-        setNodeCount(nodesToRender.length);
-
-        // Progressive loading continuation
-        if (nodesToRender.length < nodes.length) {
-          setTimeout(() => {
-            setLoadedNodeCount(prev => Math.min(prev + 100, nodes.length));
-          }, 1000);
-        }
-
-      } catch (error) {
-        console.error('Graph creation error:', error);
-        console.error('Error details:', {
-          message: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined,
-          name: error instanceof Error ? error.name : undefined
-        });
-        setRenderError(`Failed to create graph: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        setIsLoading(false);
-      }
-    };
-
-    console.log('All requirements met, creating graph');
-    createOptimizedGraph();
-
-    // Return cleanup function
-    return () => {
-      if (graphRef.current) {
-        try {
-          graphRef.current.clear();
-          graphRef.current.destroy();
-        } catch (e) {
-          console.warn('Cleanup error:', e);
-        }
-        graphRef.current = null;
-      }
-    };
-  }, [graph, nodes, edges, containerReady, containerElement, currentLayout, loadedNodeCount, onNodeSelect]);
-
-  // Auto-resize handler with ResizeObserver
+  // Update selected node highlight
   useEffect(() => {
-    if (!containerElement || !graphRef.current) return;
+    if (!graphRef.current || !selectedNode) return;
 
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        if (width > 0 && height > 0 && graphRef.current) {
-          try {
-            graphRef.current.changeSize(width, height);
-          } catch (error) {
-            console.warn('Resize error:', error);
-          }
-        }
+    try {
+      // Clear previous selections
+      graphRef.current.getNodes().forEach((node: any) => {
+        graphRef.current.clearItemStates(node, ['selected']);
+      });
+
+      // Highlight selected node
+      const selectedG6Node = graphRef.current.findById(selectedNode.id);
+      if (selectedG6Node) {
+        graphRef.current.setItemState(selectedG6Node, 'selected', true);
       }
-    });
-
-    resizeObserver.observe(containerElement);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [containerElement]);
+    } catch (error) {
+      console.warn('Node selection error:', error);
+    }
+  }, [selectedNode]);
 
   if (renderError) {
     return (
@@ -496,56 +334,42 @@ const GraphCanvas = forwardRef<any, GraphCanvasProps>((
           <p className="text-sm text-red-600 dark:text-red-400 mb-4">
             {renderError}
           </p>
+          <button 
+            onClick={createGraph}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
   }
 
-  // Always show container status for debugging
-  const debugInfo = {
-    hasGraph: !!graph,
-    nodeCount: nodes.length,
-    edgeCount: edges.length,
-    containerReady,
-    hasContainer: !!containerElement,
-    g6Available: typeof window !== 'undefined' && !!(window as any).G6
-  };
-
-  // Always render container to force mounting - show loading inside
-  const shouldShowLoading = isLoading;
-
   return (
     <>
       <div
-        ref={setContainerRef}
+        ref={containerRef}
         className="w-full h-full bg-white dark:bg-gray-900 rounded-lg overflow-hidden relative"
         style={{ 
           minHeight: '500px',
           minWidth: '500px',
-          width: '100%',
-          height: '100%',
-          position: 'relative',
-          display: 'block'
         }}
         data-testid="graph-container"
       >
-        {shouldShowLoading ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900">
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900 z-10">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Optimizing graph layout... ({nodeCount} nodes)
+                Loading graph... ({processedGraphData?.nodes?.length || 0} nodes)
               </p>
-              <div className="mt-4 text-xs text-gray-500">
-                Debug: {JSON.stringify(debugInfo)}
-              </div>
             </div>
           </div>
-        ) : (
-          <div className="absolute top-4 left-4 text-sm text-gray-500">
-            Container Status: {containerReady ? 'Ready' : 'Not Ready'} | 
-            Graph: {graph ? `${nodes.length} nodes` : 'No graph'} |
-            G6: {typeof window !== 'undefined' && (window as any).G6 ? 'Loaded' : 'Missing'}
+        )}
+
+        {!isLoading && processedGraphData && (
+          <div className="absolute top-4 left-4 text-sm text-gray-500 bg-white dark:bg-gray-800 px-2 py-1 rounded">
+            {processedGraphData.nodes.length} nodes, {processedGraphData.edges.length} edges
           </div>
         )}
       </div>
@@ -563,4 +387,26 @@ const GraphCanvas = forwardRef<any, GraphCanvasProps>((
   );
 });
 
-export default React.memo(GraphCanvas);
+GraphCanvas.displayName = 'GraphCanvas';
+
+// Export with Error Boundary
+export default function GraphCanvasWithErrorBoundary(props: GraphCanvasProps) {
+  return (
+    <GraphErrorBoundary
+      fallback={
+        <div className="w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+          <div className="text-center p-8">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+              Graph Component Error
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              The graph visualization encountered an unexpected error.
+            </p>
+          </div>
+        </div>
+      }
+    >
+      <GraphCanvas {...props} />
+    </GraphErrorBoundary>
+  );
+}
