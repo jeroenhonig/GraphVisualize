@@ -1,4 +1,9 @@
+import { useState, useEffect } from "react";
 import { getUniqueNodeTypes, generateColorLegend } from "@/lib/color-utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Palette, Save, RotateCcw } from "lucide-react";
 import type { VisualizationNode } from "@shared/schema";
 
 interface ColorLegendProps {
