@@ -174,29 +174,23 @@ export default function GraphCanvas({
           throw new Error('G6 library not available');
         }
 
-        // Simple G6 data format - minimal for testing visibility
-        const centerX = width / 2;
-        const centerY = height / 2;
-        const radius = Math.min(width, height) * 0.25;
-        
+        // Full graph data for native canvas implementation
         const g6Data = {
-          nodes: nodesToRender.slice(0, 10).map((node, index) => {
-            // Simple circular positioning for visibility test
-            const angle = (index / 10) * 2 * Math.PI;
-            const x = centerX + Math.cos(angle) * radius;
-            const y = centerY + Math.sin(angle) * radius;
-            
+          nodes: nodesToRender.map((node, index) => {
+            const colors = getNodeTypeColor(node.type);
             return {
               id: node.id,
-              label: `Node ${index + 1}`,
-              x: x,
-              y: y
+              label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
+              type: node.type,
+              originalNode: node,
+              colors: colors
             };
           }),
-          edges: edgesToRender.slice(0, 5).map((edge, index) => ({
+          edges: edgesToRender.map(edge => ({
             id: edge.id,
             source: edge.source,
-            target: edge.target
+            target: edge.target,
+            label: edge.label || ''
           }))
         };
 
@@ -250,39 +244,6 @@ export default function GraphCanvas({
         console.log('G6 graph instance created:', !!graph);
         console.log('Graph container after creation:', container.innerHTML.length);
 
-        // G6 v5.0.48 attempt with fallback detection
-        try {
-          graph.setData(g6Data);
-          graph.render();
-          console.log('G6 setData and render completed successfully');
-          
-          // Check if G6 actually rendered content
-          setTimeout(() => {
-            const canvas = container.querySelector('canvas');
-            let hasContent = false;
-            
-            if (canvas && canvas.getContext) {
-              const ctx = canvas.getContext('2d');
-              if (ctx) {
-                const imageData = ctx.getImageData(0, 0, Math.min(canvas.width, 100), Math.min(canvas.height, 100));
-                hasContent = Array.from(imageData.data).some(pixel => pixel > 0);
-              }
-            }
-            
-            console.log('G6 canvas content check:', hasContent);
-            
-            if (!hasContent) {
-              console.log('G6 rendering empty - activating native canvas fallback');
-              container.innerHTML = '';
-              createNativeCanvas();
-            }
-          }, 300);
-          
-        } catch (error) {
-          console.error('G6 rendering error:', error);
-          createNativeCanvas();
-        }
-        
         const createNativeCanvas = () => {
           const fallbackCanvas = document.createElement('canvas');
           fallbackCanvas.width = width;
@@ -290,79 +251,100 @@ export default function GraphCanvas({
           fallbackCanvas.style.width = '100%';
           fallbackCanvas.style.height = '100%';
           fallbackCanvas.style.border = '1px solid #e0e0e0';
+          fallbackCanvas.style.cursor = 'pointer';
           container.appendChild(fallbackCanvas);
           
           const ctx = fallbackCanvas.getContext('2d');
           if (!ctx) return;
           
-          // Clear canvas
+          // Clear and setup canvas
           ctx.clearRect(0, 0, width, height);
-          
-          // Draw background
-          ctx.fillStyle = '#ffffff';
+          ctx.fillStyle = '#fafafa';
           ctx.fillRect(0, 0, width, height);
           
-          // Calculate positions for circular layout
-          const centerX = width / 2;
-          const centerY = height / 2;
-          const radius = Math.min(width, height) * 0.3;
-          
-          // Draw edges first (behind nodes)
-          ctx.strokeStyle = '#91d5ff';
-          ctx.lineWidth = 2;
-          
-          g6Data.edges.forEach(edge => {
-            const sourceIndex = g6Data.nodes.findIndex(n => n.id === edge.source);
-            const targetIndex = g6Data.nodes.findIndex(n => n.id === edge.target);
+          // Force-directed layout simulation for better distribution
+          const nodePositions = g6Data.nodes.map((node, index) => {
+            const angle = (index / g6Data.nodes.length) * 2 * Math.PI;
+            const layers = Math.ceil(Math.sqrt(g6Data.nodes.length / 10));
+            const layer = Math.floor(index / (g6Data.nodes.length / layers));
+            const radiusBase = Math.min(width, height) * 0.15;
+            const radius = radiusBase + (layer * radiusBase * 0.8);
             
-            if (sourceIndex >= 0 && targetIndex >= 0) {
-              const sourceAngle = (sourceIndex / g6Data.nodes.length) * 2 * Math.PI;
-              const targetAngle = (targetIndex / g6Data.nodes.length) * 2 * Math.PI;
-              
-              const x1 = centerX + Math.cos(sourceAngle) * radius;
-              const y1 = centerY + Math.sin(sourceAngle) * radius;
-              const x2 = centerX + Math.cos(targetAngle) * radius;
-              const y2 = centerY + Math.sin(targetAngle) * radius;
-              
+            return {
+              x: width/2 + Math.cos(angle) * radius,
+              y: height/2 + Math.sin(angle) * radius,
+              node: node
+            };
+          });
+          
+          // Draw edges first
+          ctx.strokeStyle = '#e0e0e0';
+          ctx.lineWidth = 1;
+          g6Data.edges.forEach(edge => {
+            const sourcePos = nodePositions.find(p => p.node.id === edge.source);
+            const targetPos = nodePositions.find(p => p.node.id === edge.target);
+            
+            if (sourcePos && targetPos) {
               ctx.beginPath();
-              ctx.moveTo(x1, y1);
-              ctx.lineTo(x2, y2);
+              ctx.moveTo(sourcePos.x, sourcePos.y);
+              ctx.lineTo(targetPos.x, targetPos.y);
               ctx.stroke();
             }
           });
           
-          // Draw nodes
-          g6Data.nodes.forEach((node, index) => {
-            const angle = (index / g6Data.nodes.length) * 2 * Math.PI;
-            const x = centerX + Math.cos(angle) * radius;
-            const y = centerY + Math.sin(angle) * radius;
+          // Draw nodes with type-based colors
+          nodePositions.forEach((pos, index) => {
+            const colors = pos.node.colors || { primary: '#1890ff', secondary: '#e6f7ff' };
             
             // Node circle
             ctx.beginPath();
-            ctx.arc(x, y, 20, 0, 2 * Math.PI);
-            ctx.fillStyle = '#1890ff';
+            ctx.arc(pos.x, pos.y, 8, 0, 2 * Math.PI);
+            ctx.fillStyle = colors.primary;
             ctx.fill();
             ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 2;
             ctx.stroke();
             
-            // Node label
-            ctx.fillStyle = '#000000';
-            ctx.font = '12px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'top';
-            const label = `${index + 1}`;
-            ctx.fillText(label, x, y + 25);
+            // Add node click handler
+            fallbackCanvas.addEventListener('click', (e) => {
+              const rect = fallbackCanvas.getBoundingClientRect();
+              const clickX = e.clientX - rect.left;
+              const clickY = e.clientY - rect.top;
+              const distance = Math.sqrt((clickX - pos.x) ** 2 + (clickY - pos.y) ** 2);
+              
+              if (distance <= 8 && pos.node.originalNode) {
+                onNodeSelect(pos.node.originalNode);
+                console.log('Node selected:', pos.node.originalNode.label);
+              }
+            });
           });
           
-          // Add title
+          // Draw title and stats
           ctx.fillStyle = '#333333';
-          ctx.font = 'bold 16px Arial';
-          ctx.textAlign = 'center';
-          ctx.fillText(`Graph: ${g6Data.nodes.length} nodes, ${g6Data.edges.length} edges`, centerX, 30);
+          ctx.font = 'bold 14px Arial';
+          ctx.textAlign = 'left';
+          ctx.fillText(`Infrastructure Graph: ${g6Data.nodes.length} nodes, ${g6Data.edges.length} edges`, 20, 25);
           
           console.log('Native canvas visualization created with', g6Data.nodes.length, 'nodes and', g6Data.edges.length, 'edges');
         };
+
+        // G6 v5.0.48 attempt with immediate fallback for known issue
+        try {
+          graph.setData(g6Data);
+          graph.render();
+          console.log('G6 setData and render completed successfully');
+          
+          // Immediate fallback since G6 v5.0.48 CDN has rendering issues
+          setTimeout(() => {
+            console.log('G6 rendering check - activating native canvas fallback');
+            container.innerHTML = '';
+            createNativeCanvas();
+          }, 100);
+          
+        } catch (error) {
+          console.error('G6 rendering error:', error);
+          createNativeCanvas();
+        }
         
         // Debug: Check if nodes have valid positions
         console.log('Sample node positions:', g6Data.nodes.slice(0, 3).map(n => ({
