@@ -264,6 +264,13 @@ const GraphCanvas = React.memo(({
         edges: processedGraphData.edges.length
       });
 
+      console.log('Available G6 methods:', {
+        hasData: typeof G6.Graph.prototype.data,
+        hasRead: typeof G6.Graph.prototype.read,
+        hasChangeData: typeof G6.Graph.prototype.changeData,
+        version: G6.version
+      });
+
       const graph = new G6.Graph({
         container,
         width,
@@ -314,7 +321,15 @@ const GraphCanvas = React.memo(({
       
       // Load data using G6 v5 API with error handling
       try {
-        graph.data(processedGraphData);
+        // G6 v5 uses read() method instead of data()
+        if (typeof graph.read === 'function') {
+          graph.read(processedGraphData);
+        } else if (typeof graph.data === 'function') {
+          graph.data(processedGraphData);
+        } else {
+          // Fallback for different G6 v5 versions
+          graph.changeData(processedGraphData);
+        }
         graph.render();
       } catch (dataError) {
         console.error('Error loading data into G6:', dataError);
