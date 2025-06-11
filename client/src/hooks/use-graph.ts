@@ -47,6 +47,13 @@ export function useGraph() {
     }
   }, [allGraphs, currentGraphId]);
 
+  // Sync visibleNodes with graph data when it loads
+  useEffect(() => {
+    if (currentGraph && currentGraph.visibleNodeIds) {
+      setVisibleNodes(new Set(currentGraph.visibleNodeIds));
+    }
+  }, [currentGraph]);
+
   const expandNode = useCallback((nodeId: string) => {
     console.log('expandNode called with nodeId:', nodeId);
     if (!currentGraph || !currentGraph.edges) {
