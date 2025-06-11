@@ -382,7 +382,7 @@ export default function GraphVisualizer() {
                       
                       {expandedTreeItems.has('nodes') && (
                         <div className="ml-8 mt-2 space-y-1">
-                          {Array.from(new Set(currentGraph.nodes.map((n: any) => n.type))).map((type: string) => {
+                          {Array.from(new Set(currentGraph.nodes.map((n: any) => n.type)) as Set<string>).map((type: string) => {
                             const typeColors = getNodeTypeColor(type);
                             return (
                               <div key={type} className="flex items-center justify-between p-2 text-sm bg-gray-50 dark:bg-gray-800 rounded">
@@ -420,7 +420,7 @@ export default function GraphVisualizer() {
                       
                       {expandedTreeItems.has('relations') && (
                         <div className="ml-8 mt-2 space-y-1">
-                          {Array.from(new Set(currentGraph.edges.map((e: any) => e.type))).map((type: string) => (
+                          {Array.from(new Set(currentGraph.edges.map((e: any) => e.type)) as Set<string>).map((type: string) => (
                             <div key={type} className="flex items-center justify-between p-2 text-sm bg-gray-50 dark:bg-gray-800 rounded">
                               <span className="text-gray-700 dark:text-gray-300">{type}</span>
                               <span className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded">
@@ -444,12 +444,12 @@ export default function GraphVisualizer() {
                           <ChevronRight className="h-4 w-4 mr-2" />
                         )}
                         <Eye className="h-4 w-4 mr-2" />
-                        <span className="font-medium">Opgeslagen Views ({savedViews.length})</span>
+                        <span className="font-medium">Opgeslagen Views ({(savedViews as any)?.length || 0})</span>
                       </button>
                       
                       {expandedTreeItems.has('saved-views') && (
                         <div className="ml-8 mt-2 space-y-1">
-                          {savedViews.map((view) => (
+                          {(savedViews as any)?.map((view: any) => (
                             <div 
                               key={view.id} 
                               className="flex items-center justify-between p-2 text-sm bg-gray-50 dark:bg-gray-800 rounded group hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"

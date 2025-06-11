@@ -120,7 +120,6 @@ export class DatabaseStorage implements IStorage {
       }
 
       const defaultView = {
-        viewId: `default_${graphId}`,
         graphId,
         name: "Alle Nodes & Relaties",
         description: "Default view met alle nodes en relaties - kan niet worden verwijderd",
@@ -130,7 +129,7 @@ export class DatabaseStorage implements IStorage {
         nodePositions: JSON.stringify({}),
       };
 
-      await db.insert(savedViews).values(defaultView);
+      await this.createSavedView(defaultView);
     } catch (error) {
       console.error('Error creating default view:', error);
     }
@@ -637,9 +636,13 @@ export class DatabaseStorage implements IStorage {
 
   // Saved View operations implementation
   async createSavedView(savedView: InsertSavedView): Promise<SavedView> {
+    const viewId = nanoid();
     const [view] = await db
       .insert(savedViews)
-      .values(savedView)
+      .values({
+        ...savedView,
+        viewId,
+      })
       .returning();
     return view;
   }
