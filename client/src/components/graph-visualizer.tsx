@@ -296,7 +296,7 @@ export default function GraphVisualizer() {
             onClick={resetView}
             className="p-3 bg-white dark:bg-gray-800 shadow-lg rounded-lg hover:shadow-xl transition-shadow text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white border border-gray-200 dark:border-gray-700"
             size="sm"
-            title="Reset weergave"
+            title="Reset weergave en toon alle nodes"
           >
             <RotateCcw className="h-4 w-4" />
           </Button>

@@ -116,8 +116,18 @@ export function useGraph() {
   }, [currentGraph, visibleNodes, selectedNode]);
 
   const resetView = useCallback(() => {
+    // Reset transform (zoom and pan)
     setTransform({ scale: 1, translateX: 0, translateY: 0 });
-  }, []);
+    
+    // Show all nodes and edges
+    if (currentGraph && currentGraph.nodes) {
+      const allNodeIds = new Set<string>(currentGraph.nodes.map((node: any) => node.id as string));
+      setVisibleNodes(allNodeIds);
+    }
+    
+    // Clear node selection
+    setSelectedNode(undefined);
+  }, [currentGraph]);
 
   const fitToScreen = useCallback(() => {
     if (!currentGraph || !currentGraph.nodes || visibleNodes.size === 0) return;
