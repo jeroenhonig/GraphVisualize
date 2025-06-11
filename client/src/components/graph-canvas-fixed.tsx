@@ -212,70 +212,43 @@ export default function GraphCanvas({
           edges: g6Data.edges.length
         });
 
-        // G6 v5.0.48 - Element-based API (addItem method)
+        // Debug G6 v5.0.48 actual API structure
+        console.log('G6 API available methods:', Object.getOwnPropertyNames(G6.Graph.prototype));
+        console.log('G6 version info:', G6.version || 'unknown');
+
+        // Minimal G6 v5.0.48 setup to test basic rendering
         const graph = new G6.Graph({
           container: container,
           width: width,
-          height: height,
-          layout: {
-            type: 'force',
-            preventOverlap: true,
-            nodeSize: 30,
-            linkDistance: 150,
-            nodeStrength: -300,
-            edgeStrength: 0.6,
-            collideStrength: 0.8
-          },
-          defaultNode: {
-            size: 30,
-            style: {
-              fill: '#e6f7ff',
-              stroke: '#1890ff',
-              lineWidth: 2
-            },
-            labelCfg: {
-              style: {
-                fill: '#333',
-                fontSize: 12
-              },
-              position: 'bottom',
-              offset: 5
-            }
-          },
-          defaultEdge: {
-            style: {
-              stroke: '#91d5ff',
-              lineWidth: 1,
-              opacity: 0.8
-            }
-          },
-          modes: {
-            default: ['drag-canvas', 'zoom-canvas', 'drag-node']
-          },
-          fitView: true,
-          fitViewPadding: [20, 40, 50, 20]
+          height: height
         });
 
-        // G6 v5 uses addItem API instead of data()
-        g6Data.nodes.forEach(node => {
-          graph.addItem('node', {
-            id: node.id,
-            label: node.label,
-            x: node.x,
-            y: node.y,
-            style: node.style
-          });
-        });
+        // Test if basic graph instance works and creates DOM elements
+        console.log('G6 graph instance created:', !!graph);
+        console.log('Graph container after creation:', container.innerHTML.length);
 
-        g6Data.edges.forEach(edge => {
-          graph.addItem('edge', {
-            id: edge.id,
-            source: edge.source,
-            target: edge.target,
-            label: edge.label,
-            style: edge.style
-          });
-        });
+        // Try alternative initialization patterns for G6 v5.0.48
+        if (typeof graph.read === 'function') {
+          // G6 v5 read() method
+          graph.read(g6Data);
+          console.log('Used graph.read() method');
+        } else if (typeof graph.changeData === 'function') {
+          // G6 v5 changeData() method
+          graph.changeData(g6Data);
+          console.log('Used graph.changeData() method');
+        } else if (typeof graph.data === 'function') {
+          // G6 v4 compatibility
+          graph.data(g6Data);
+          graph.render();
+          console.log('Used legacy graph.data() + render()');
+        } else {
+          // Direct property assignment for G6 v5
+          (graph as any).data = g6Data;
+          if (typeof graph.render === 'function') {
+            graph.render();
+          }
+          console.log('Used direct property assignment');
+        }
         
         // Debug: Check if nodes have valid positions
         console.log('Sample node positions:', g6Data.nodes.slice(0, 3).map(n => ({
