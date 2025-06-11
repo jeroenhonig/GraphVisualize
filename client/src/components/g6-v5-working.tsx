@@ -110,12 +110,30 @@ export default function G6V5Working({
           node: {
             style: {
               size: 30,
-              fill: '#91c7ff',
-              stroke: '#5b8ff9',
+              fill: (d: any) => {
+                const colorData = getNodeTypeColor(d.data?.type || 'unknown');
+                return colorData.secondary;
+              },
+              stroke: (d: any) => {
+                const colorData = getNodeTypeColor(d.data?.type || 'unknown');
+                return colorData.primary;
+              },
               lineWidth: 2,
               labelText: (d: any) => d.data?.label || d.id,
               labelFill: '#333',
               labelFontSize: 10
+            },
+            state: {
+              selected: {
+                fill: '#ffeb3b',
+                stroke: '#ff9800',
+                lineWidth: 4
+              },
+              hover: {
+                fill: '#ffc107',
+                stroke: '#ff6f00',
+                lineWidth: 3
+              }
             }
           },
           edge: {
@@ -135,19 +153,84 @@ export default function G6V5Working({
           behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element']
         });
 
-        // Event handlers
+        // Event handlers for G6 v5.0.48
         g6Graph.on('node:click', (event: any) => {
           console.log('Node clicked:', event);
-          const nodeData = nodes.find(n => n.id === event.itemId);
-          if (nodeData?.data) {
-            onNodeSelect(nodeData.data);
+          const { itemId, itemType } = event;
+          
+          if (itemType === 'node' && itemId) {
+            // Find the original node data
+            const nodeData = nodes.find(n => n.id === itemId);
+            if (nodeData?.data) {
+              console.log('Selecting node:', nodeData.data);
+              onNodeSelect(nodeData.data);
+              
+              // Visual feedback - set element state for G6 v5.0.48
+              try {
+                // Clear previous selections first
+                const allNodes = g6Graph.getAllNodesData();
+                allNodes.forEach((node: any) => {
+                  if (node.id !== itemId) {
+                    g6Graph.setElementState(node.id, 'selected', false);
+                  }
+                });
+                
+                // Set current node as selected
+                g6Graph.setElementState(itemId, 'selected', true);
+                g6Graph.render();
+              } catch (e) {
+                console.warn('Node selection failed:', e);
+                // Fallback: manual style update
+                try {
+                  g6Graph.updateNodeData([{
+                    id: itemId,
+                    data: { ...nodeData.data, selected: true }
+                  }]);
+                  g6Graph.render();
+                } catch (fallbackError) {
+                  console.warn('Fallback selection failed:', fallbackError);
+                }
+              }
+            }
           }
         });
 
         g6Graph.on('node:dblclick', (event: any) => {
           console.log('Node double clicked:', event);
-          if (event.itemId) {
-            onNodeExpand(event.itemId);
+          const { itemId, itemType } = event;
+          
+          if (itemType === 'node' && itemId) {
+            onNodeExpand(itemId);
+          }
+        });
+
+        // Edge selection
+        g6Graph.on('edge:click', (event: any) => {
+          console.log('Edge clicked:', event);
+          const { itemId, itemType } = event;
+          
+          if (itemType === 'edge' && itemId) {
+            // Find the original edge data
+            const edgeData = edges.find(e => e.id === itemId);
+            if (edgeData) {
+              console.log('Edge selected:', edgeData);
+              // Could trigger edge selection callback if needed
+            }
+          }
+        });
+
+        // Canvas click to clear selection
+        g6Graph.on('canvas:click', () => {
+          console.log('Canvas clicked - clearing selection');
+          // Clear all node selections
+          try {
+            const allNodes = g6Graph.getAllNodesData();
+            allNodes.forEach((node: any) => {
+              g6Graph.setElementState(node.id, 'selected', false);
+            });
+            g6Graph.draw();
+          } catch (e) {
+            console.warn('Failed to clear selections:', e);
           }
         });
 
