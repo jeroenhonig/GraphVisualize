@@ -2,6 +2,52 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import * as d3 from 'd3';
 import type { GraphData, VisualizationNode, GraphTransform } from "@shared/schema";
 
+interface ContextMenuProps {
+  x: number;
+  y: number;
+  node: VisualizationNode;
+  onEdit: () => void;
+  onCreateRelation: () => void;
+  onClose: () => void;
+}
+
+const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, node, onEdit, onCreateRelation, onClose }) => {
+  useEffect(() => {
+    const handleClick = () => onClose();
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed bg-white border border-gray-300 rounded-md shadow-lg z-50 min-w-[150px]"
+      style={{ left: x, top: y }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="py-1">
+        <button
+          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+          onClick={onEdit}
+        >
+          <span>✏️</span>
+          Bewerk node
+        </button>
+        <button
+          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+          onClick={onCreateRelation}
+        >
+          <span>🔗</span>
+          Nieuwe relatie
+        </button>
+        <div className="border-t border-gray-200 my-1"></div>
+        <div className="px-3 py-1 text-xs text-gray-500">
+          {node.type}: {node.label}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface RDFGraphCanvasProps {
   graph?: GraphData;
   selectedNode?: VisualizationNode;
@@ -48,6 +94,15 @@ const RDFGraphCanvas = React.memo(({
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    node: VisualizationNode;
+  } | null>(null);
+  const [connectionMode, setConnectionMode] = useState<{
+    active: boolean;
+    sourceNode?: VisualizationNode;
+  }>({ active: false });
   const [renderError, setRenderError] = useState<string | null>(null);
 
   // D3 selections
@@ -369,13 +424,18 @@ const RDFGraphCanvas = React.memo(({
               .attr("font-weight", "normal");
           });
 
-        // Context menu for editing
-        if (onNodeEdit) {
-          nodeSelection.on("contextmenu", (event, d) => {
-            event.preventDefault();
-            onNodeEdit(d);
+        // Right-click context menu
+        nodeSelection.on("contextmenu", (event, d) => {
+          event.preventDefault();
+          
+          // Get mouse position relative to the page
+          const rect = (event.target as Element).getBoundingClientRect();
+          setContextMenu({
+            x: event.pageX,
+            y: event.pageY,
+            node: d
           });
-        }
+        });
       }
 
       // Update positions on simulation tick
@@ -574,6 +634,50 @@ const RDFGraphCanvas = React.memo(({
           {visibleNodes.size} nodes, {graph.edges?.filter(e => 
             visibleNodes.has(e.source) && visibleNodes.has(e.target)
           ).length || 0} edges
+        </div>
+      )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          node={contextMenu.node}
+          onEdit={() => {
+            if (onNodeEdit) {
+              onNodeEdit(contextMenu.node);
+            }
+            setContextMenu(null);
+          }}
+          onCreateRelation={() => {
+            setConnectionMode({ 
+              active: true, 
+              sourceNode: contextMenu.node 
+            });
+            setContextMenu(null);
+          }}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* Connection Mode Indicator */}
+      {connectionMode.active && connectionMode.sourceNode && (
+        <div className="absolute top-4 right-4 bg-blue-100 dark:bg-blue-900 border border-blue-300 dark:border-blue-700 rounded-lg p-3">
+          <div className="text-sm font-medium text-blue-800 dark:text-blue-200">
+            🔗 Verbindingsmodus actief
+          </div>
+          <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+            Van: {connectionMode.sourceNode.label}
+          </div>
+          <div className="text-xs text-blue-500 dark:text-blue-400 mt-1">
+            Klik op een andere node om relatie aan te maken
+          </div>
+          <button
+            onClick={() => setConnectionMode({ active: false })}
+            className="mt-2 text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+          >
+            Annuleren
+          </button>
         </div>
       )}
     </div>
