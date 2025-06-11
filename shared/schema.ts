@@ -190,3 +190,9 @@ export const RDF_TYPES = {
   LOCATION: "schema:Place",
   CONCEPT: "skos:Concept"
 } as const;
+
+export interface GraphTransform {
+  x: number;
+  y: number;
+  scale: number;
+}
