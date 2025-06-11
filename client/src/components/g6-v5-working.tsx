@@ -66,14 +66,13 @@ export default function G6GraphCanvas({
             const colorData = getNodeTypeColor(node.type);
             return {
               id: node.id,
+              x: node.x || Math.random() * width,
+              y: node.y || Math.random() * height,
               data: {
-                x: node.x || Math.random() * width,
-                y: node.y || Math.random() * height,
                 label: node.label,
                 type: node.type,
-                originalNode: node
-              },
-              style: {
+                originalNode: node,
+                size: selectedNode?.id === node.id ? 20 : 15,
                 keyShape: {
                   r: selectedNode?.id === node.id ? 20 : 15,
                   fill: colorData.secondary,
@@ -111,12 +110,26 @@ export default function G6GraphCanvas({
 
         console.log('G6 Working: Data prepared:', { nodes: nodes.length, edges: edges.length });
 
-        // Create G6 v5.0.48 compatible instance 
+        // Create G6 v5.0.48 compatible instance with explicit rendering
         const graph_instance = new G6.Graph({
           container: container,
           width,
           height,
-          data: { nodes, edges },
+          node: (model: any) => ({
+            id: model.id,
+            data: {
+              ...model.data,
+              type: 'circle-node'
+            }
+          }),
+          edge: (model: any) => ({
+            id: model.id,
+            source: model.source,
+            target: model.target,
+            data: {
+              type: 'line-edge'
+            }
+          }),
           layout: {
             type: 'force',
             preventOverlap: true,
@@ -127,6 +140,10 @@ export default function G6GraphCanvas({
           },
           behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element']
         });
+
+        // Load data and render
+        graph_instance.read({ nodes, edges });
+        graph_instance.render();
 
         // Event handlers with error handling
         try {
