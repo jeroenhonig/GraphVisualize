@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import GraphSidebar from "./graph-sidebar";
-import G6GraphCanvas from "./g6-v5-compatible";
+import G6GraphCanvas from "./svg-graph-canvas";
 import SparqlQueryPanel from "./sparql-query-panel";
 import GraphStatistics from "./graph-statistics";
 import FileUpload from "./file-upload";

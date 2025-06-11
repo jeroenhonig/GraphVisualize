@@ -112,26 +112,49 @@ export default function G6V5Compatible({
 
         console.log('G6 V5: Creating graph with', { nodes: nodes.length, edges: edges.length });
 
-        // Create G6 v5.0.48 graph
+        // Create G6 v5.0.48 graph with correct API
         const g6Graph = new Graph({
           container,
           width,
           height,
-          data: { nodes, edges },
+          renderer: 'canvas',
+          node: {
+            style: {
+              fill: '#91c7ff',
+              stroke: '#5b8ff9',
+              lineWidth: 1,
+              r: 15
+            },
+            labelText: (d: any) => d.data?.label || d.id,
+            labelFontSize: 10,
+            labelFill: '#333'
+          },
+          edge: {
+            style: {
+              stroke: '#999',
+              lineWidth: 1.5,
+              endArrow: true
+            }
+          },
           layout: {
             type: 'force',
             preventOverlap: true,
             linkDistance: 100,
             nodeStrength: -300,
-            edgeStrength: 0.5,
-            center: [width / 2, height / 2]
+            edgeStrength: 0.5
           },
-          behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element'],
-          autoFit: 'view',
-          padding: [20, 20, 20, 20]
+          behaviors: [
+            { type: 'zoom-canvas', key: 'zoom' },
+            { type: 'drag-canvas', key: 'drag' },
+            { type: 'drag-element', key: 'dragNode' }
+          ]
         });
 
-        // Force render
+        // Set data and render
+        g6Graph.setData({ nodes, edges });
+        g6Graph.render();
+
+        // Auto fit view
         setTimeout(() => {
           try {
             if (graphRef.current) {
@@ -140,7 +163,7 @@ export default function G6V5Compatible({
           } catch (e) {
             console.warn('G6 V5: fitView failed:', e);
           }
-        }, 100);
+        }, 500);
 
         // Event handlers for G6 v5.0.48
         g6Graph.on('node:click', (evt: any) => {
