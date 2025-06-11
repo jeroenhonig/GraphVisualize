@@ -361,6 +361,24 @@ const RDFGraphCanvas = React.memo(({
         nodeSelection
           .on("click", (event, d) => {
             event.stopPropagation();
+            
+            // Handle connection mode
+            if (connectionMode.active && connectionMode.sourceNode) {
+              if (d.id !== connectionMode.sourceNode.id) {
+                // Create new connection
+                if (onEdgeCreated) {
+                  onEdgeCreated(connectionMode.sourceNode.id, d.id);
+                }
+                setConnectionMode({ active: false });
+                return;
+              } else {
+                // Clicked on same node, cancel connection mode
+                setConnectionMode({ active: false });
+                return;
+              }
+            }
+            
+            // Normal click behavior
             if (clickTimeout) clearTimeout(clickTimeout);
             clickTimeout = setTimeout(() => onNodeSelect(d), 200);
           })
