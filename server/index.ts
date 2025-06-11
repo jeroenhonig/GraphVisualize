@@ -27,6 +27,9 @@ validateEnvironment();
 
 const app = express();
 
+// Configure trust proxy for Replit environment
+app.set('trust proxy', true);
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

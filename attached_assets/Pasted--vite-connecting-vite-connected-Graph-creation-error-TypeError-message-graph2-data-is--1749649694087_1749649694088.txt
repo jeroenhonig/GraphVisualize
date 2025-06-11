@@ -1,0 +1,18 @@
+[vite] connecting...
+[vite] connected.
+Graph creation error: 
+TypeError {}
+message: "graph2.data is not a function"
+stack: "TypeError: graph2.data is not a function↵ at https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/src/components/graph-canvas-fixed.tsx:194:14↵ at https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/src/components/graph-canvas-fixed.tsx:242:7↵ at commitHookEffectListMount (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=45c945ac:16915:34)↵ at commitPassiveMountOnFiber (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=45c945ac:18156:19)↵ at commitPassiveMountEffects_complete (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=45c945ac:18129:17)↵ at commitPassiveMountEffects_begin (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=45c945ac:18119:15)↵ at commitPassiveMountEffects (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=45c945ac:18109:11)↵ at flushPassiveEffectsImpl (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=45c945ac:19490:11)↵ at flushPassiveEffects (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=45c945ac:19447:22)↵ at commitRootImpl (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=45c945ac:19416:13)"
+get stack: ƒ ()
+set stack: ƒ ()
+[[Prototype]]: Object
+constructor: ƒ TypeError()
+message: "graph2.data is not a function"
+name: "TypeError"
+[[Prototype]]: Object
+
+at t.value (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://1028fc10-b62a-4588-8322-7463936d0998-00-43yusvv4kubb.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400

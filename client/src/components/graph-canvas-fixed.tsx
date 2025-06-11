@@ -198,43 +198,32 @@ const GraphCanvas = React.memo(({
         container,
         width,
         height,
-        layout: {
-          type: layoutConfig.type,
-          ...layoutConfig,
-        },
-        defaultNode: {
-          type: 'circle',
-          size: 25,
+        data: processedGraphData,
+        layout: layoutConfig,
+        node: {
           style: {
+            size: 25,
             fill: '#e6f7ff',
             stroke: '#1890ff',
             lineWidth: 2,
           },
-          labelCfg: {
-            style: {
-              fill: '#333',
-              fontSize: 10,
-            },
-            position: 'bottom',
-            offset: 5,
-          },
+          labelText: (d: any) => d.label || d.id,
+          labelPosition: 'bottom',
         },
-        defaultEdge: {
+        edge: {
           style: {
             stroke: '#91d5ff',
             lineWidth: 1,
             opacity: 0.8,
           },
         },
-        modes: {
-          default: ['drag-canvas', 'zoom-canvas', 'drag-node'],
-        },
-        fitView: true,
-        fitViewPadding: [20, 40, 50, 20],
+        behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element'],
+        autoFit: 'view',
       });
 
-      // Set data and render
-      graph.data(processedGraphData);
+      console.log('Loading G6 data:', { nodes: processedGraphData.nodes.length, edges: processedGraphData.edges.length });
+      
+      // Render the graph
       graph.render();
 
       // Bind events
