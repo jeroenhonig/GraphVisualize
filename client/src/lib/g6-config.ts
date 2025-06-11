@@ -8,6 +8,10 @@ export interface G6LayoutConfig {
   nodeStrength?: number;
   edgeStrength?: number;
   maxIteration?: number;
+  gravity?: number;
+  center?: [number, number];
+  alphaDecay?: number;
+  alphaMin?: number;
   collideStrength?: number;
   radius?: number;
   startRadius?: number;
@@ -40,10 +44,12 @@ export const getLayoutConfig = (type: G6LayoutConfig['type']): G6LayoutConfig =>
       return {
         ...baseConfig,
         type: 'force',
+        gravity: 10,
         linkDistance: 150,
-        nodeStrength: -400,
-        edgeStrength: 0.5,
-        collideStrength: 1.5,
+        nodeStrength: -30,
+        edgeStrength: 0.8,
+        alphaDecay: 0.01,
+        alphaMin: 0.001,
       };
     case 'circular':
       return {

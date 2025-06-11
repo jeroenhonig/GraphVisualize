@@ -75,14 +75,22 @@ export default function GraphCanvasOptimized({
     const processedNodes = graph.nodes
       .filter((node: any) => visibleNodeIds.includes(node.id))
       .slice(0, G6_PERFORMANCE_CONFIG.MAX_NODES_DISPLAY)
-      .map((node: any) => {
+      .map((node: any, index: number) => {
         const colorData = getNodeTypeColor(node.type);
+        
+        // Initiële posities in een cirkel om clustering te voorkomen
+        const totalNodes = Math.min(graph.nodes.length, G6_PERFORMANCE_CONFIG.MAX_NODES_DISPLAY);
+        const angle = (index / totalNodes) * Math.PI * 2;
+        const radius = Math.min(800, 600) * 0.3; // Use default dimensions for initial calculation
+        const centerX = 400; // Will be adjusted by layout center
+        const centerY = 300;
         
         return {
           id: node.id,
           label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
-          x: node.x,
-          y: node.y,
+          // Gebruik bestaande positie of genereer nieuwe circulaire positie
+          x: node.x || (centerX + Math.cos(angle) * radius),
+          y: node.y || (centerY + Math.sin(angle) * radius),
           data: {
             ...node,
             colorData,
@@ -230,6 +238,22 @@ export default function GraphCanvasOptimized({
         const width = container.clientWidth || 800;
         const height = container.clientHeight || 600;
 
+        // Bereken beschikbare ruimte op basis van panel constraints
+        const calculateGraphCenter = () => {
+          const leftOffset = panelConstraints?.leftPanel && !panelConstraints.leftPanel.collapsed 
+            ? panelConstraints.leftPanel.width 
+            : 0;
+          const rightOffset = panelConstraints?.rightPanel && !panelConstraints.rightPanel.collapsed 
+            ? panelConstraints.rightPanel.width 
+            : 0;
+          
+          const availableWidth = width - leftOffset - rightOffset;
+          const centerX = leftOffset + (availableWidth / 2);
+          const centerY = height / 2;
+          
+          return [centerX, centerY];
+        };
+
         // Create optimized G6 graph with performance configuration
         const g6Graph = new Graph({
           container,
@@ -280,7 +304,10 @@ export default function GraphCanvasOptimized({
               labelFontSize: EDGE_STYLES.default.labelFontSize
             }
           },
-          layout: getLayoutConfig(currentLayout),
+          layout: {
+            ...getLayoutConfig(currentLayout),
+            center: calculateGraphCenter(),
+          },
           behaviors: ['zoom-canvas', 'drag-canvas', 'drag-element']
         });
 
@@ -291,6 +318,62 @@ export default function GraphCanvasOptimized({
           console.error('G6 render failed:', renderError);
           throw new Error(`Render failed: ${renderError instanceof Error ? renderError.message : 'Unknown error'}`);
         }
+
+        // Monitor layout convergentie
+        let layoutIterations = 0;
+        g6Graph.on('afterlayout', () => {
+          layoutIterations++;
+          console.log(`Layout iteration ${layoutIterations} completed`);
+          
+          // Stop layout als het te lang duurt
+          if (layoutIterations > 300) {
+            console.warn('Force layout taking too long, stopping...');
+            g6Graph.stopLayout();
+          }
+        });
+
+        // Emergency clustering prevention
+        setTimeout(() => {
+          try {
+            const currentNodes = g6Graph.getNodes ? g6Graph.getNodes() : [];
+            if (currentNodes.length > 0) {
+              const nodePositions = currentNodes.map((node: any) => {
+                const model = node.getModel ? node.getModel() : node.data || node;
+                return { id: model.id, x: model.x || 0, y: model.y || 0 };
+              });
+              
+              console.log('Node positions after layout:', nodePositions.slice(0, 5));
+              
+              // Check for clustering (all nodes within 50px of center)
+              const [centerX, centerY] = calculateGraphCenter();
+              const clustered = nodePositions.every(pos => 
+                Math.abs(pos.x - centerX) < 50 && Math.abs(pos.y - centerY) < 50
+              );
+              
+              if (clustered && nodePositions.length > 1) {
+                console.warn('Nodes clustering detected, applying emergency spread');
+                nodePositions.forEach((pos, index) => {
+                  const angle = (index / nodePositions.length) * Math.PI * 2;
+                  const radius = 200;
+                  const newX = centerX + Math.cos(angle) * radius;
+                  const newY = centerY + Math.sin(angle) * radius;
+                  
+                  try {
+                    g6Graph.updateData('node', {
+                      id: pos.id,
+                      data: { x: newX, y: newY }
+                    });
+                  } catch (updateError) {
+                    console.warn('Failed to update node position:', updateError);
+                  }
+                });
+                g6Graph.render();
+              }
+            }
+          } catch (error) {
+            console.warn('Position check failed:', error);
+          }
+        }, 2000);
 
         // Enhanced event handling with batch updates for performance
         let selectedNodeId: string | null = null;
