@@ -107,14 +107,31 @@ const RDFGraphCanvas = React.memo(({
         .attr("d", "M0,-5L10,0L0,5")
         .attr("fill", "#999");
 
-      // Prepare data
+      // Prepare data with better initial positioning
       const nodes: D3Node[] = graph.nodes
         .filter(node => visibleNodes.has(node.id))
-        .map(node => ({
-          ...node,
-          x: node.x || Math.random() * width,
-          y: node.y || Math.random() * height
-        }));
+        .map((node, index) => {
+          // Use stored position if available, otherwise create a grid layout
+          let x = node.x || 0;
+          let y = node.y || 0;
+          
+          // If no position is stored (0,0), arrange in a circular grid
+          if (x === 0 && y === 0) {
+            const cols = Math.ceil(Math.sqrt(graph.nodes.length));
+            const spacing = Math.min(width, height) / (cols + 1);
+            const col = index % cols;
+            const row = Math.floor(index / cols);
+            
+            x = (col + 1) * spacing + Math.random() * 50 - 25;
+            y = (row + 1) * spacing + Math.random() * 50 - 25;
+          }
+          
+          return {
+            ...node,
+            x,
+            y
+          };
+        });
 
       const links: D3Link[] = graph.edges
         .filter(edge => 
@@ -229,6 +246,45 @@ const RDFGraphCanvas = React.memo(({
         labelSelection
           .attr("x", d => d.x!)
           .attr("y", d => d.y!);
+      });
+
+      // Auto-fit viewport to show all nodes after simulation stabilizes
+      simulation.on("end", () => {
+        if (nodes.length > 0) {
+          const bounds = {
+            minX: Math.min(...nodes.map(d => d.x!)) - 50,
+            maxX: Math.max(...nodes.map(d => d.x!)) + 50,
+            minY: Math.min(...nodes.map(d => d.y!)) - 50,
+            maxY: Math.max(...nodes.map(d => d.y!)) + 50
+          };
+
+          const graphWidth = bounds.maxX - bounds.minX;
+          const graphHeight = bounds.maxY - bounds.minY;
+          
+          // Calculate scale to fit all nodes with some padding
+          const scale = Math.min(
+            (width * 0.9) / graphWidth,
+            (height * 0.9) / graphHeight,
+            1.5 // Maximum zoom level
+          );
+
+          // Calculate center position
+          const centerX = (bounds.minX + bounds.maxX) / 2;
+          const centerY = (bounds.minY + bounds.maxY) / 2;
+          
+          // Calculate translation to center the graph
+          const translateX = width / 2 - centerX * scale;
+          const translateY = height / 2 - centerY * scale;
+
+          // Apply the transform
+          const transform = d3.zoomIdentity
+            .translate(translateX, translateY)
+            .scale(scale);
+
+          svg.transition()
+            .duration(1000)
+            .call(zoomRef.current!.transform, transform);
+        }
       });
 
       // Highlight selected node
