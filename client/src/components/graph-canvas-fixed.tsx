@@ -174,18 +174,28 @@ export default function GraphCanvas({
           throw new Error('G6 library not available');
         }
 
-        // Prepare data in correct G6 format first
+        // Prepare data in correct G6 format with centered positions
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const radius = Math.min(width, height) * 0.3;
+        
         const g6Data = {
-          nodes: nodesToRender.map(node => {
+          nodes: nodesToRender.map((node, index) => {
             const colors = getNodeTypeColor(node.type);
+            // Create circular layout if no positions
+            const angle = (index / nodesToRender.length) * 2 * Math.PI;
+            const x = node.x || centerX + Math.cos(angle) * radius;
+            const y = node.y || centerY + Math.sin(angle) * radius;
+            
             return {
               id: node.id,
-              label: node.label.length > 30 ? node.label.substring(0, 30) + '...' : node.label,
-              x: node.x,
-              y: node.y,
+              label: node.label.length > 20 ? node.label.substring(0, 20) + '...' : node.label,
+              x: x,
+              y: y,
               style: {
                 fill: colors.secondary || '#e6f7ff',
-                stroke: colors.primary || '#1890ff'
+                stroke: colors.primary || '#1890ff',
+                lineWidth: 2
               }
             };
           }),
@@ -193,7 +203,7 @@ export default function GraphCanvas({
             id: edge.id,
             source: edge.source,
             target: edge.target,
-            label: edge.label
+            label: edge.label || ''
           }))
         };
 
@@ -202,43 +212,61 @@ export default function GraphCanvas({
           edges: g6Data.edges.length
         });
 
-        // G6 v5.0.48 configuration
+        // G6 v5 configuration with explicit renderer
         const graphConfig = {
           container: container,
           width: width,
           height: height,
           data: g6Data,
-          node: {
-            style: {
-              size: 40,
-              fill: '#e6f7ff',
-              stroke: '#1890ff',
-              lineWidth: 2
-            },
-            labelText: (d: any) => d.label,
-            labelPlacement: 'bottom',
-            labelOffsetY: 5
-          },
-          edge: {
-            style: {
-              stroke: '#91d5ff',
-              lineWidth: 1
-            },
-            labelText: (d: any) => d.label || ''
-          },
-          behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element'],
-          layout: {
-            type: 'force',
-            preventOverlap: true,
-            nodeSpacing: 200,
-            linkDistance: 150
+          renderer: 'canvas',
+          modes: {
+            default: ['drag-canvas', 'zoom-canvas', 'drag-node']
           }
         };
 
         // Create G6 graph instance
         const graphInstance = new G6.Graph(graphConfig);
         
-        console.log('G6 v5 graph created and rendered automatically');
+        // Debug: Check if nodes have valid positions
+        console.log('Sample node positions:', g6Data.nodes.slice(0, 3).map(n => ({
+          id: n.id,
+          x: n.x,
+          y: n.y,
+          label: n.label
+        })));
+        
+        // Force render and inspect DOM
+        setTimeout(() => {
+          try {
+            graphInstance.render();
+            graphInstance.fitView();
+            
+            // Debug DOM structure
+            const canvasElements = container.querySelectorAll('canvas');
+            const svgElements = container.querySelectorAll('svg');
+            console.log('Canvas/SVG elements found:', {
+              canvas: canvasElements.length,
+              svg: svgElements.length,
+              containerChildren: container.children.length
+            });
+            
+            // Force canvas visibility
+            canvasElements.forEach((canvas, i) => {
+              console.log(`Canvas ${i}:`, {
+                width: canvas.width,
+                height: canvas.height,
+                style: canvas.style.cssText,
+                visible: canvas.style.display !== 'none'
+              });
+            });
+            
+            console.log('Graph render and fit completed');
+          } catch (error) {
+            console.error('Render error:', error);
+          }
+        }, 100);
+        
+        console.log('G6 v5 graph created, will render with delay');
 
         // Bind events
         graphInstance.on('node:click', (e: any) => {
