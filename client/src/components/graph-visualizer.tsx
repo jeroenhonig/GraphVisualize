@@ -16,6 +16,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RotateCcw, Download, Settings, Maximize, Search, Upload, FileText, BarChart3, Database, Network, TrendingUp, ChevronDown, ChevronRight, Save, Eye, Trash2, Layout } from "lucide-react";
+import { getNodeTypeColor } from "@/lib/color-utils";
 import { useGraph } from "@/hooks/use-graph";
 import { useLayoutPreferences } from "@/hooks/use-layout-preferences";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -367,14 +368,23 @@ export default function GraphVisualizer() {
                       
                       {expandedTreeItems.has('nodes') && (
                         <div className="ml-8 mt-2 space-y-1">
-                          {Array.from(new Set(currentGraph.nodes.map(n => n.type))).map((type: string) => (
-                            <div key={type} className="flex items-center justify-between p-2 text-sm bg-gray-50 dark:bg-gray-800 rounded">
-                              <span className="text-gray-700 dark:text-gray-300">{type}</span>
-                              <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
-                                {currentGraph.nodes.filter(n => n.type === type).length}
-                              </span>
-                            </div>
-                          ))}
+                          {Array.from(new Set(currentGraph.nodes.map(n => n.type))).map((type: string) => {
+                            const typeColors = getNodeTypeColor(type);
+                            return (
+                              <div key={type} className="flex items-center justify-between p-2 text-sm bg-gray-50 dark:bg-gray-800 rounded">
+                                <div className="flex items-center space-x-2">
+                                  <div 
+                                    className="w-3 h-3 rounded-full border border-gray-300"
+                                    style={{ backgroundColor: typeColors.primary }}
+                                  />
+                                  <span className="text-gray-700 dark:text-gray-300">{type}</span>
+                                </div>
+                                <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                                  {currentGraph.nodes.filter(n => n.type === type).length}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -461,6 +471,11 @@ export default function GraphVisualizer() {
                     {/* Graph Statistics */}
                     <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                       <GraphStatistics graphData={currentGraph} />
+                    </div>
+
+                    {/* Color Legend */}
+                    <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                      <ColorLegend nodes={currentGraph.nodes} />
                     </div>
 
                     {/* Selected Node Info */}

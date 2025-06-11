@@ -89,7 +89,6 @@ export default function GraphStatistics({ graphData }: GraphStatisticsProps) {
           </div>
         </CardContent>
       </Card>
-
       {/* Node Types */}
       <Card>
         <CardHeader className="pb-3">
@@ -117,7 +116,6 @@ export default function GraphStatistics({ graphData }: GraphStatisticsProps) {
           )}
         </CardContent>
       </Card>
-
       {/* Edge Types */}
       {Object.keys(edgeTypes).length > 0 && (
         <Card>
@@ -138,7 +136,6 @@ export default function GraphStatistics({ graphData }: GraphStatisticsProps) {
           </CardContent>
         </Card>
       )}
-
       {/* Graph Info */}
       <Card>
         <CardHeader className="pb-3">
@@ -165,7 +162,6 @@ export default function GraphStatistics({ graphData }: GraphStatisticsProps) {
           </div>
         </CardContent>
       </Card>
-
       {/* Visibility Info */}
       <Card>
         <CardHeader className="pb-3">
@@ -173,7 +169,8 @@ export default function GraphStatistics({ graphData }: GraphStatisticsProps) {
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex justify-between items-center">
-            <span className="text-sm">Zichtbare Knopen</span>
+            <span className="text-sm">Zichtbare Nodes
+</span>
             <Badge className="text-xs">
               {graphData.visibleNodeIds.length} / {graphData.nodeCount}
             </Badge>
