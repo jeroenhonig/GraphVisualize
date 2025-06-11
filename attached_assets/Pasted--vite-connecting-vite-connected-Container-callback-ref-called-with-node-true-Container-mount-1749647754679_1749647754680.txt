@@ -1,0 +1,51 @@
+[vite] connecting...
+[vite] connected.
+Container callback ref called with node: true
+Container mounting immediately: 
+Object {offsetWidth: 662, offsetHeight: 500, isConnected: true}
+Graph creation useEffect triggered: 
+Object {hasContainer: false, containerReady: false, hasGraph: false, nodeCount: 0, edgeCount: 0}
+Early return: missing requirements 
+Object {hasGraph: false, hasNodes: false, containerReady: false, hasContainer: false}
+Graph creation useEffect triggered: 
+Object {hasContainer: true, containerReady: true, hasGraph: false, nodeCount: 0, edgeCount: 0}
+Early return: missing requirements 
+Object {hasGraph: false, hasNodes: false, containerReady: true, hasContainer: true}
+Graph creation useEffect triggered: 
+Object {hasContainer: true, containerReady: true, hasGraph: false, nodeCount: 0, edgeCount: 0}
+Early return: missing requirements 
+Object {hasGraph: false, hasNodes: false, containerReady: true, hasContainer: true}
+Graph creation useEffect triggered: 
+Object {hasContainer: true, containerReady: true, hasGraph: false, nodeCount: 0, edgeCount: 0}
+Early return: missing requirements 
+Object {hasGraph: false, hasNodes: false, containerReady: true, hasContainer: true}
+Graph creation useEffect triggered: 
+Object {hasContainer: true, containerReady: true, hasGraph: false, nodeCount: 0, edgeCount: 0}
+Early return: missing requirements 
+Object {hasGraph: false, hasNodes: false, containerReady: true, hasContainer: true}
+Graph creation useEffect triggered: 
+Object {hasContainer: true, containerReady: true, hasGraph: true, nodeCount: 78, edgeCount: 120}
+All requirements met, creating graph
+Container validation passed: 
+Object {tagName: "DIV", offsetWidth: 662, offsetHeight: 500, isConnected: true}
+Creating G6 graph with: 
+Object {totalNodes: 78, renderingNodes: 78, edgeCount: 120, containerDimensions: {…}}
+Loading G6 data: 
+Object {nodes: 78, edges: 120}
+Graph creation error: 
+TypeError {}
+
+Error details: 
+Object {message: "g6Graph.data is not a function", stack: "TypeError: g6Graph.data is not a function↵    at createOptimizedGraph…", name: "TypeError"}
+
+Container callback ref called with node: false
+Container ref cleared
+Graph creation useEffect triggered: 
+Object {hasContainer: false, containerReady: false, hasGraph: true, nodeCount: 78, edgeCount: 120}
+Early return: missing requirements 
+Object {hasGraph: true, hasNodes: true, containerReady: false, hasContainer: false}
+containerReady: false
+hasContainer: false
+hasGraph: true
+hasNodes: true
+[[Prototype]]: Object

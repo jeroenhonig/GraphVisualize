@@ -174,52 +174,7 @@ export default function GraphCanvas({
           throw new Error('G6 library not available');
         }
 
-        // Simple G6 configuration that works
-        const graphConfig = {
-          container: container,
-          width: width,
-          height: height,
-          modes: {
-            default: ['drag-canvas', 'zoom-canvas', 'drag-node', 'click-select']
-          },
-          defaultNode: {
-            size: 40,
-            color: '#1890ff',
-            style: {
-              fill: '#e6f7ff',
-              stroke: '#1890ff',
-              lineWidth: 2
-            },
-            labelCfg: {
-              position: 'bottom',
-              offset: 5,
-              style: {
-                fontSize: 12,
-                fill: '#333'
-              }
-            }
-          },
-          defaultEdge: {
-            style: {
-              stroke: '#91d5ff',
-              lineWidth: 1,
-              endArrow: {
-                path: 'M 0,0 L 8,4 L 8,-4 Z',
-                fill: '#91d5ff'
-              }
-            }
-          },
-          layout: {
-            type: currentLayout === 'circular' ? 'circular' : 'force',
-            radius: Math.min(width, height) * 0.3,
-            center: [width / 2, height / 2]
-          }
-        };
-
-        // Create G6 graph instance
-        const g6Graph = new G6.Graph(graphConfig);
-
-        // Prepare data in correct G6 format
+        // Prepare data in correct G6 format first
         const g6Data = {
           nodes: nodesToRender.map(node => {
             const colors = getNodeTypeColor(node.type);
@@ -247,15 +202,47 @@ export default function GraphCanvas({
           edges: g6Data.edges.length
         });
 
-        // Load data and render
-        g6Graph.data(g6Data);
+        // G6 v5.0.48 configuration
+        const graphConfig = {
+          container: container,
+          width: width,
+          height: height,
+          data: g6Data,
+          node: {
+            style: {
+              size: 40,
+              fill: '#e6f7ff',
+              stroke: '#1890ff',
+              lineWidth: 2
+            },
+            labelText: (d: any) => d.label,
+            labelPlacement: 'bottom',
+            labelOffsetY: 5
+          },
+          edge: {
+            style: {
+              stroke: '#91d5ff',
+              lineWidth: 1
+            },
+            labelText: (d: any) => d.label || ''
+          },
+          behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element'],
+          layout: {
+            type: 'force',
+            preventOverlap: true,
+            nodeSpacing: 200,
+            linkDistance: 150
+          }
+        };
+
+        // Create G6 graph instance
+        const graphInstance = new G6.Graph(graphConfig);
         
-        console.log('Rendering G6 graph...');
-        g6Graph.render();
+        console.log('G6 v5 graph created and rendered automatically');
 
         // Bind events
-        g6Graph.on('node:click', (e: any) => {
-          const nodeData = e.item.getModel();
+        graphInstance.on('node:click', (e: any) => {
+          const nodeData = e.item?.getModel ? e.item.getModel() : e.item;
           if (nodeData && onNodeSelect) {
             const originalNode = nodes.find(n => n.id === nodeData.id);
             if (originalNode) {
@@ -264,24 +251,24 @@ export default function GraphCanvas({
           }
         });
 
-        g6Graph.on('node:contextmenu', (e: any) => {
+        graphInstance.on('node:contextmenu', (e: any) => {
           e.preventDefault();
-          const nodeData = e.item.getModel();
+          const nodeData = e.item?.getModel ? e.item.getModel() : e.item;
           if (nodeData) {
             setContextMenu({
               isOpen: true,
-              position: { x: e.canvasX, y: e.canvasY },
+              position: { x: e.canvasX || e.x, y: e.canvasY || e.y },
               targetNodeId: nodeData.id as string,
             });
           }
         });
 
-        g6Graph.on('canvas:click', () => {
+        graphInstance.on('canvas:click', () => {
           setContextMenu(prev => ({ ...prev, isOpen: false }));
         });
 
         // Store graph reference
-        graphRef.current = g6Graph;
+        graphRef.current = graphInstance;
 
         // Performance monitoring
         const endTime = performance.now();
