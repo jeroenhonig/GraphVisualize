@@ -95,7 +95,7 @@ const GraphCanvas = React.memo(({
         return {
           id: node.id,
           label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
-          type: 'circle',
+          // Remove type for default node rendering in G6 v5
           size: 25,
           style: {
             fill: colors.primary,
