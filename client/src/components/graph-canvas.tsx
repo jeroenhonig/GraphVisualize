@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { Graph } from "@antv/g6";
 import type { GraphData, VisualizationNode, GraphTransform } from "@shared/schema";
 import { getNodeTypeColor } from "@/lib/color-utils";
 import { getLayoutConfig, G6_PERFORMANCE_CONFIG, NODE_STYLES, EDGE_STYLES } from "@/lib/g6-config";
@@ -258,17 +259,36 @@ export default function GraphCanvasOptimized({
 
   // Main graph creation effect with comprehensive error handling
   useEffect(() => {
-    if (!containerRef.current || !graph) return;
+    console.log('Graph creation useEffect triggered:', { 
+      hasContainer: !!containerRef.current, 
+      hasGraph: !!graph,
+      nodeCount: nodes.length,
+      edgeCount: edges.length
+    });
+    
+    if (!graph) {
+      console.log('Early return: missing graph');
+      return;
+    }
 
-    const createOptimizedGraph = async () => {
+    // Wait for container to be available
+    const waitForContainer = () => {
+      if (!containerRef.current) {
+        console.log('Container not ready, retrying in 100ms...');
+        setTimeout(waitForContainer, 100);
+        return;
+      }
+      
+      console.log('Container ready, proceeding with graph creation');
+      createOptimizedGraph();
+    };
+
+    const createOptimizedGraph = () => {
       const startTime = performance.now();
       
       try {
         setIsLoading(true);
         setRenderError(null);
-
-        const G6Module = await import('@antv/g6');
-        const { Graph } = G6Module;
 
         // Cleanup previous instance
         if (graphRef.current) {
@@ -562,7 +582,8 @@ export default function GraphCanvasOptimized({
       }
     };
 
-    createOptimizedGraph();
+    console.log('Starting graph creation with nodes:', nodes.length, 'edges:', edges.length);
+    waitForContainer();
     
     // Return cleanup function
     return () => {
@@ -586,7 +607,7 @@ export default function GraphCanvasOptimized({
       };
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [graph, visibleNodes, nodeCount, edgeCount, nodes, edges, currentLayout, editMode, onNodeSelect, relationMode, relationSourceNode]);
+  }, [graph, visibleNodes, nodeCount, edgeCount, currentLayout, editMode, onNodeSelect, relationMode, relationSourceNode]);
 
   // Reageer op panel constraint changes
   useEffect(() => {
