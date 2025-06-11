@@ -271,8 +271,7 @@ export default function GraphVisualizer() {
             onNodeEdit={handleNodeEdit}
             visibleNodes={visibleNodes}
             onVisibleNodesChange={setVisibleNodes}
-            transform={transform}
-            onTransformChange={setTransform}
+
             editMode={editMode}
             panelConstraints={{
               leftPanel: {
