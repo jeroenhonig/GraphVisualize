@@ -11,22 +11,64 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-// Simple RDF/TTL parser function
+// Enhanced TTL/RDF parser function
 async function parseRdfAndCreateTriples(content: string, format: string, graphId: string) {
   const lines = content.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#'));
+  const prefixes = new Map<string, string>();
   const subjects = new Set<string>();
+  const statements: { subject: string, predicate: string, object: string, objectType: string }[] = [];
   
-  // First pass: collect all subjects
+  // Parse prefixes and collect statements
+  let currentSubject = '';
+  let currentStatements: string[] = [];
+  
   for (const line of lines) {
-    if (line.endsWith('.')) {
-      const cleanLine = line.slice(0, -1).trim();
-      const parts = cleanLine.split(/\s+/);
+    // Handle @prefix declarations
+    if (line.startsWith('@prefix')) {
+      const match = line.match(/@prefix\s+([^:]*):?\s*<([^>]+)>\s*\./);
+      if (match) {
+        const prefix = match[1].trim();
+        const uri = match[2];
+        prefixes.set(prefix, uri);
+      }
+      continue;
+    }
+    
+    // Skip comments and empty lines
+    if (line.startsWith('#') || !line) continue;
+    
+    // Handle multi-line statements
+    if (line.includes('rdf:type') || line.includes('rdfs:') || line.includes('prop:') || line.includes('owl:')) {
+      // Start of new subject definition
+      if (currentSubject && currentStatements.length > 0) {
+        // Process previous subject's statements
+        await processSubjectStatements(currentSubject, currentStatements, prefixes, statements, subjects);
+      }
       
-      if (parts.length >= 3) {
-        const subject = parts[0].replace(/[<>]/g, '');
-        subjects.add(subject);
+      // Start new subject
+      const parts = line.split(/\s+/);
+      if (parts.length >= 1) {
+        currentSubject = expandPrefix(parts[0], prefixes);
+        currentStatements = [line];
+      }
+    } else if (currentSubject && (line.includes(':') || line.includes('.'))) {
+      // Continue current subject's statements
+      currentStatements.push(line);
+    }
+    
+    // Process complete statement block ending with '.'
+    if (line.endsWith('.')) {
+      if (currentSubject && currentStatements.length > 0) {
+        await processSubjectStatements(currentSubject, currentStatements, prefixes, statements, subjects);
+        currentSubject = '';
+        currentStatements = [];
       }
     }
+  }
+  
+  // Process any remaining statements
+  if (currentSubject && currentStatements.length > 0) {
+    await processSubjectStatements(currentSubject, currentStatements, prefixes, statements, subjects);
   }
   
   // Create position assignments for subjects
@@ -41,38 +83,19 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
     nodeIndex++;
   }
   
-  // Second pass: create triples
-  for (const line of lines) {
-    if (line.endsWith('.')) {
-      const cleanLine = line.slice(0, -1).trim();
-      const parts = cleanLine.split(/\s+/);
-      
-      if (parts.length >= 3) {
-        const subject = parts[0].replace(/[<>]/g, '');
-        const predicate = parts[1].replace(/[<>]/g, '');
-        const object = parts.slice(2).join(' ').replace(/[<>"]/g, '');
-        
-        // Determine object type
-        let objectType = 'literal';
-        if (parts[2].startsWith('<') && parts[2].endsWith('>')) {
-          objectType = 'uri';
-        }
-        
-        // Create RDF triple
-        await storage.createRdfTriple({
-          graphId,
-          subject,
-          predicate,
-          object,
-          objectType
-        });
-      }
-    }
+  // Create all RDF triples
+  for (const stmt of statements) {
+    await storage.createRdfTriple({
+      graphId,
+      subject: stmt.subject,
+      predicate: stmt.predicate,
+      object: stmt.object,
+      objectType: stmt.objectType
+    });
   }
   
-  // Third pass: add position information for all subjects
+  // Add position information for all subjects
   for (const [subject, position] of Array.from(subjectPositions.entries())) {
-    // Add position triples
     await storage.createRdfTriple({
       graphId,
       subject,
@@ -88,6 +111,94 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
       object: position.y.toString(),
       objectType: 'literal'
     });
+  }
+}
+
+// Helper function to expand prefixed URIs
+function expandPrefix(term: string, prefixes: Map<string, string>): string {
+  if (term.includes(':') && !term.startsWith('<')) {
+    const [prefix, local] = term.split(':', 2);
+    const baseUri = prefixes.get(prefix);
+    if (baseUri) {
+      return `${baseUri}${local}`;
+    }
+  }
+  return term.replace(/[<>]/g, '');
+}
+
+// Helper function to parse object value and determine type
+function parseObjectValue(objectStr: string, prefixes: Map<string, string>): { value: string, type: string } {
+  objectStr = objectStr.trim();
+  
+  // Handle URIs
+  if (objectStr.startsWith('<') && objectStr.endsWith('>')) {
+    return { value: objectStr.slice(1, -1), type: 'uri' };
+  }
+  
+  // Handle prefixed URIs
+  if (objectStr.includes(':') && !objectStr.startsWith('"')) {
+    return { value: expandPrefix(objectStr, prefixes), type: 'uri' };
+  }
+  
+  // Handle literals with language tags or datatypes
+  if (objectStr.startsWith('"')) {
+    let value = objectStr;
+    // Remove quotes and language tags/datatypes
+    if (value.includes('"@') || value.includes('"^^')) {
+      value = value.split('"')[1];
+    } else {
+      value = value.replace(/"/g, '');
+    }
+    return { value, type: 'literal' };
+  }
+  
+  return { value: objectStr, type: 'literal' };
+}
+
+// Helper function to process statements for a subject
+async function processSubjectStatements(
+  subject: string, 
+  statements: string[], 
+  prefixes: Map<string, string>, 
+  outputStatements: { subject: string, predicate: string, object: string, objectType: string }[],
+  subjects: Set<string>
+) {
+  subjects.add(subject);
+  
+  // Join all statements and parse them
+  const fullStatement = statements.join(' ').replace(/\s+/g, ' ');
+  
+  // Split by semicolons to get individual predicate-object pairs
+  const parts = fullStatement.split(';');
+  
+  for (let i = 0; i < parts.length; i++) {
+    let part = parts[i].trim();
+    
+    // Remove trailing dot from last part
+    if (i === parts.length - 1) {
+      part = part.replace(/\.$/, '').trim();
+    }
+    
+    // Parse predicate and object
+    const match = part.match(/^([^\s]+)\s+(.+)$/);
+    if (match) {
+      const predicate = expandPrefix(match[1], prefixes);
+      const objectStr = match[2].trim();
+      
+      // Handle multiple objects separated by commas
+      const objects = objectStr.split(',').map(o => o.trim());
+      
+      for (const obj of objects) {
+        const { value, type } = parseObjectValue(obj, prefixes);
+        
+        outputStatements.push({
+          subject,
+          predicate,
+          object: value,
+          objectType: type
+        });
+      }
+    }
   }
 }
 

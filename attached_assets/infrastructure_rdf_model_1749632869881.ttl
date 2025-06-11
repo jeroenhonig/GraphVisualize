@@ -1,0 +1,685 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix time: <http://www.w3.org/2006/time#> .
+
+# Namespace definities voor het infrastructuur register
+@prefix infra: <https://example.org/infrastructure/> .
+@prefix obj: <https://example.org/infrastructure/object/> .
+@prefix type: <https://example.org/infrastructure/type/> .
+@prefix prop: <https://example.org/infrastructure/property/> .
+@prefix status: <https://example.org/infrastructure/status/> .
+@prefix discipline: <https://example.org/infrastructure/discipline/> .
+@prefix geometry: <https://example.org/infrastructure/geometry/> .
+
+# =============================================================================
+# ONTOLOGIE DEFINITIE - INFRASTRUCTUUR REGISTER
+# =============================================================================
+
+infra:InfrastructureRegisterOntology 
+    rdf:type owl:Ontology ;
+    rdfs:label "Infrastructuur Register Ontologie"@nl ;
+    rdfs:label "Infrastructure Register Ontology"@en ;
+    rdfs:comment "Ontologie voor het modelleren van infrastructurale objecten en hun onderlinge relaties"@nl ;
+    dcterms:created "2024-01-01"^^xsd:date ;
+    dcterms:creator "Infrastructure Data Team" ;
+    owl:versionInfo "1.0" .
+
+# =============================================================================
+# HOOFD KLASSEN
+# =============================================================================
+
+infra:InfrastructureObject 
+    rdf:type owl:Class ;
+    rdfs:label "Infrastructuur Object"@nl ;
+    rdfs:label "Infrastructure Object"@en ;
+    rdfs:comment "Basis klasse voor alle infrastructurale objecten"@nl .
+
+infra:PhysicalObject 
+    rdf:type owl:Class ;
+    rdfs:subClassOf infra:InfrastructureObject ;
+    rdfs:label "Fysiek Object"@nl ;
+    rdfs:label "Physical Object"@en ;
+    rdfs:comment "Een fysiek infrastructuur object in de ontworpen toestand"@nl .
+
+infra:ObjectType 
+    rdf:type owl:Class ;
+    rdfs:subClassOf infra:InfrastructureObject ;
+    rdfs:label "Object Type"@nl ;
+    rdfs:label "Object Type"@en ;
+    rdfs:comment "Een type definitie voor fysieke infrastructuur objecten"@nl .
+
+# =============================================================================
+# SPECIFIEKE INFRASTRUCTUUR KLASSEN
+# =============================================================================
+
+infra:Road 
+    rdf:type owl:Class ;
+    rdfs:subClassOf infra:PhysicalObject ;
+    rdfs:label "Weg"@nl ;
+    rdfs:label "Road"@en ;
+    rdfs:comment "Infrastructuur object voor weginfrastructuur"@nl .
+
+infra:Bridge 
+    rdf:type owl:Class ;
+    rdfs:subClassOf infra:PhysicalObject ;
+    rdfs:label "Brug"@nl ;
+    rdfs:label "Bridge"@en ;
+    rdfs:comment "Infrastructuur object voor bruggen"@nl .
+
+infra:Waterway 
+    rdf:type owl:Class ;
+    rdfs:subClassOf infra:PhysicalObject ;
+    rdfs:label "Watergang"@nl ;
+    rdfs:label "Waterway"@en ;
+    rdfs:comment "Infrastructuur object voor watergangen"@nl .
+
+infra:Installation 
+    rdf:type owl:Class ;
+    rdfs:subClassOf infra:PhysicalObject ;
+    rdfs:label "Installatie"@nl ;
+    rdfs:label "Installation"@en ;
+    rdfs:comment "Technische installatie infrastructuur"@nl .
+
+infra:Terrain 
+    rdf:type owl:Class ;
+    rdfs:subClassOf infra:PhysicalObject ;
+    rdfs:label "Terrein"@nl ;
+    rdfs:label "Terrain"@en ;
+    rdfs:comment "Terrein en landschappelijke elementen"@nl .
+
+# =============================================================================
+# CONSTRUCTIE ELEMENTEN
+# =============================================================================
+
+infra:ConstructionElement 
+    rdf:type owl:Class ;
+    rdfs:subClassOf infra:PhysicalObject ;
+    rdfs:label "Constructie Element"@nl ;
+    rdfs:label "Construction Element"@en ;
+    rdfs:comment "Basis klasse voor constructie elementen"@nl .
+
+infra:Foundation 
+    rdf:type owl:Class ;
+    rdfs:subClassOf infra:ConstructionElement ;
+    rdfs:label "Fundering"@nl ;
+    rdfs:label "Foundation"@en ;
+    rdfs:comment "Fundering van een infrastructuur object"@nl .
+
+infra:Pavement 
+    rdf:type owl:Class ;
+    rdfs:subClassOf infra:ConstructionElement ;
+    rdfs:label "Verharding"@nl ;
+    rdfs:label "Pavement"@en ;
+    rdfs:comment "Wegverharding en asfalt elementen"@nl .
+
+infra:Asphalt 
+    rdf:type owl:Class ;
+    rdfs:subClassOf infra:Pavement ;
+    rdfs:label "Asfalt"@nl ;
+    rdfs:label "Asphalt"@en ;
+    rdfs:comment "Asfalt verharding"@nl .
+
+infra:ElementPavement 
+    rdf:type owl:Class ;
+    rdfs:subClassOf infra:Pavement ;
+    rdfs:label "Elementenverharding"@nl ;
+    rdfs:label "Element Pavement"@en ;
+    rdfs:comment "Verharding met elementen zoals klinkers"@nl .
+
+infra:Groundwork 
+    rdf:type owl:Class ;
+    rdfs:subClassOf infra:ConstructionElement ;
+    rdfs:label "Grondwerk"@nl ;
+    rdfs:label "Groundwork"@en ;
+    rdfs:comment "Grondwerk en funderingsvoorbereidingen"@nl .
+
+infra:TerrainFacilities 
+    rdf:type owl:Class ;
+    rdfs:subClassOf infra:ConstructionElement ;
+    rdfs:label "Terreininrichting"@nl ;
+    rdfs:label "Terrain Facilities"@en ;
+    rdfs:comment "Terreininrichtingselementen"@nl .
+
+# =============================================================================
+# STATUS EN CLASSIFICATIE KLASSEN
+# =============================================================================
+
+infra:ObjectStatus 
+    rdf:type owl:Class ;
+    rdfs:label "Object Status"@nl ;
+    rdfs:label "Object Status"@en ;
+    rdfs:comment "Status van een infrastructuur object"@nl .
+
+status:Current 
+    rdf:type infra:ObjectStatus ;
+    rdfs:label "Actueel"@nl ;
+    rdfs:label "Current"@en ;
+    rdfs:comment "Object is actueel en in gebruik"@nl .
+
+infra:Discipline 
+    rdf:type owl:Class ;
+    rdfs:label "Discipline"@nl ;
+    rdfs:label "Discipline"@en ;
+    rdfs:comment "Verantwoordelijke discipline voor het object"@nl .
+
+# Discipline instanties
+discipline:Deelgebied1 
+    rdf:type infra:Discipline ;
+    rdfs:label "Deelgebied 1"@nl ;
+    skos:notation "DG1" .
+
+discipline:Deelgebied2 
+    rdf:type infra:Discipline ;
+    rdfs:label "Deelgebied 2"@nl ;
+    skos:notation "DG2" .
+
+discipline:Deelgebied3 
+    rdf:type infra:Discipline ;
+    rdfs:label "Deelgebied 3"@nl ;
+    skos:notation "DG3" .
+
+discipline:Deelgebied4 
+    rdf:type infra:Discipline ;
+    rdfs:label "Deelgebied 4"@nl ;
+    skos:notation "DG4" .
+
+discipline:TechnicalInstallations 
+    rdf:type infra:Discipline ;
+    rdfs:label "Technische Installaties"@nl ;
+    rdfs:label "Technical Installations"@en .
+
+# =============================================================================
+# OBJECT PROPERTIES (RELATIES)
+# =============================================================================
+
+prop:hasParentObject 
+    rdf:type owl:ObjectProperty ;
+    rdfs:label "heeft bovenliggend object"@nl ;
+    rdfs:label "has parent object"@en ;
+    rdfs:comment "Relatie naar het bovenliggende object in de hiërarchie"@nl ;
+    rdfs:domain infra:InfrastructureObject ;
+    rdfs:range infra:InfrastructureObject ;
+    owl:inverseOf prop:hasChildObject .
+
+prop:hasChildObject 
+    rdf:type owl:ObjectProperty ;
+    rdfs:label "heeft onderliggend object"@nl ;
+    rdfs:label "has child object"@en ;
+    rdfs:comment "Relatie naar onderliggende objecten in de hiërarchie"@nl ;
+    rdfs:domain infra:InfrastructureObject ;
+    rdfs:range infra:InfrastructureObject ;
+    owl:inverseOf prop:hasParentObject .
+
+prop:hasObjectType 
+    rdf:type owl:ObjectProperty ;
+    rdfs:label "heeft object type"@nl ;
+    rdfs:label "has object type"@en ;
+    rdfs:comment "Relatie naar het type van het object"@nl ;
+    rdfs:domain infra:PhysicalObject ;
+    rdfs:range infra:ObjectType .
+
+prop:hasStatus 
+    rdf:type owl:ObjectProperty ;
+    rdfs:label "heeft status"@nl ;
+    rdfs:label "has status"@en ;
+    rdfs:comment "Status van het infrastructuur object"@nl ;
+    rdfs:domain infra:InfrastructureObject ;
+    rdfs:range infra:ObjectStatus .
+
+prop:hasDiscipline 
+    rdf:type owl:ObjectProperty ;
+    rdfs:label "heeft discipline"@nl ;
+    rdfs:label "has discipline"@en ;
+    rdfs:comment "Verantwoordelijke discipline voor het object"@nl ;
+    rdfs:domain infra:InfrastructureObject ;
+    rdfs:range infra:Discipline .
+
+prop:hasGeometry 
+    rdf:type owl:ObjectProperty ;
+    rdfs:label "heeft geometrie"@nl ;
+    rdfs:label "has geometry"@en ;
+    rdfs:comment "Geometrische representatie van het object"@nl ;
+    rdfs:domain infra:PhysicalObject ;
+    rdfs:range geometry:Geometry .
+
+# =============================================================================
+# DATATYPE PROPERTIES (ATTRIBUTEN)
+# =============================================================================
+
+prop:objectCode 
+    rdf:type owl:DatatypeProperty ;
+    rdfs:label "object code"@nl ;
+    rdfs:label "object code"@en ;
+    rdfs:comment "Unieke identificatiecode van het object"@nl ;
+    rdfs:domain infra:InfrastructureObject ;
+    rdfs:range xsd:string .
+
+prop:objectName 
+    rdf:type owl:DatatypeProperty ;
+    rdfs:label "object naam"@nl ;
+    rdfs:label "object name"@en ;
+    rdfs:comment "Naam van het infrastructuur object"@nl ;
+    rdfs:domain infra:InfrastructureObject ;
+    rdfs:range xsd:string .
+
+prop:description 
+    rdf:type owl:DatatypeProperty ;
+    rdfs:label "omschrijving"@nl ;
+    rdfs:label "description"@en ;
+    rdfs:comment "Beschrijving van het object"@nl ;
+    rdfs:domain infra:InfrastructureObject ;
+    rdfs:range xsd:string .
+
+prop:typeCode 
+    rdf:type owl:DatatypeProperty ;
+    rdfs:label "type code"@nl ;
+    rdfs:label "type code"@en ;
+    rdfs:comment "Code van het object type"@nl ;
+    rdfs:domain infra:ObjectType ;
+    rdfs:range xsd:string .
+
+prop:typeName 
+    rdf:type owl:DatatypeProperty ;
+    rdfs:label "type naam"@nl ;
+    rdfs:label "type name"@en ;
+    rdfs:comment "Naam van het object type"@nl ;
+    rdfs:domain infra:ObjectType ;
+    rdfs:range xsd:string .
+
+prop:responsibleRole 
+    rdf:type owl:DatatypeProperty ;
+    rdfs:label "verantwoordelijke projectrol"@nl ;
+    rdfs:label "responsible project role"@en ;
+    rdfs:comment "Verantwoordelijke projectrol voor het object"@nl ;
+    rdfs:domain infra:InfrastructureObject ;
+    rdfs:range xsd:string .
+
+prop:disciplineOfRole 
+    rdf:type owl:DatatypeProperty ;
+    rdfs:label "discipline van projectrol"@nl ;
+    rdfs:label "discipline of project role"@en ;
+    rdfs:comment "Discipline behorend bij de projectrol"@nl ;
+    rdfs:domain infra:InfrastructureObject ;
+    rdfs:range xsd:string .
+
+prop:parentObjectCode 
+    rdf:type owl:DatatypeProperty ;
+    rdfs:label "bovenliggend object code"@nl ;
+    rdfs:label "parent object code"@en ;
+    rdfs:comment "Code van het bovenliggende object"@nl ;
+    rdfs:domain infra:InfrastructureObject ;
+    rdfs:range xsd:string .
+
+prop:parentObjectName 
+    rdf:type owl:DatatypeProperty ;
+    rdfs:label "bovenliggend object naam"@nl ;
+    rdfs:label "parent object name"@en ;
+    rdfs:comment "Naam van het bovenliggende object"@nl ;
+    rdfs:domain infra:InfrastructureObject ;
+    rdfs:range xsd:string .
+
+prop:childObjectCode 
+    rdf:type owl:DatatypeProperty ;
+    rdfs:label "onderliggend object code"@nl ;
+    rdfs:label "child object code"@en ;
+    rdfs:comment "Code van het onderliggende object"@nl ;
+    rdfs:domain infra:InfrastructureObject ;
+    rdfs:range xsd:string .
+
+prop:childObjectName 
+    rdf:type owl:DatatypeProperty ;
+    rdfs:label "onderliggend object naam"@nl ;
+    rdfs:label "child object name"@en ;
+    rdfs:comment "Naam van het onderliggende object"@nl ;
+    rdfs:domain infra:InfrastructureObject ;
+    rdfs:range xsd:string .
+
+prop:geometryCode 
+    rdf:type owl:DatatypeProperty ;
+    rdfs:label "geometrie code"@nl ;
+    rdfs:label "geometry code"@en ;
+    rdfs:comment "Code voor geometrische representatie"@nl ;
+    rdfs:domain infra:InfrastructureObject ;
+    rdfs:range xsd:string .
+
+# =============================================================================
+# GEOMETRIE KLASSEN
+# =============================================================================
+
+geometry:Geometry 
+    rdf:type owl:Class ;
+    rdfs:label "Geometrie"@nl ;
+    rdfs:label "Geometry"@en ;
+    rdfs:comment "Geometrische representatie van objecten"@nl .
+
+# =============================================================================
+# OBJECT TYPES TAXONOMIE
+# =============================================================================
+
+# Weg types
+type:AreaAccessRoad50 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Gebiedsontsluitingsweg 50km/u (BIBEKO)"@nl ;
+    prop:typeCode "OBT-0234" ;
+    prop:typeName "Gebiedsontsluitingsweg 50km/u (BIBEKO)" ;
+    rdfs:comment "Gebiedsontsluitingsweg met snelheidslimiet van 50 km/u volgens BIBEKO standaard"@nl .
+
+type:PropertyAccessRoad1 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Erftoegangsweg Type 1 BUBEKO"@nl ;
+    prop:typeCode "OBT-0226" ;
+    prop:typeName "Erftoegangsweg Type 1 BUBEKO" ;
+    rdfs:comment "Erftoegangsweg type 1 volgens BUBEKO standaard"@nl .
+
+type:AccessibilityRoad 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Bereikbaarheidsweg"@nl ;
+    prop:typeName "Bereikbaarheidsweg" ;
+    rdfs:comment "Weg voor bereikbaarheid van objecten"@nl .
+
+# Water infrastructuur types
+type:AWaterway 
+    rdf:type infra:ObjectType ;
+    rdfs:label "A-watergang"@nl ;
+    prop:typeName "A-watergang" ;
+    rdfs:comment "Watergang classificatie A"@nl .
+
+type:BWaterway 
+    rdf:type infra:ObjectType ;
+    rdfs:label "B-watergang"@nl ;
+    prop:typeName "B-watergang" ;
+    rdfs:comment "Watergang classificatie B"@nl .
+
+type:BFireWaterway 
+    rdf:type infra:ObjectType ;
+    rdfs:label "B-watergang bluswater"@nl ;
+    prop:typeName "B-watergang bluswater" ;
+    rdfs:comment "B-watergang specifiek voor bluswater voorziening"@nl .
+
+type:LegalWaterway 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Leggerwatergang"@nl ;
+    prop:typeName "Leggerwatergang" ;
+    rdfs:comment "Watergang opgenomen in legger"@nl .
+
+# Brug types
+type:FixedBridge 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Vaste brug"@nl ;
+    prop:typeName "Vaste brug" ;
+    rdfs:comment "Vaste brug constructie"@nl .
+
+# Installatie types
+type:Installation 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Installatie"@nl ;
+    prop:typeName "Installatie" ;
+    rdfs:comment "Algemene technische installatie"@nl .
+
+type:TransmissionInstallation 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Transmissie Installatie"@nl ;
+    prop:typeName "Transmissie Installatie" ;
+    rdfs:comment "Installatie voor transmissie doeleinden"@nl .
+
+type:FireWaterInstallation 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Bluswaterinstallatie"@nl ;
+    prop:typeName "Bluswaterinstallation" ;
+    rdfs:comment "Installatie voor bluswater voorziening"@nl .
+
+# Terrein types
+type:Terrain 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Terrein"@nl ;
+    prop:typeName "Terrein" ;
+    rdfs:comment "Algemeen terrein object"@nl .
+
+type:ContextObjects 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Contextobjecten"@nl ;
+    prop:typeCode "OBT-0191" ;
+    prop:typeName "Contextobjecten" ;
+    rdfs:comment "Contextuele objecten in de omgeving"@nl .
+
+# Verharding types
+type:ElementPavement 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Elementenverharding"@nl ;
+    prop:typeName "Elementenverharding" ;
+    rdfs:comment "Verharding met elementen zoals klinkers of tegels"@nl .
+
+type:ClosedPavement 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Gesloten verharding"@nl ;
+    prop:typeName "Gesloten verharding" ;
+    rdfs:comment "Gesloten asfalt verharding"@nl .
+
+type:OpenPavement 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Open verharding"@nl ;
+    prop:typeName "Open verharding" ;
+    rdfs:comment "Open verharding met doorlatende eigenschappen"@nl .
+
+type:SemiPavement 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Halfverharding"@nl ;
+    prop:typeName "Halfverharding" ;
+    rdfs:comment "Half verharde ondergrond"@nl .
+
+# Constructie element types
+type:Foundation 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Fundering"@nl ;
+    prop:typeName "Fundering" ;
+    rdfs:comment "Fundering constructie"@nl .
+
+type:ReinforcedConcrete 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Gewapend Beton"@nl ;
+    prop:typeName "Gewapend Beton" ;
+    rdfs:comment "Gewapend beton constructie element"@nl .
+
+# Verkeer en signalering
+type:TrafficSign 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Verkeersteken"@nl ;
+    prop:typeName "Verkeersteken" ;
+    rdfs:comment "Verkeers signalering en tekens"@nl .
+
+type:Signage 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Bewegwijzering"@nl ;
+    prop:typeName "Bewegwijzering" ;
+    rdfs:comment "Bewegwijzering en route aanduiding"@nl .
+
+# Groen en landschap
+type:Planting 
+    rdf:type infra:ObjectType ;
+    rdfs:label "Beplanting"@nl ;
+    prop:typeName "Beplanting" ;
+    rdfs:comment "Beplanting en groenvoorziening"@nl .
+
+# =============================================================================
+# VOORBEELD DATA INSTANTIES (BEPERKTE SET)
+# =============================================================================
+
+# Voorbeeld hoofdobject: 7Poort
+obj:OBJ-00144 
+    rdf:type infra:Road ;
+    prop:objectCode "OBJ-00144" ;
+    prop:objectName "7Poort" ;
+    prop:description "" ;
+    prop:hasObjectType type:AreaAccessRoad50 ;
+    prop:hasStatus status:Current ;
+    prop:hasDiscipline discipline:Deelgebied4 ;
+    
+    # Parent relatie
+    prop:parentObjectCode "OBJ-06111" ;
+    prop:parentObjectName "Onderliggend wegennet Zevenaar" ;
+    prop:hasParentObject obj:OBJ-06111 ;
+    
+    # Child relaties
+    prop:hasChildObject obj:OBJ-06938 ;
+    prop:hasChildObject obj:OBJ-06939 ;
+    prop:hasChildObject obj:OBJ-06940 ;
+    prop:hasChildObject obj:OBJ-06941 ;
+    prop:hasChildObject obj:OBJ-06942 .
+
+# Parent object
+obj:OBJ-06111 
+    rdf:type infra:PhysicalObject ;
+    prop:objectCode "OBJ-06111" ;
+    prop:objectName "Onderliggend wegennet Zevenaar" ;
+    prop:hasStatus status:Current ;
+    prop:hasChildObject obj:OBJ-00144 .
+
+# Child objecten van 7Poort
+obj:OBJ-06938 
+    rdf:type infra:Groundwork ;
+    prop:objectCode "OBJ-06938" ;
+    prop:objectName "Grondwerk [7Poort]" ;
+    prop:hasStatus status:Current ;
+    prop:hasParentObject obj:OBJ-00144 ;
+    prop:parentObjectCode "OBJ-00144" ;
+    prop:parentObjectName "7Poort" .
+
+obj:OBJ-06939 
+    rdf:type infra:Foundation ;
+    prop:objectCode "OBJ-06939" ;
+    prop:objectName "Fundering [7Poort]" ;
+    prop:hasStatus status:Current ;
+    prop:hasParentObject obj:OBJ-00144 ;
+    prop:parentObjectCode "OBJ-00144" ;
+    prop:parentObjectName "7Poort" .
+
+obj:OBJ-06940 
+    rdf:type infra:ElementPavement ;
+    prop:objectCode "OBJ-06940" ;
+    prop:objectName "Elementenverharding [7Poort]" ;
+    prop:hasStatus status:Current ;
+    prop:hasParentObject obj:OBJ-00144 ;
+    prop:parentObjectCode "OBJ-00144" ;
+    prop:parentObjectName "7Poort" .
+
+obj:OBJ-06941 
+    rdf:type infra:Asphalt ;
+    prop:objectCode "OBJ-06941" ;
+    prop:objectName "Asfalt [7Poort]" ;
+    prop:hasStatus status:Current ;
+    prop:hasParentObject obj:OBJ-00144 ;
+    prop:parentObjectCode "OBJ-00144" ;
+    prop:parentObjectName "7Poort" .
+
+obj:OBJ-06942 
+    rdf:type infra:TerrainFacilities ;
+    prop:objectCode "OBJ-06942" ;
+    prop:objectName "Terreininrichting [7Poort]" ;
+    prop:hasStatus status:Current ;
+    prop:hasParentObject obj:OBJ-00144 ;
+    prop:parentObjectCode "OBJ-00144" ;
+    prop:parentObjectName "7Poort" .
+
+# Voorbeeld tweede object: A325 Arnhem-Nijmegen
+obj:OBJ-00145 
+    rdf:type infra:Road ;
+    prop:objectCode "OBJ-00145" ;
+    prop:objectName "A325 Arnhem-Nijmegen (hoofdrijbanen) (CTX)" ;
+    prop:description "Stroomweg in beheer en onderhoud bij provincie Gelderland" ;
+    prop:hasObjectType type:ContextObjects ;
+    prop:hasStatus status:Current ;
+    prop:hasDiscipline discipline:Deelgebied1 ;
+    
+    # Parent relatie
+    prop:parentObjectCode "OBJ-01217" ;
+    prop:parentObjectName "Contextobjecten" ;
+    prop:hasParentObject obj:OBJ-01217 .
+
+obj:OBJ-01217 
+    rdf:type infra:PhysicalObject ;
+    prop:objectCode "OBJ-01217" ;
+    prop:objectName "Contextobjecten" ;
+    prop:hasStatus status:Current ;
+    prop:hasChildObject obj:OBJ-00145 .
+
+# Voorbeeld derde object: Aansluiting Helhoek
+obj:OBJ-00147 
+    rdf:type infra:Road ;
+    prop:objectCode "OBJ-00147" ;
+    prop:objectName "Aansluiting Helhoek-N810 zuidzijde" ;
+    prop:description "van HMP 176,100 - tot HMP 176,200" ;
+    prop:hasObjectType type:PropertyAccessRoad1 ;
+    prop:hasStatus status:Current ;
+    prop:hasDiscipline discipline:Deelgebied3 ;
+    
+    # Parent relatie
+    prop:parentObjectCode "OBJ-06104" ;
+    prop:parentObjectName "Onderliggend wegennet Duiven" ;
+    prop:hasParentObject obj:OBJ-06104 ;
+    
+    # Child relaties (voorbeelden)
+    prop:hasChildObject obj:OBJ-06211 ;
+    prop:hasChildObject obj:OBJ-06212 .
+
+obj:OBJ-06104 
+    rdf:type infra:PhysicalObject ;
+    prop:objectCode "OBJ-06104" ;
+    prop:objectName "Onderliggend wegennet Duiven" ;
+    prop:hasStatus status:Current ;
+    prop:hasChildObject obj:OBJ-00147 .
+
+obj:OBJ-06211 
+    rdf:type infra:Foundation ;
+    prop:objectCode "OBJ-06211" ;
+    prop:objectName "Fundering (Aansluiting Helhoek-N810 zuidzijde)" ;
+    prop:hasStatus status:Current ;
+    prop:hasParentObject obj:OBJ-00147 ;
+    prop:parentObjectCode "OBJ-00147" ;
+    prop:parentObjectName "Aansluiting Helhoek-N810 zuidzijde" .
+
+obj:OBJ-06212 
+    rdf:type infra:Asphalt ;
+    prop:objectCode "OBJ-06212" ;
+    prop:objectName "Asfalt (Aansluiting Helhoek-N810 zuidzijde)" ;
+    prop:hasStatus status:Current ;
+    prop:hasParentObject obj:OBJ-00147 ;
+    prop:parentObjectCode "OBJ-00147" ;
+    prop:parentObjectName "Aansluiting Helhoek-N810 zuidzijde" .
+
+# =============================================================================
+# SPARQL QUERY VOORBEELDEN
+# =============================================================================
+
+# Deze RDF dataset ondersteunt queries zoals:
+#
+# 1. Alle hoofdobjecten ophalen:
+# SELECT ?object ?name ?type WHERE {
+#   ?object prop:objectCode ?code ;
+#           prop:objectName ?name ;
+#           prop:hasObjectType ?type .
+#   FILTER NOT EXISTS { ?object prop:hasParentObject ?parent }
+# }
+#
+# 2. Hiërarchie van een specifiek object:
+# SELECT ?parent ?object ?child WHERE {
+#   ?object prop:objectCode "OBJ-00144" ;
+#           prop:hasParentObject ?parent ;
+#           prop:hasChildObject ?child .
+# }
+#
+# 3. Alle objecten van een bepaald type:
+# SELECT ?object ?name WHERE {
+#   ?object prop:hasObjectType type:AreaAccessRoad50 ;
+#           prop:objectName ?name .
+# }
+#
+# 4. Objecten per discipline:
+# SELECT ?object ?name ?discipline WHERE {
+#   ?object prop:objectName ?name ;
+#           prop:hasDiscipline ?discipline .
+# }
