@@ -617,7 +617,9 @@ export default function GraphCanvas({
     }
     
     if (e.button === 0) { // Left mouse button - canvas panning setup
+      e.preventDefault();
       setDragStart({ x: e.clientX - transform.translateX, y: e.clientY - transform.translateY });
+      console.log('Canvas panning setup - dragStart:', { x: e.clientX - transform.translateX, y: e.clientY - transform.translateY });
     }
   }, [graph?.nodes, localNodePositions, transform, onNodeSelect]);
 
@@ -739,8 +741,6 @@ export default function GraphCanvas({
   // Global mouse event handlers for smooth dragging
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (!isDragging && !isNodeDragging) return;
-
       // Check if we've moved beyond the drag threshold
       if (mouseDownPosition && !hasDraggedSignificantly) {
         const deltaX = Math.abs(e.clientX - mouseDownPosition.x);
@@ -749,8 +749,19 @@ export default function GraphCanvas({
         
         if (distance > DRAG_THRESHOLD) {
           setHasDraggedSignificantly(true);
+          // Start dragging based on what was set up in mouseDown
+          if (draggedNode) {
+            console.log('Starting node drag');
+            setIsNodeDragging(true);
+            setActiveDragNodeId(draggedNode.id);
+          } else {
+            console.log('Starting canvas panning');
+            setIsDragging(true);
+          }
         }
       }
+
+      if (!isDragging && !isNodeDragging) return;
 
       // Handle dragging for nodes that have been set up for dragging
       if (draggedNode && isNodeDragging) {
@@ -802,7 +813,7 @@ export default function GraphCanvas({
       setActiveDragNodeId(null);
     };
 
-    if (isDragging || isNodeDragging) {
+    if (mouseDownPosition || isDragging || isNodeDragging) {
       document.addEventListener('mousemove', handleGlobalMouseMove);
       document.addEventListener('mouseup', handleGlobalMouseUp);
       
