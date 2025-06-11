@@ -101,7 +101,8 @@ export default function GraphVisualizer() {
 
   const applySavedViewMutation = useMutation({
     mutationFn: async (viewId: string) => {
-      return await apiRequest("POST", `/api/saved-views/${viewId}/apply`);
+      const response = await apiRequest("POST", `/api/saved-views/${viewId}/apply`);
+      return await response.json();
     },
     onSuccess: (data: any) => {
       setVisibleNodes(new Set(data.visibleNodeIds));
@@ -123,7 +124,7 @@ export default function GraphVisualizer() {
   });
 
   const selectGraph = (graphId: string) => {
-    const graph = graphs.find(g => g.graphId === graphId);
+    const graph = (graphs as any)?.find((g: any) => g.graphId === graphId);
     if (graph) {
       window.location.href = `/?graph=${graphId}`;
     }
@@ -325,7 +326,7 @@ export default function GraphVisualizer() {
                     <SelectValue placeholder="Selecteer een graph" />
                   </SelectTrigger>
                   <SelectContent>
-                    {graphs.map((graph) => (
+                    {(graphs as any)?.map((graph: any) => (
                       <SelectItem key={graph.graphId} value={graph.graphId}>
                         {graph.name}
                       </SelectItem>
@@ -381,7 +382,7 @@ export default function GraphVisualizer() {
                       
                       {expandedTreeItems.has('nodes') && (
                         <div className="ml-8 mt-2 space-y-1">
-                          {Array.from(new Set(currentGraph.nodes.map(n => n.type))).map((type: string) => {
+                          {Array.from(new Set(currentGraph.nodes.map((n: any) => n.type))).map((type: string) => {
                             const typeColors = getNodeTypeColor(type);
                             return (
                               <div key={type} className="flex items-center justify-between p-2 text-sm bg-gray-50 dark:bg-gray-800 rounded">
@@ -393,7 +394,7 @@ export default function GraphVisualizer() {
                                   <span className="text-gray-700 dark:text-gray-300">{type}</span>
                                 </div>
                                 <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
-                                  {currentGraph.nodes.filter(n => n.type === type).length}
+                                  {currentGraph.nodes.filter((n: any) => n.type === type).length}
                                 </span>
                               </div>
                             );
@@ -419,11 +420,11 @@ export default function GraphVisualizer() {
                       
                       {expandedTreeItems.has('relations') && (
                         <div className="ml-8 mt-2 space-y-1">
-                          {Array.from(new Set(currentGraph.edges.map(e => e.type))).map((type: string) => (
+                          {Array.from(new Set(currentGraph.edges.map((e: any) => e.type))).map((type: string) => (
                             <div key={type} className="flex items-center justify-between p-2 text-sm bg-gray-50 dark:bg-gray-800 rounded">
                               <span className="text-gray-700 dark:text-gray-300">{type}</span>
                               <span className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded">
-                                {currentGraph.edges.filter(e => e.type === type).length}
+                                {currentGraph.edges.filter((e: any) => e.type === type).length}
                               </span>
                             </div>
                           ))}
