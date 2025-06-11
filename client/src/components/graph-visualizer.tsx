@@ -23,6 +23,7 @@ import { useLayoutPreferences } from "@/hooks/use-layout-preferences";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import ErrorBoundary from "./error-boundary";
 
 export default function GraphVisualizer() {
   const {
@@ -167,10 +168,10 @@ export default function GraphVisualizer() {
               <Network className="h-8 w-8 text-blue-600 mr-3" />
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">Graph Visualizer</h1>
             </div>
-            
-            
+
+
           </div>
-          
+
           <div className="flex items-center space-x-3">
             {/* Layout Rotation Button */}
             <Button
@@ -182,7 +183,7 @@ export default function GraphVisualizer() {
             >
               <Layout className="h-4 w-4" />
             </Button>
-            
+
             {/* Graph Dropdown Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -233,7 +234,7 @@ export default function GraphVisualizer() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            
+
             <Button
               variant="ghost"
               size="sm"
@@ -271,32 +272,34 @@ export default function GraphVisualizer() {
               )}
             </div>
           </div>
-          
+
           {/* Graph Canvas Container */}
           <div 
             className="w-full bg-white dark:bg-gray-900"
             style={{ height: 'calc(100% - 56px)' }}
           >
-            <GraphCanvas
-              graph={currentGraph}
-              selectedNode={selectedNode}
-              onNodeSelect={setSelectedNode}
-              onNodeExpand={expandNode}
-              onNodeEdit={handleNodeEdit}
-              visibleNodes={visibleNodes}
-              onVisibleNodesChange={setVisibleNodes}
-              transform={transform}
-              onTransformChange={setTransform}
-              editMode={editMode}
-              panelConstraints={{
-                leftPanel: {
-                  x: 20,
-                  y: 100,
-                  width: 320,
-                  collapsed: preferences.collapsed.navigation
-                }
-              }}
-            />
+            <ErrorBoundary>
+              <GraphCanvas
+                graph={currentGraph}
+                selectedNode={selectedNode}
+                onNodeSelect={setSelectedNode}
+                onNodeExpand={expandNode}
+                onNodeEdit={handleNodeEdit}
+                visibleNodes={visibleNodes}
+                onVisibleNodesChange={setVisibleNodes}
+                transform={transform}
+                onTransformChange={setTransform}
+                editMode={editMode}
+                panelConstraints={{
+                  leftPanel: {
+                    x: 20,
+                    y: 100,
+                    width: 320,
+                    collapsed: preferences.collapsed.navigation
+                  }
+                }}
+              />
+            </ErrorBoundary>
           </div>
         </div>
 
@@ -376,7 +379,7 @@ export default function GraphVisualizer() {
                   SPARQL
                 </TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="tree" className="flex-1 overflow-y-auto p-4">
                 {currentGraph && (
                   <div className="space-y-4">
@@ -394,7 +397,7 @@ export default function GraphVisualizer() {
                         <Database className="h-4 w-4 mr-2" />
                         <span className="font-medium">Nodes ({currentGraph.nodeCount})</span>
                       </button>
-                      
+
                       {expandedTreeItems.has('nodes') && (
                         <div className="ml-8 mt-2 space-y-1">
                           {Array.from(new Set(currentGraph.nodes.map((n: any) => n.type)) as Set<string>).map((type: string) => {
@@ -432,7 +435,7 @@ export default function GraphVisualizer() {
                         <TrendingUp className="h-4 w-4 mr-2" />
                         <span className="font-medium">Relaties ({currentGraph.edgeCount})</span>
                       </button>
-                      
+
                       {expandedTreeItems.has('relations') && (
                         <div className="ml-8 mt-2 space-y-1">
                           {Array.from(new Set(currentGraph.edges.map((e: any) => e.type)) as Set<string>).map((type: string) => (
@@ -461,7 +464,7 @@ export default function GraphVisualizer() {
                         <Eye className="h-4 w-4 mr-2" />
                         <span className="font-medium">Opgeslagen Views ({(savedViews as any)?.length || 0})</span>
                       </button>
-                      
+
                       {expandedTreeItems.has('saved-views') && (
                         <div className="ml-8 mt-2 space-y-1">
                           {(savedViews as any)?.map((view: any) => (
@@ -535,7 +538,7 @@ export default function GraphVisualizer() {
                   </div>
                 )}
               </TabsContent>
-              
+
               <TabsContent value="sparql" className="flex-1 overflow-hidden p-4">
                 {currentGraph && (
                   <SparqlQueryPanel
@@ -551,7 +554,7 @@ export default function GraphVisualizer() {
 
 
 
-        
+
       </div>
       {/* Import Modal */}
       <Dialog open={importModalOpen} onOpenChange={setImportModalOpen}>
@@ -571,11 +574,11 @@ export default function GraphVisualizer() {
                   Handmatig Maken
                 </TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="upload" className="space-y-4">
                 <FileUpload onGraphCreated={() => setImportModalOpen(false)} />
               </TabsContent>
-              
+
               <TabsContent value="create" className="space-y-4">
                 <GraphCreator onGraphCreated={() => setImportModalOpen(false)} />
               </TabsContent>
@@ -625,7 +628,7 @@ export default function GraphVisualizer() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             {(exportFormat === "png" || exportFormat === "pdf") && (
               <div>
                 <Label htmlFor="export-quality">Kwaliteit</Label>
@@ -645,7 +648,7 @@ export default function GraphVisualizer() {
                 </RadioGroup>
               </div>
             )}
-            
+
             <div className="flex justify-end space-x-2">
               <Button variant="outline" onClick={() => setExportModalOpen(false)}>
                 Annuleren
@@ -727,7 +730,7 @@ export default function GraphVisualizer() {
                 </div>
               </div>
             </div>
-            
+
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Voorkeuren</h3>
               <div className="space-y-3">

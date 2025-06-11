@@ -4,11 +4,35 @@ import { storage } from "./storage";
 import { insertGraphSchema, insertRdfTripleSchema, insertVisibilitySetSchema, insertSavedViewSchema } from "@shared/schema";
 import { nanoid } from "nanoid";
 import multer from "multer";
+import { body, validationResult } from "express-validator";
 
-// Configure multer for file uploads
+// Configure multer for file uploads with enhanced security
 const upload = multer({ 
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  limits: { 
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 1 // Only allow 1 file
+  },
+  fileFilter: (req, file, cb) => {
+    // Whitelist allowed file types
+    const allowedMimes = [
+      'text/turtle',
+      'application/rdf+xml', 
+      'text/plain',
+      'application/n-triples',
+      'text/n3'
+    ];
+    
+    const allowedExtensions = ['ttl', 'rdf', 'n3', 'nt', 'txt'];
+    const fileExtension = file.originalname.split('.').pop()?.toLowerCase();
+    
+    if (allowedMimes.includes(file.mimetype) || 
+        (fileExtension && allowedExtensions.includes(fileExtension))) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only TTL, RDF, N3, and NT files are allowed.'));
+    }
+  }
 });
 
 // TTL validator function
@@ -1022,9 +1046,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Validation middleware
+  const validateCodeReview = [
+    body('code').isString().isLength({ min: 1, max: 50000 }).trim(),
+    body('filename').isString().isLength({ min: 1, max: 255 }).trim(),
+    body('language').isString().isIn(['typescript', 'javascript', 'python', 'java', 'cpp', 'rust', 'go']),
+    body('context').optional().isString().isLength({ max: 1000 }).trim()
+  ];
+
   // Code review routes
-  app.post('/api/code-review', async (req, res) => {
+  app.post('/api/code-review', validateCodeReview, async (req, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ 
+          error: 'Validation failed', 
+          details: errors.array() 
+        });
+      }
+
       const { code, filename, language } = req.body;
 
       if (!code || !filename || !language) {
@@ -1039,8 +1080,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/fix-bugs', async (req, res) => {
+  app.post('/api/fix-bugs', validateCodeReview, async (req, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ 
+          error: 'Validation failed', 
+          details: errors.array() 
+        });
+      }
+
       const { code, filename, language } = req.body;
 
       if (!code || !filename || !language) {

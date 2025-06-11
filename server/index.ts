@@ -1,9 +1,55 @@
 import express, { type Request, Response, NextFunction } from "express";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+// Validate required environment variables
+function validateEnvironment() {
+  const required = ['DATABASE_URL'];
+  const missing = required.filter(key => !process.env[key]);
+  
+  if (missing.length > 0) {
+    console.error('Missing required environment variables:', missing);
+    process.exit(1);
+  }
+  
+  // Optional but recommended
+  const optional = ['ANTHROPIC_API_KEY'];
+  const missingOptional = optional.filter(key => !process.env[key]);
+  
+  if (missingOptional.length > 0) {
+    console.warn('Missing optional environment variables:', missingOptional);
+    console.warn('Some features may not work properly.');
+  }
+}
+
+validateEnvironment();
+
 const app = express();
-app.use(express.json());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiting to API routes
+app.use('/api/', limiter);
+
+// Stricter rate limiting for code review endpoints
+const codeReviewLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5, // limit each IP to 5 code review requests per minute
+  message: 'Too many code review requests, please try again later.',
+});
+
+app.use('/api/code-review', codeReviewLimiter);
+app.use('/api/fix-bugs', codeReviewLimiter);
+
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false }));
 
 app.use((req, res, next) => {

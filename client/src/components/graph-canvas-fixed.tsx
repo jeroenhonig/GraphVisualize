@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
+import React, { forwardRef, useRef, useImperativeHandle, useEffect, useState, useCallback } from "react";
 import type { GraphData, VisualizationNode, GraphTransform } from "@shared/schema";
 import { getNodeTypeColor } from "@/lib/color-utils";
 import { getLayoutConfig } from "@/lib/g6-config";
@@ -21,19 +21,20 @@ interface GraphCanvasProps {
   };
 }
 
-export default function GraphCanvas({
-  graph,
-  selectedNode,
-  onNodeSelect,
-  onNodeExpand,
-  onNodeEdit,
-  visibleNodes,
-  onVisibleNodesChange,
-  transform,
-  onTransformChange,
-  editMode = false,
-  panelConstraints
-}: GraphCanvasProps) {
+const GraphCanvas = forwardRef<any, GraphCanvasProps>((
+  {
+    graph,
+    selectedNode,
+    onNodeSelect,
+    onNodeExpand,
+    onNodeEdit,
+    visibleNodes,
+    onVisibleNodesChange,
+    transform,
+    onTransformChange,
+    editMode = false,
+    panelConstraints
+  }: GraphCanvasProps, ref) => {
   const graphRef = useRef<any>(null);
   const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null);
   const [containerReady, setContainerReady] = useState(false);
@@ -42,7 +43,7 @@ export default function GraphCanvas({
   const [currentLayout, setCurrentLayout] = useState<'force' | 'circular' | 'radial' | 'dagre'>('circular');
   const [loadedNodeCount, setLoadedNodeCount] = useState(100);
   const [nodeCount, setNodeCount] = useState(0);
-  
+
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
     isOpen: boolean;
@@ -95,7 +96,7 @@ export default function GraphCanvas({
         // Handle node deletion
         break;
     }
-    
+
     setContextMenu(prev => ({ ...prev, isOpen: false }));
   }, [contextMenu.targetNodeId, nodes, onNodeEdit, onNodeExpand]);
 
@@ -108,7 +109,7 @@ export default function GraphCanvas({
       nodeCount: nodes.length,
       edgeCount: edges.length
     });
-    
+
     if (!graph || nodes.length === 0 || !containerReady || !containerElement) {
       console.log('Early return: missing requirements', {
         hasGraph: !!graph,
@@ -121,7 +122,7 @@ export default function GraphCanvas({
 
     const createOptimizedGraph = () => {
       const startTime = performance.now();
-      
+
       try {
         setIsLoading(true);
         setRenderError(null);
@@ -148,7 +149,7 @@ export default function GraphCanvas({
           }
           graphRef.current = null;
         }
-        
+
         container.innerHTML = '';
         const width = container.clientWidth || 800;
         const height = container.clientHeight || 600;
@@ -253,15 +254,15 @@ export default function GraphCanvas({
           fallbackCanvas.style.border = '1px solid #e0e0e0';
           fallbackCanvas.style.cursor = 'pointer';
           container.appendChild(fallbackCanvas);
-          
+
           const ctx = fallbackCanvas.getContext('2d');
           if (!ctx) return;
-          
+
           // Clear and setup canvas
           ctx.clearRect(0, 0, width, height);
           ctx.fillStyle = '#fafafa';
           ctx.fillRect(0, 0, width, height);
-          
+
           // Force-directed layout simulation for better distribution
           const nodePositions = g6Data.nodes.map((node, index) => {
             const angle = (index / g6Data.nodes.length) * 2 * Math.PI;
@@ -269,21 +270,21 @@ export default function GraphCanvas({
             const layer = Math.floor(index / (g6Data.nodes.length / layers));
             const radiusBase = Math.min(width, height) * 0.15;
             const radius = radiusBase + (layer * radiusBase * 0.8);
-            
+
             return {
               x: width/2 + Math.cos(angle) * radius,
               y: height/2 + Math.sin(angle) * radius,
               node: node
             };
           });
-          
+
           // Draw edges first
           ctx.strokeStyle = '#e0e0e0';
           ctx.lineWidth = 1;
           g6Data.edges.forEach(edge => {
             const sourcePos = nodePositions.find(p => p.node.id === edge.source);
             const targetPos = nodePositions.find(p => p.node.id === edge.target);
-            
+
             if (sourcePos && targetPos) {
               ctx.beginPath();
               ctx.moveTo(sourcePos.x, sourcePos.y);
@@ -291,11 +292,11 @@ export default function GraphCanvas({
               ctx.stroke();
             }
           });
-          
+
           // Draw nodes with type-based colors
           nodePositions.forEach((pos, index) => {
             const colors = pos.node.colors || { primary: '#1890ff', secondary: '#e6f7ff' };
-            
+
             // Node circle
             ctx.beginPath();
             ctx.arc(pos.x, pos.y, 8, 0, 2 * Math.PI);
@@ -304,27 +305,27 @@ export default function GraphCanvas({
             ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = 2;
             ctx.stroke();
-            
+
             // Add node click handler
             fallbackCanvas.addEventListener('click', (e) => {
               const rect = fallbackCanvas.getBoundingClientRect();
               const clickX = e.clientX - rect.left;
               const clickY = e.clientY - rect.top;
               const distance = Math.sqrt((clickX - pos.x) ** 2 + (clickY - pos.y) ** 2);
-              
+
               if (distance <= 8 && pos.node.originalNode) {
                 onNodeSelect(pos.node.originalNode);
                 console.log('Node selected:', pos.node.originalNode.label);
               }
             });
           });
-          
+
           // Draw title and stats
           ctx.fillStyle = '#333333';
           ctx.font = 'bold 14px Arial';
           ctx.textAlign = 'left';
           ctx.fillText(`Infrastructure Graph: ${g6Data.nodes.length} nodes, ${g6Data.edges.length} edges`, 20, 25);
-          
+
           console.log('Native canvas visualization created with', g6Data.nodes.length, 'nodes and', g6Data.edges.length, 'edges');
         };
 
@@ -333,19 +334,19 @@ export default function GraphCanvas({
           graph.setData(g6Data);
           graph.render();
           console.log('G6 setData and render completed successfully');
-          
+
           // Immediate fallback since G6 v5.0.48 CDN has rendering issues
           setTimeout(() => {
             console.log('G6 rendering check - activating native canvas fallback');
             container.innerHTML = '';
             createNativeCanvas();
           }, 100);
-          
+
         } catch (error) {
           console.error('G6 rendering error:', error);
           createNativeCanvas();
         }
-        
+
         // Debug: Check if nodes have valid positions
         console.log('Sample node positions:', g6Data.nodes.slice(0, 3).map(n => ({
           id: n.id,
@@ -353,10 +354,10 @@ export default function GraphCanvas({
           y: n.y,
           label: n.label
         })));
-        
+
         // Store graph reference and bind events
         graphRef.current = graph;
-        
+
         // Bind G6 events
         graph.on('node:click', (e: any) => {
           const node = e.item.getModel();
@@ -380,7 +381,7 @@ export default function GraphCanvas({
             graphExists: !!graph
           });
         }, 100);
-        
+
         console.log('G6 v5 graph created, will render with delay');
 
         // Bind events  
@@ -441,7 +442,7 @@ export default function GraphCanvas({
 
     console.log('All requirements met, creating graph');
     createOptimizedGraph();
-    
+
     // Return cleanup function
     return () => {
       if (graphRef.current) {
@@ -548,7 +549,7 @@ export default function GraphCanvas({
           </div>
         )}
       </div>
-      
+
       <GraphContextMenu
         isOpen={contextMenu.isOpen}
         position={contextMenu.position}
@@ -560,4 +561,6 @@ export default function GraphCanvas({
       />
     </>
   );
-}
+});
+
+export default React.memo(GraphCanvas);

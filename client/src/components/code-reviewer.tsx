@@ -7,7 +7,9 @@ import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
-import { AlertCircle, CheckCircle, Info, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle, Info, Loader2, AlertTriangle } from 'lucide-react';
+import { useApi } from '../hooks/use-api';
+import ErrorBoundary from './error-boundary';
 
 interface CodeIssue {
   line?: number;
@@ -27,10 +29,18 @@ export default function CodeReviewer() {
   const [filename, setFilename] = useState('');
   const [language, setLanguage] = useState('typescript');
   const [context, setContext] = useState('');
-  const [isReviewing, setIsReviewing] = useState(false);
-  const [isFixing, setIsFixing] = useState(false);
   const [reviewResult, setReviewResult] = useState<CodeReviewResult | null>(null);
   const [fixedCode, setFixedCode] = useState('');
+
+  const reviewApi = useApi<CodeReviewResult>({
+    onSuccess: (data) => setReviewResult(data),
+    onError: (error) => console.error('Review failed:', error)
+  });
+
+  const fixApi = useApi<{ fixedCode: string }>({
+    onSuccess: (data) => setFixedCode(data.fixedCode),
+    onError: (error) => console.error('Fix failed:', error)
+  });
 
   const handleReview = async () => {
     if (!code.trim() || !filename.trim()) {
@@ -38,33 +48,15 @@ export default function CodeReviewer() {
       return;
     }
 
-    setIsReviewing(true);
-    try {
-      const response = await fetch('/api/code-review', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code,
-          filename,
-          language,
-          context: context.trim() || undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to review code');
-      }
-
-      const result = await response.json();
-      setReviewResult(result);
-    } catch (error) {
-      console.error('Review error:', error);
-      alert('Failed to review code. Please check your API key.');
-    } finally {
-      setIsReviewing(false);
-    }
+    await reviewApi.execute('/api/code-review', {
+      method: 'POST',
+      body: JSON.stringify({
+        code,
+        filename,
+        language,
+        context: context.trim() || undefined,
+      }),
+    });
   };
 
   const handleFixBugs = async () => {
@@ -73,32 +65,14 @@ export default function CodeReviewer() {
       return;
     }
 
-    setIsFixing(true);
-    try {
-      const response = await fetch('/api/fix-bugs', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code,
-          filename,
-          language,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fix bugs');
-      }
-
-      const result = await response.json();
-      setFixedCode(result.fixedCode);
-    } catch (error) {
-      console.error('Fix error:', error);
-      alert('Failed to fix bugs. Please check your API key.');
-    } finally {
-      setIsFixing(false);
-    }
+    await fixApi.execute('/api/fix-bugs', {
+      method: 'POST',
+      body: JSON.stringify({
+        code,
+        filename,
+        language,
+      }),
+    });
   };
 
   const getSeverityIcon = (severity: string) => {
@@ -128,7 +102,8 @@ export default function CodeReviewer() {
   };
 
   return (
-    <div className="space-y-6">
+    <ErrorBoundary>
+      <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Claude Code Reviewer</CardTitle>
@@ -171,13 +146,27 @@ export default function CodeReviewer() {
             className="font-mono text-sm"
           />
 
+          {(reviewApi.error || fixApi.error) && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2 text-red-700">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="text-sm font-medium">Error</span>
+                </div>
+                <p className="text-sm text-red-600 mt-1">
+                  {reviewApi.error || fixApi.error}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="flex gap-2">
-            <Button onClick={handleReview} disabled={isReviewing}>
-              {isReviewing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            <Button onClick={handleReview} disabled={reviewApi.loading}>
+              {reviewApi.loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Review Code
             </Button>
-            <Button onClick={handleFixBugs} disabled={isFixing} variant="secondary">
-              {isFixing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            <Button onClick={handleFixBugs} disabled={fixApi.loading} variant="secondary">
+              {fixApi.loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Fix Bugs
             </Button>
           </div>
@@ -268,6 +257,7 @@ export default function CodeReviewer() {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }

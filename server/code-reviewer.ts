@@ -1,6 +1,11 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 
+// Validate API key on startup
+if (!process.env.ANTHROPIC_API_KEY) {
+  throw new Error('ANTHROPIC_API_KEY environment variable is required');
+}
+
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
@@ -51,32 +56,57 @@ Format your response as JSON with this structure:
   "fixedCode": "corrected code if critical bugs were found, otherwise null"
 }`;
 
-  try {
-    const response = await anthropic.messages.create({
-      model: 'claude-3-sonnet-20240229',
-      max_tokens: 4000,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
+  const maxRetries = 3;
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      const response = await anthropic.messages.create({
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 4000,
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
+      }, {
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      const content = response.content[0];
+      if (content.type === 'text') {
+        // Extract JSON from the response
+        const jsonMatch = content.text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          // Validate response structure
+          if (parsed.issues && Array.isArray(parsed.issues) && parsed.overallFeedback) {
+            return parsed;
+          }
         }
-      ]
-    });
-
-    const content = response.content[0];
-    if (content.type === 'text') {
-      // Extract JSON from the response
-      const jsonMatch = content.text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
       }
-    }
 
-    throw new Error('Failed to parse Claude response');
-  } catch (error) {
-    console.error('Code review error:', error);
-    throw new Error('Failed to review code with Claude');
+      throw new Error('Invalid response format from Claude');
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Unknown error');
+      console.error(`Code review attempt ${attempt} failed:`, lastError.message);
+      
+      if (attempt === maxRetries) {
+        break;
+      }
+      
+      // Wait before retrying (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+    }
   }
+
+  throw new Error(`Failed to review code after ${maxRetries} attempts: ${lastError?.message}`);
 }
 
 export async function fixBugs(code: string, filename: string, language: string): Promise<string> {
@@ -88,26 +118,50 @@ ${code}
 
 Please return only the corrected code without explanations or markdown formatting.`;
 
-  try {
-    const response = await anthropic.messages.create({
-      model: 'claude-3-sonnet-20240229',
-      max_tokens: 4000,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
+  const maxRetries = 3;
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      const response = await anthropic.messages.create({
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 4000,
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
+      }, {
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      const content = response.content[0];
+      if (content.type === 'text') {
+        const fixedCode = content.text.trim();
+        if (fixedCode.length > 0) {
+          return fixedCode;
         }
-      ]
-    });
+      }
 
-    const content = response.content[0];
-    if (content.type === 'text') {
-      return content.text.trim();
+      throw new Error('Empty response from Claude');
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Unknown error');
+      console.error(`Bug fixing attempt ${attempt} failed:`, lastError.message);
+      
+      if (attempt === maxRetries) {
+        break;
+      }
+      
+      // Wait before retrying (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
     }
-
-    throw new Error('Failed to get fixed code from Claude');
-  } catch (error) {
-    console.error('Bug fixing error:', error);
-    throw new Error('Failed to fix bugs with Claude');
   }
+
+  throw new Error(`Failed to fix bugs after ${maxRetries} attempts: ${lastError?.message}`);
 }
