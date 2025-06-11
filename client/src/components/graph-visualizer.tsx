@@ -505,6 +505,7 @@ export default function GraphVisualizer() {
                   <SparqlQueryPanel
                     graphId={currentGraph.graphId}
                     onVisibilityChange={handleSparqlVisibilityChange}
+                    visibleNodeIds={Array.from(visibleNodes)}
                   />
                 )}
               </TabsContent>
