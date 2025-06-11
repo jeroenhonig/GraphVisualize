@@ -49,7 +49,7 @@ export default function GraphCanvas({
   
   // Node dragging state
   const [draggedNode, setDraggedNode] = useState<VisualizationNode | null>(null);
-  const [nodeDragStart, setNodeDragStart] = useState({ x: 0, y: 0 });
+  const [nodeDragStart, setNodeDragStart] = useState({ x: 0, y: 0, nodeStartX: 0, nodeStartY: 0 });
   const [isNodeDragging, setIsNodeDragging] = useState(false);
   const [activeDragNodeId, setActiveDragNodeId] = useState<string | null>(null);
   
@@ -579,19 +579,20 @@ export default function GraphCanvas({
         // Select node immediately
         onNodeSelect(node);
         
-        // Set up dragging data for potential use - calculate offset from node center
+        // Set up dragging data - store where the mouse clicked relative to node center
         const rect = svgRef.current?.getBoundingClientRect();
         if (rect) {
           const currentPos = localNodePositions[node.id] || { x: node.x, y: node.y };
-          const svgX = (e.clientX - rect.left - transform.translateX) / transform.scale;
-          const svgY = (e.clientY - rect.top - transform.translateY) / transform.scale;
+          const mouseX = (e.clientX - rect.left - transform.translateX) / transform.scale;
+          const mouseY = (e.clientY - rect.top - transform.translateY) / transform.scale;
           
           setDraggedNode(node);
-          // Calculate the offset from mouse position to node center
-          // This ensures the node stays at the same relative position under the cursor
+          // Store initial mouse position and node position for relative dragging
           setNodeDragStart({ 
-            x: svgX - currentPos.x, 
-            y: svgY - currentPos.y 
+            x: mouseX, 
+            y: mouseY,
+            nodeStartX: currentPos.x,
+            nodeStartY: currentPos.y
           });
         }
         return;
@@ -628,11 +629,16 @@ export default function GraphCanvas({
       // Node dragging with proper coordinate transformation
       const rect = svgRef.current?.getBoundingClientRect();
       if (rect) {
-        const svgX = (e.clientX - rect.left - transform.translateX) / transform.scale;
-        const svgY = (e.clientY - rect.top - transform.translateY) / transform.scale;
+        const mouseX = (e.clientX - rect.left - transform.translateX) / transform.scale;
+        const mouseY = (e.clientY - rect.top - transform.translateY) / transform.scale;
         
-        const newX = svgX - nodeDragStart.x;
-        const newY = svgY - nodeDragStart.y;
+        // Calculate how much the mouse has moved since drag started
+        const deltaX = mouseX - nodeDragStart.x;
+        const deltaY = mouseY - nodeDragStart.y;
+        
+        // Apply the same delta to the node's starting position
+        const newX = nodeDragStart.nodeStartX + deltaX;
+        const newY = nodeDragStart.nodeStartY + deltaY;
         
         // Update local position for immediate visual feedback
         setLocalNodePositions(prev => ({
@@ -742,12 +748,12 @@ export default function GraphCanvas({
       if (draggedNode && isNodeDragging) {
         const rect = svgRef.current?.getBoundingClientRect();
         if (rect) {
-          const svgX = (e.clientX - rect.left - transform.translateX) / transform.scale;
-          const svgY = (e.clientY - rect.top - transform.translateY) / transform.scale;
+          const mouseX = (e.clientX - rect.left - transform.translateX) / transform.scale;
+          const mouseY = (e.clientY - rect.top - transform.translateY) / transform.scale;
           
           // Calculate new position maintaining the original offset from mouse to node center
-          const newX = svgX - nodeDragStart.x;
-          const newY = svgY - nodeDragStart.y;
+          const newX = mouseX - nodeDragStart.x;
+          const newY = mouseY - nodeDragStart.y;
           
           setLocalNodePositions(prev => ({
             ...prev,
