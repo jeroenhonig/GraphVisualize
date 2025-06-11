@@ -1,0 +1,75 @@
+Analyse van G6 Implementatie - Best Practices Checklist
+Op basis van de officiële AntV G6 documentatie en voorbeelden kan ik je voorzien van een checklist om te controleren of een G6 implementatie correct is gedaan:
+Essentiële Implementatie Elementen:
+1. Correcte Package Installatie & Import
+G6 moet geïnstalleerd worden via npm met $ npm install @antv/g6 en geïmporteerd worden als import { Graph } from '@antv/g6' GitHubNpmjs
+2. Basis Graph Instantiatie
+Een correcte G6 implementatie zou deze structuur moeten volgen:
+javascriptimport { Graph } from '@antv/g6';
+
+const data = {
+  nodes: [ /* your nodes data */ ],
+  edges: [ /* your edges data */ ]
+};
+
+const graph = new Graph({
+  container: 'container',
+  data,
+  node: {
+    palette: {
+      type: 'group',
+      field: 'cluster',
+    },
+  },
+  layout: {
+    type: 'force',
+  },
+  behaviors: ['drag-canvas', 'drag-node'],
+});
+
+graph.render();
+GitHubNpmjs
+3. Data Structuur Vereisten
+Data voor G6 moet in JSON formaat zijn met nodes en edges arrays. Nodes moeten een unieke id hebben, en edges hebben source en target properties nodig die verwijzen naar node IDs Introduction | G6
+4. Container Setup
+Een HTML container (meestal een div) moet gecreëerd worden waar G6 een canvas element aan zal toevoegen voor het tekenen van de graph AntvGitee
+Veelvoorkomende Implementatie Fouten:
+1. Verouderde API Gebruik
+Veel implementaties gebruiken nog de oude API:
+
+❌ new G6.Graph() (oude versie)
+✅ import { Graph } from '@antv/g6'; new Graph() (huidige versie)
+
+2. Incorrecte Data Loading
+Sommige implementaties gebruiken graph.data(data) gevolgd door graph.render(), maar moderne G6 (v5+) gebruikt data direct in de constructor Custom Node | G6
+3. Missing Configuration Properties
+Essentiële eigenschappen die vaak ontbreken:
+
+Container specificatie
+Width/height configuratie
+Layout type
+Behavior configuratie
+
+4. Performance Issues
+Voor grote datasets: gebruik van fitView: true en fitViewPadding voor betere visualisatie, en async data loading voor grote datasets Introduction | G6
+Aanbevolen Controle Punten:
+
+Version Compatibility: Controleer of de gebruikte G6 versie compatibel is met de implementatie. G6 heeft significant breaking changes gehad tussen versies
+Error Handling: Implementatie van proper error handling bij data loading
+Responsive Design: Gebruik van fitView en fitViewPadding voor responsive visualisatie Introduction | G6
+Custom Elements: Als custom nodes of edges gebruikt worden, controleer of ze correct geregistreerd zijn met G6.registerNode() of G6.registerEdge()
+State Management: Implementatie van state handling voor interacties zoals hover en click events via setState functie
+
+Moderne G6 (v5+) vs Legacy Patterns:
+Modern (Aanbevolen):
+javascriptconst graph = new Graph({
+  container: 'container',
+  data: yourData,
+  // configuratie in constructor
+});
+Legacy (Vermijden):
+javascriptconst graph = new G6.Graph({
+  container: 'mountNode'
+});
+graph.data(yourData);
+graph.render();
