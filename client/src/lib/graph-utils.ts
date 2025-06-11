@@ -1,4 +1,5 @@
 import type { VisualizationNode, VisualizationEdge } from "@shared/schema";
+import { getNodeTypeColor, shouldGroupNodeTypes } from "./color-utils";
 
 export interface GraphTransform {
   scale: number;
@@ -67,6 +68,9 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
           (edge.source === node2.id && edge.target === node1.id)
         );
         
+        // Check if nodes should be grouped by type
+        const shouldGroup = shouldGroupNodeTypes(node1.type, node2.type);
+        
         const minDistance = baseDistance + (areConnected ? 80 : 50);
         
         if (distance < minDistance) {
@@ -78,6 +82,26 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
           node1.vy -= fy * 0.18;
           node2.vx += fx * 0.18;
           node2.vy += fy * 0.18;
+        } else if (shouldGroup && distance < 350 && !areConnected) {
+          // Weak attraction for same type nodes (grouping)
+          const attractionForce = 0.8;
+          const fx = (dx / distance) * attractionForce;
+          const fy = (dy / distance) * attractionForce;
+          
+          node1.vx += fx * 0.02;
+          node1.vy += fy * 0.02;
+          node2.vx -= fx * 0.02;
+          node2.vy -= fy * 0.02;
+        } else if (!shouldGroup && distance < 250 && !areConnected) {
+          // Weak repulsion for different type nodes
+          const repulsionForce = 1.2;
+          const fx = (dx / distance) * repulsionForce;
+          const fy = (dy / distance) * repulsionForce;
+          
+          node1.vx -= fx * 0.01;
+          node1.vy -= fy * 0.01;
+          node2.vx += fx * 0.01;
+          node2.vy += fy * 0.01;
         }
       }
     }
@@ -416,9 +440,9 @@ export function renderGraph(
     nodeGroup.setAttribute('data-node-id', node.id);
     nodeGroup.classList.add('cursor-pointer', 'transition-all', 'duration-200');
     
-    // Node shape based on type
+    // Node shape based on type with color coding
     const isSelected = node.id === selectedNodeId;
-    const nodeColor = getNodeColor(node.type);
+    const typeColors = getNodeTypeColor(node.type);
     const strokeWidth = isSelected ? '4' : '3';
     const strokeColor = isSelected ? 'hsl(210, 100%, 50%)' : '#FFFFFF';
 
