@@ -197,7 +197,9 @@ function convertHexToNodeTypeColor(hex: string): NodeTypeColor {
     primary: hex,
     secondary: hex + '20', // Add transparency
     hover: adjustBrightness(hex, -20),
-    text: getContrastColor(hex)
+    text: getContrastColor(hex),
+    color: hex,
+    bgColor: hex + '20'
   };
 }
 
@@ -275,7 +277,9 @@ function generateColorFromString(str: string): NodeTypeColor {
     primary,
     secondary,
     hover,
-    text: finalLight < 50 ? '#ffffff' : '#000000'
+    text: finalLight < 50 ? '#ffffff' : '#000000',
+    color: primary,
+    bgColor: secondary
   };
 }
 
