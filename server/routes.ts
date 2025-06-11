@@ -11,9 +11,88 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
+// TTL validator function
+function validateTTLSyntax(content: string): { isValid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  const lines = content.split('\n');
+  
+  let inStatement = false;
+  let statementDepth = 0;
+  let inString = false;
+  let stringChar = '';
+  
+  // Basic validation checks
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    const lineNum = i + 1;
+    
+    if (!line || line.startsWith('#')) continue;
+    
+    // Check prefix declarations
+    if (line.startsWith('@prefix')) {
+      const prefixMatch = line.match(/@prefix\s+([^:]*):?\s*<([^>]+)>\s*\./);
+      if (!prefixMatch) {
+        errors.push(`Line ${lineNum}: Invalid @prefix declaration syntax`);
+      }
+      continue;
+    }
+    
+    // Check for basic TTL syntax issues
+    if (line.includes(';;')) {
+      errors.push(`Line ${lineNum}: Double semicolon found - invalid syntax`);
+    }
+    
+    // Check for unclosed strings
+    let lineInString = false;
+    let lineStringChar = '';
+    for (let j = 0; j < line.length; j++) {
+      const char = line[j];
+      const prevChar = j > 0 ? line[j - 1] : '';
+      
+      if (!lineInString && (char === '"' || char === "'")) {
+        lineInString = true;
+        lineStringChar = char;
+      } else if (lineInString && char === lineStringChar && prevChar !== '\\') {
+        lineInString = false;
+        lineStringChar = '';
+      }
+    }
+    
+    if (lineInString) {
+      errors.push(`Line ${lineNum}: Unclosed string literal`);
+    }
+  }
+  
+  // Check overall structure
+  const prefixCount = (content.match(/@prefix/g) || []).length;
+  const statementCount = content.split('.').filter(s => s.trim() && !s.includes('@prefix')).length;
+  
+  if (prefixCount === 0) {
+    errors.push('No @prefix declarations found - TTL files typically require namespace prefixes');
+  }
+  
+  if (statementCount === 0) {
+    errors.push('No RDF statements found in the file');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
 // Simple and reliable TTL parser based on proven patterns
 async function parseRdfAndCreateTriples(content: string, format: string, graphId: string) {
   console.log('Starting TTL parsing for graph:', graphId);
+  
+  // Step 1: Validate TTL syntax before parsing
+  const validation = validateTTLSyntax(content);
+  if (!validation.isValid) {
+    console.error('TTL validation failed:', validation.errors);
+    throw new Error(`TTL validation failed: ${validation.errors.join('; ')}`);
+  }
+  
+  console.log('TTL validation passed, proceeding with parsing');
   
   const prefixes = new Map<string, string>();
   const subjects = new Set<string>();
@@ -73,7 +152,9 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
     }
     
     // Add position data
-    for (const [subject, position] of subjectPositions.entries()) {
+    const positionEntries = Array.from(subjectPositions.entries());
+    for (let i = 0; i < positionEntries.length; i++) {
+      const [subject, position] = positionEntries[i];
       await storage.createRdfTriple({
         graphId,
         subject,
