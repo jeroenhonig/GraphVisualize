@@ -161,7 +161,11 @@ export default function G6V5Working({
             nodeStrength: -500,
             edgeStrength: 0.3
           },
-          behaviors: ['zoom-canvas', 'drag-element']
+          behaviors: [
+            'zoom-canvas',
+            'drag-canvas',
+            'drag-element'
+          ]
         });
 
         // Store selected node for manual highlighting
