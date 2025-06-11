@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import GraphSidebar from "./graph-sidebar";
-import GraphCanvas from "./graph-canvas";
+import G6GraphCanvas from "./g6-graph-canvas-v5";
 import SparqlQueryPanel from "./sparql-query-panel";
 import GraphStatistics from "./graph-statistics";
 import FileUpload from "./file-upload";
@@ -263,7 +263,7 @@ export default function GraphVisualizer() {
             visibleCount: visibleNodes.size
           } : undefined}
         >
-          <GraphCanvas
+          <G6GraphCanvas
             graph={currentGraph}
             selectedNode={selectedNode}
             onNodeSelect={setSelectedNode}
