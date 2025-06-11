@@ -15,15 +15,31 @@ export interface RenderOptions {
   transform: GraphTransform;
 }
 
-// Enhanced force-directed layout with edge crossing minimization
+// Simplified force-directed layout with crossing reduction
 export function createGraphLayout(nodes: VisualizationNode[], edges: VisualizationEdge[]): VisualizationNode[] {
-  const layoutNodes = nodes.map(node => ({
-    ...node,
-    x: node.x || Math.random() * 800 + 100,
-    y: node.y || Math.random() * 600 + 100,
-    vx: 0,
-    vy: 0,
-  }));
+  // Calculate node degrees for smart positioning
+  const nodeDegrees = new Map<string, number>();
+  nodes.forEach(node => {
+    const degree = edges.filter(edge => edge.source === node.id || edge.target === node.id).length;
+    nodeDegrees.set(node.id, degree);
+  });
+
+  // Initial circular positioning with degree-based clustering
+  const centerX = 600;
+  const centerY = 400;
+  const layoutNodes = nodes.map((node, index) => {
+    const degree = nodeDegrees.get(node.id) || 0;
+    const radius = degree > 10 ? 150 : degree > 5 ? 300 : 450;
+    const angle = (index / nodes.length) * 2 * Math.PI;
+    
+    return {
+      ...node,
+      x: node.x || (centerX + Math.cos(angle) * radius),
+      y: node.y || (centerY + Math.sin(angle) * radius),
+      vx: 0,
+      vy: 0,
+    };
+  });
 
   // Function to check if two line segments intersect
   function linesIntersect(x1: number, y1: number, x2: number, y2: number, 
@@ -67,15 +83,59 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
     return crossings;
   }
 
-  // Calculate force to reduce edge crossings
+  // Enhanced crossing reduction with angular optimization
   function calculateCrossingReductionForce(node: any): { fx: number, fy: number } {
     let fx = 0, fy = 0;
+    const degree = nodeData.get(node.id)?.degree || 0;
     
     // Find edges connected to this node
     const connectedEdges = edges.filter(edge => 
       edge.source === node.id || edge.target === node.id
     );
     
+    // For high-degree nodes, use angular separation strategy
+    if (degree > 6) {
+      const neighbors = connectedEdges.map(edge => {
+        const neighborId = edge.source === node.id ? edge.target : edge.source;
+        const neighbor = layoutNodes.find(n => n.id === neighborId);
+        if (!neighbor) return null;
+        
+        const angle = Math.atan2(neighbor.y - node.y, neighbor.x - node.x);
+        return { neighbor, angle, edge };
+      }).filter(Boolean) as Array<{ neighbor: any, angle: number, edge: any }>;
+      
+      // Sort neighbors by angle
+      neighbors.sort((a, b) => a.angle - b.angle);
+      
+      // Calculate ideal angular spacing
+      const idealAngleSpacing = (2 * Math.PI) / neighbors.length;
+      
+      for (let i = 0; i < neighbors.length; i++) {
+        const current = neighbors[i];
+        const idealAngle = i * idealAngleSpacing;
+        const angleDiff = idealAngle - current.angle;
+        
+        // Normalize angle difference
+        let normalizedDiff = angleDiff;
+        while (normalizedDiff > Math.PI) normalizedDiff -= 2 * Math.PI;
+        while (normalizedDiff < -Math.PI) normalizedDiff += 2 * Math.PI;
+        
+        if (Math.abs(normalizedDiff) > 0.1) {
+          const distance = Math.sqrt(
+            Math.pow(current.neighbor.x - node.x, 2) + 
+            Math.pow(current.neighbor.y - node.y, 2)
+          ) || 1;
+          
+          const forceStrength = Math.abs(normalizedDiff) * 0.8;
+          const perpAngle = current.angle + Math.PI / 2;
+          
+          fx += Math.cos(perpAngle) * forceStrength * Math.sign(normalizedDiff);
+          fy += Math.sin(perpAngle) * forceStrength * Math.sign(normalizedDiff);
+        }
+      }
+    }
+    
+    // Traditional crossing reduction for all nodes
     for (const edge of connectedEdges) {
       const otherNodeId = edge.source === node.id ? edge.target : edge.source;
       const otherNode = layoutNodes.find(n => n.id === otherNodeId);
@@ -87,7 +147,7 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
         if (otherEdge.id === edge.id) continue;
         if (otherEdge.source === edge.source || otherEdge.source === edge.target ||
             otherEdge.target === edge.source || otherEdge.target === edge.target) {
-          continue; // Skip edges that share nodes
+          continue;
         }
         
         const otherNode1 = layoutNodes.find(n => n.id === otherEdge.source);
@@ -95,22 +155,19 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
         
         if (!otherNode1 || !otherNode2) continue;
         
-        // Check if current edge crosses with other edge
         if (linesIntersect(node.x, node.y, otherNode.x, otherNode.y,
                           otherNode1.x, otherNode1.y, otherNode2.x, otherNode2.y)) {
           
-          // Calculate force to move node away from crossing
           const edgeVecX = otherNode.x - node.x;
           const edgeVecY = otherNode.y - node.y;
           const crossingVecX = (otherNode1.x + otherNode2.x) / 2 - (node.x + otherNode.x) / 2;
           const crossingVecY = (otherNode1.y + otherNode2.y) / 2 - (node.y + otherNode.y) / 2;
           
-          // Perpendicular force to avoid crossing
           const perpX = -edgeVecY;
           const perpY = edgeVecX;
           const perpLen = Math.sqrt(perpX * perpX + perpY * perpY) || 1;
           
-          const forceStrength = 2.0;
+          const forceStrength = 1.5;
           fx += (perpX / perpLen) * forceStrength * Math.sign(crossingVecX * perpX + crossingVecY * perpY);
           fy += (perpY / perpLen) * forceStrength * Math.sign(crossingVecX * perpX + crossingVecY * perpY);
         }
@@ -128,14 +185,29 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
     return { width, height };
   }
 
-  // Enhanced force simulation with crossing reduction
-  for (let iteration = 0; iteration < 500; iteration++) {
-    // Apply forces to all nodes
+  // Simplified force simulation focused on structure preservation
+  for (let iteration = 0; iteration < 150; iteration++) {
+    // Lighter crossing reduction - focus on maintaining layout structure
     layoutNodes.forEach(node => {
-      // Add crossing reduction force
+      const nodeInfo = nodeData.get(node.id)!;
+      
+      // Apply crossing reduction with lower intensity to preserve hierarchical structure
       const crossingForce = calculateCrossingReductionForce(node);
-      node.vx += crossingForce.fx * 0.1;
-      node.vy += crossingForce.fy * 0.1;
+      const crossingWeight = 0.02; // Much lower weight
+      node.vx += crossingForce.fx * crossingWeight;
+      node.vy += crossingForce.fy * crossingWeight;
+      
+      // Stronger radial forces to maintain level structure
+      const targetRadius = levelRadii[nodeInfo.level];
+      const currentRadius = Math.sqrt((node.x - centerX) ** 2 + (node.y - centerY) ** 2);
+      const radiusDiff = targetRadius - currentRadius;
+      
+      if (Math.abs(radiusDiff) > 10) {
+        const angle = Math.atan2(node.y - centerY, node.x - centerX);
+        const radialForce = radiusDiff * 0.1;
+        node.vx += Math.cos(angle) * radialForce;
+        node.vy += Math.sin(angle) * radialForce;
+      }
     });
 
     // Node repulsion and attraction forces
