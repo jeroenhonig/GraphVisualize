@@ -14,8 +14,34 @@ const upload = multer({
 // Simple RDF/TTL parser function
 async function parseRdfAndCreateTriples(content: string, format: string, graphId: string) {
   const lines = content.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#'));
+  const subjects = new Set<string>();
   
-  // Simple TTL/N3 parser - handles basic triples
+  // First pass: collect all subjects
+  for (const line of lines) {
+    if (line.endsWith('.')) {
+      const cleanLine = line.slice(0, -1).trim();
+      const parts = cleanLine.split(/\s+/);
+      
+      if (parts.length >= 3) {
+        const subject = parts[0].replace(/[<>]/g, '');
+        subjects.add(subject);
+      }
+    }
+  }
+  
+  // Create position assignments for subjects
+  const subjectPositions = new Map<string, {x: number, y: number}>();
+  let nodeIndex = 0;
+  for (const subject of Array.from(subjects)) {
+    const radius = 200 + (Math.floor(nodeIndex / 8) * 100);
+    const angle = (nodeIndex % 8) * (2 * Math.PI / 8);
+    const x = Math.round(600 + radius * Math.cos(angle));
+    const y = Math.round(400 + radius * Math.sin(angle));
+    subjectPositions.set(subject, { x, y });
+    nodeIndex++;
+  }
+  
+  // Second pass: create triples
   for (const line of lines) {
     if (line.endsWith('.')) {
       const cleanLine = line.slice(0, -1).trim();
@@ -42,6 +68,26 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
         });
       }
     }
+  }
+  
+  // Third pass: add position information for all subjects
+  for (const [subject, position] of Array.from(subjectPositions.entries())) {
+    // Add position triples
+    await storage.createRdfTriple({
+      graphId,
+      subject,
+      predicate: 'graph:positionX',
+      object: position.x.toString(),
+      objectType: 'literal'
+    });
+    
+    await storage.createRdfTriple({
+      graphId,
+      subject,
+      predicate: 'graph:positionY', 
+      object: position.y.toString(),
+      objectType: 'literal'
+    });
   }
 }
 

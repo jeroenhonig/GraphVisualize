@@ -474,13 +474,26 @@ export class DatabaseStorage implements IStorage {
           }
         });
 
+      // Calculate automatic position if no position is stored
+      let x = parseInt(xTriple?.object || "0");
+      let y = parseInt(yTriple?.object || "0");
+      
+      // If no position is set (default 0,0), calculate a better position
+      if (x === 0 && y === 0) {
+        const nodeIndex = nodes.length;
+        const radius = 200 + (Math.floor(nodeIndex / 8) * 100);
+        const angle = (nodeIndex % 8) * (2 * Math.PI / 8);
+        x = 600 + radius * Math.cos(angle);
+        y = 400 + radius * Math.sin(angle);
+      }
+
       nodes.push({
         id: subject,
         label: labelTriple?.object || subject,
         type: typeTriple?.object || "unknown",
         data,
-        x: parseInt(xTriple?.object || "400"),
-        y: parseInt(yTriple?.object || "300"),
+        x,
+        y,
         visible: true
       });
 
