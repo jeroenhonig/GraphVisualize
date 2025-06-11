@@ -39,6 +39,10 @@ export default function SVGGraphCanvas({
     nodeId?: string;
   }>({ isDragging: false, startPos: { x: 0, y: 0 } });
 
+  const [viewTransform, setViewTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
   // Prepare visible nodes with physics positions
   const visibleNodeIds = visibleNodes.size > 0 ? Array.from(visibleNodes) : graph?.nodes.map(n => n.id) || [];
   const nodes = graph?.nodes.filter(node => visibleNodeIds.includes(node.id)).slice(0, 50) || [];
@@ -63,12 +67,12 @@ export default function SVGGraphCanvas({
     };
   });
 
-  // Apply force simulation
+  // Enhanced force simulation with stronger repulsion
   useEffect(() => {
     if (nodes.length === 0) return;
 
     const simulation = () => {
-      // Repulsion between nodes
+      // Strong repulsion between all nodes
       for (let i = 0; i < nodesWithPositions.length; i++) {
         for (let j = i + 1; j < nodesWithPositions.length; j++) {
           const nodeA = nodesWithPositions[i];
@@ -78,8 +82,9 @@ export default function SVGGraphCanvas({
           const dy = nodeB.y - nodeA.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
           
-          if (distance < 100 && distance > 0) {
-            const force = 50 / (distance * distance);
+          if (distance < 150 && distance > 0) {
+            // Much stronger repulsion force
+            const force = 1500 / (distance * distance + 10);
             const fx = (dx / distance) * force;
             const fy = (dy / distance) * force;
             
@@ -91,7 +96,7 @@ export default function SVGGraphCanvas({
         }
       }
 
-      // Attraction for connected nodes
+      // Moderate attraction for connected nodes
       edges.forEach(edge => {
         const sourceNode = nodesWithPositions.find(n => n.id === edge.source);
         const targetNode = nodesWithPositions.find(n => n.id === edge.target);
@@ -101,8 +106,10 @@ export default function SVGGraphCanvas({
           const dy = targetNode.y - sourceNode.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
           
-          if (distance > 80) {
-            const force = 0.1;
+          // Ideal edge length
+          const idealDistance = 120;
+          if (distance > idealDistance) {
+            const force = 0.05 * (distance - idealDistance);
             const fx = (dx / distance) * force;
             const fy = (dy / distance) * force;
             
@@ -114,50 +121,123 @@ export default function SVGGraphCanvas({
         }
       });
 
-      // Apply velocity with damping
+      // Center gravity (weak)
+      const centerX = 400;
+      const centerY = 300;
+      nodesWithPositions.forEach(node => {
+        const dx = centerX - node.x;
+        const dy = centerY - node.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > 0) {
+          const force = 0.002;
+          node.vx += (dx / distance) * force;
+          node.vy += (dy / distance) * force;
+        }
+      });
+
+      // Apply velocity with stronger damping
       nodesWithPositions.forEach(node => {
         node.x += node.vx;
         node.y += node.vy;
-        node.vx *= 0.8;
-        node.vy *= 0.8;
+        node.vx *= 0.85; // Better damping
+        node.vy *= 0.85;
         
-        // Keep nodes in bounds
-        node.x = Math.max(30, Math.min(770, node.x));
-        node.y = Math.max(30, Math.min(570, node.y));
+        // Larger bounds
+        node.x = Math.max(50, Math.min(750, node.x));
+        node.y = Math.max(50, Math.min(550, node.y));
       });
     };
 
-    const interval = setInterval(simulation, 50);
+    const interval = setInterval(simulation, 30); // Faster updates
     return () => clearInterval(interval);
   }, [nodes.length, edges.length]);
 
+  // Node dragging handlers
   const handleMouseDown = (e: React.MouseEvent, nodeId: string) => {
     e.preventDefault();
+    e.stopPropagation();
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
     setDragState({
       isDragging: true,
-      startPos: { x: e.clientX, y: e.clientY },
+      startPos: { x: e.clientX - rect.left, y: e.clientY - rect.top },
       nodeId
     });
   };
 
+  // Canvas panning handlers
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    if (dragState.isDragging) return;
+    
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    setIsPanning(true);
+    setPanStart({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+
   const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const currentX = e.clientX - rect.left;
+    const currentY = e.clientY - rect.top;
+
     if (dragState.isDragging && dragState.nodeId) {
+      // Node dragging
       const node = nodesWithPositions.find(n => n.id === dragState.nodeId);
       if (node) {
-        const dx = e.clientX - dragState.startPos.x;
-        const dy = e.clientY - dragState.startPos.y;
-        node.x += dx * 0.5;
-        node.y += dy * 0.5;
+        const dx = (currentX - dragState.startPos.x) / viewTransform.scale;
+        const dy = (currentY - dragState.startPos.y) / viewTransform.scale;
+        node.x += dx;
+        node.y += dy;
         setDragState(prev => ({
           ...prev,
-          startPos: { x: e.clientX, y: e.clientY }
+          startPos: { x: currentX, y: currentY }
         }));
       }
+    } else if (isPanning) {
+      // Canvas panning
+      const dx = currentX - panStart.x;
+      const dy = currentY - panStart.y;
+      setViewTransform(prev => ({
+        ...prev,
+        x: prev.x + dx,
+        y: prev.y + dy
+      }));
+      setPanStart({ x: currentX, y: currentY });
     }
   };
 
   const handleMouseUp = () => {
     setDragState({ isDragging: false, startPos: { x: 0, y: 0 } });
+    setIsPanning(false);
+  };
+
+  // Zoom handling
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    const newScale = Math.max(0.1, Math.min(3, viewTransform.scale * scaleFactor));
+    
+    // Zoom to mouse position
+    const scaleChange = newScale / viewTransform.scale;
+    const newX = mouseX - (mouseX - viewTransform.x) * scaleChange;
+    const newY = mouseY - (mouseY - viewTransform.y) * scaleChange;
+    
+    setViewTransform({
+      x: newX,
+      y: newY,
+      scale: newScale
+    });
   };
 
   const handleNodeClick = (node: VisualizationNode) => {
@@ -175,10 +255,13 @@ export default function SVGGraphCanvas({
         width="100%"
         height="100%"
         viewBox="0 0 800 600"
-        className="w-full h-full"
+        className="w-full h-full cursor-grab"
+        style={{ cursor: isPanning ? 'grabbing' : dragState.isDragging ? 'grabbing' : 'grab' }}
+        onMouseDown={handleCanvasMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onWheel={handleWheel}
       >
         {/* Background grid */}
         <defs>
@@ -188,10 +271,12 @@ export default function SVGGraphCanvas({
         </defs>
         <rect width="100%" height="100%" fill="url(#grid)" />
 
-        {/* Edges */}
-        {edges.map(edge => {
-          const sourceNode = nodesWithPositions.find(n => n.id === edge.source);
-          const targetNode = nodesWithPositions.find(n => n.id === edge.target);
+        {/* Main graph group with transform */}
+        <g transform={`translate(${viewTransform.x}, ${viewTransform.y}) scale(${viewTransform.scale})`}>
+          {/* Edges */}
+          {edges.map(edge => {
+            const sourceNode = nodesWithPositions.find(n => n.id === edge.source);
+            const targetNode = nodesWithPositions.find(n => n.id === edge.target);
           
           if (!sourceNode || !targetNode) return null;
           
@@ -264,14 +349,36 @@ export default function SVGGraphCanvas({
             </g>
           );
         })}
+        </g>
 
-        {/* Legend */}
+        {/* Legend - outside transform group */}
         <g transform="translate(20, 20)">
           <rect x="0" y="0" width="160" height="80" fill="white" stroke="#ddd" strokeWidth="1" rx="5"/>
           <text x="10" y="20" fontSize="12" fill="#333" fontWeight="bold">Graph Overview</text>
           <text x="10" y="40" fontSize="10" fill="#666">{nodes.length} nodes • {edges.length} edges</text>
           <text x="10" y="55" fontSize="10" fill="#666">RDF Infrastructure Model</text>
           <text x="10" y="70" fontSize="9" fill="#999">Click nodes for details • Double-click to expand</text>
+        </g>
+
+        {/* Zoom controls */}
+        <g transform="translate(750, 20)">
+          <rect x="0" y="0" width="30" height="60" fill="white" stroke="#ddd" strokeWidth="1" rx="3"/>
+          <text 
+            x="15" y="20" 
+            textAnchor="middle" 
+            fontSize="16" 
+            fill="#333" 
+            className="cursor-pointer select-none hover:fill-blue-600"
+            onClick={() => setViewTransform(prev => ({ ...prev, scale: Math.min(3, prev.scale * 1.2) }))}
+          >+</text>
+          <text 
+            x="15" y="50" 
+            textAnchor="middle" 
+            fontSize="16" 
+            fill="#333" 
+            className="cursor-pointer select-none hover:fill-blue-600"
+            onClick={() => setViewTransform(prev => ({ ...prev, scale: Math.max(0.1, prev.scale * 0.8) }))}
+          >-</text>
         </g>
       </svg>
       
