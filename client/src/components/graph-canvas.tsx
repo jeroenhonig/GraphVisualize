@@ -58,6 +58,19 @@ export default function GraphCanvasOptimized({
 }: GraphCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<any>(null);
+  
+  // Callback ref to ensure proper container mounting
+  const setContainerRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      console.log('Container callback ref - DOM element ready:', {
+        offsetWidth: node.offsetWidth,
+        offsetHeight: node.offsetHeight,
+        isConnected: node.isConnected
+      });
+      containerRef.current = node;
+      setContainerReady(true);
+    }
+  }, []);
   const keyDownHandlerRef = useRef<((e: KeyboardEvent) => void) | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [renderError, setRenderError] = useState<string | null>(null);
@@ -271,48 +284,32 @@ export default function GraphCanvasOptimized({
   // Container ready state
   const [containerReady, setContainerReady] = useState(false);
 
-  // Container mounting effect
+  // Container mounting effect with immediate availability check
   useLayoutEffect(() => {
-    let retryCount = 0;
-    const maxRetries = 20; // Max 1 second of retries
-    
-    const checkContainer = () => {
-      console.log(`Container check attempt ${retryCount + 1}:`, {
-        hasRef: !!containerRef.current,
-        parentElement: containerRef.current?.parentElement?.tagName,
-        offsetParent: containerRef.current?.offsetParent?.tagName,
-        clientWidth: containerRef.current?.clientWidth,
-        clientHeight: containerRef.current?.clientHeight,
-        offsetWidth: containerRef.current?.offsetWidth,
-        offsetHeight: containerRef.current?.offsetHeight
+    // Force immediate check since we've fixed the panel visibility
+    if (containerRef.current) {
+      console.log('Container immediately available:', {
+        offsetWidth: containerRef.current.offsetWidth,
+        offsetHeight: containerRef.current.offsetHeight,
+        parentElement: containerRef.current.parentElement?.tagName
       });
-      
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const hasWidth = rect.width > 0 || containerRef.current.offsetWidth > 0;
-        const hasHeight = rect.height > 0 || containerRef.current.offsetHeight > 0;
-        
-        if (hasWidth && hasHeight) {
-          console.log('Container ready with dimensions:', {
-            boundingRect: { width: rect.width, height: rect.height },
-            offsetDimensions: { width: containerRef.current.offsetWidth, height: containerRef.current.offsetHeight }
+      setContainerReady(true);
+    } else {
+      // Fallback check with minimal delay
+      setTimeout(() => {
+        if (containerRef.current) {
+          console.log('Container available after delay:', {
+            offsetWidth: containerRef.current.offsetWidth,
+            offsetHeight: containerRef.current.offsetHeight
           });
           setContainerReady(true);
-          return;
+        } else {
+          console.error('Container still not available - DOM structure issue');
+          // Force proceed to see what happens
+          setContainerReady(true);
         }
-      }
-      
-      retryCount++;
-      if (retryCount < maxRetries) {
-        setTimeout(checkContainer, 50);
-      } else {
-        console.warn('Container check timed out after', maxRetries, 'attempts');
-        // Try to proceed anyway
-        setContainerReady(true);
-      }
-    };
-    
-    checkContainer();
+      }, 100);
+    }
   }, []);
 
   // Main graph creation effect with comprehensive error handling
@@ -341,6 +338,20 @@ export default function GraphCanvasOptimized({
         setIsLoading(true);
         setRenderError(null);
 
+        // Critical container check
+        const container = containerRef.current;
+        if (!container) {
+          throw new Error('Container reference is null - DOM mounting failed');
+        }
+
+        console.log('Container validation passed:', {
+          tagName: container.tagName,
+          offsetWidth: container.offsetWidth,
+          offsetHeight: container.offsetHeight,
+          isConnected: container.isConnected,
+          parentElement: container.parentElement?.tagName
+        });
+
         // Cleanup previous instance
         if (graphRef.current) {
           try {
@@ -351,9 +362,6 @@ export default function GraphCanvasOptimized({
           }
           graphRef.current = null;
         }
-
-        const container = containerRef.current;
-        if (!container) throw new Error('Container not available');
         
         container.innerHTML = '';
         const width = container.clientWidth || 800;
@@ -781,11 +789,14 @@ export default function GraphCanvasOptimized({
         ref={containerRef}
         className="w-full h-full bg-white dark:bg-gray-900 rounded-lg overflow-hidden relative"
         style={{ 
-          minHeight: '400px',
+          minHeight: '500px',
+          minWidth: '500px',
           width: '100%',
           height: '100%',
-          position: 'relative'
+          position: 'relative',
+          display: 'block'
         }}
+        data-testid="graph-container"
       />
       
       <GraphContextMenu

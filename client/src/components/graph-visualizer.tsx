@@ -253,7 +253,7 @@ export default function GraphVisualizer() {
           title="Graph Weergave"
           panelType="view"
           position={positions.view}
-          collapsed={preferences.collapsed.view}
+          collapsed={false}
           onToggleCollapse={() => togglePanelCollapse('view')}
           onRotateLayout={rotateLayout}
           graphInfo={currentGraph ? {
