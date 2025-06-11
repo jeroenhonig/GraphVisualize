@@ -1,28 +1,17 @@
 
-// G6 Graph Configuration
-export interface G6LayoutConfig {
-  type: 'force' | 'circular' | 'radial' | 'dagre';
-  workerEnabled?: boolean;
-  preventOverlap?: boolean;
-  nodeSize?: number;
+// D3 Graph Configuration (migrated from G6)
+export interface D3LayoutConfig {
+  type: 'force' | 'circular' | 'radial' | 'tree';
   linkDistance?: number;
-  nodeStrength?: number;
-  edgeStrength?: number;
-  maxIteration?: number;
+  chargeStrength?: number;
+  collisionRadius?: number;
+  centerForce?: number;
   gravity?: number;
-  center?: [number, number];
-  alphaDecay?: number;
-  alphaMin?: number;
-  collideStrength?: number;
+  maxIteration?: number;
   radius?: number;
   startRadius?: number;
   endRadius?: number;
   clockwise?: boolean;
-  unitRadius?: number;
-  rankdir?: string;
-  align?: string;
-  nodesep?: number;
-  ranksep?: number;
 }
 
 export const G6_PERFORMANCE_CONFIG = {

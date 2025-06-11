@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import GraphSidebar from "./graph-sidebar";
-import GraphCanvas from "./graph-canvas-fixed";
+import RDFGraphCanvas from "./rdf-graph-canvas";
 import SparqlQueryPanel from "./sparql-query-panel";
 import GraphStatistics from "./graph-statistics";
 import FileUpload from "./file-upload";
@@ -279,7 +279,7 @@ export default function GraphVisualizer() {
             style={{ height: 'calc(100% - 56px)' }}
           >
             <ErrorBoundary>
-              <GraphCanvas
+              <RDFGraphCanvas
                 graph={currentGraph}
                 selectedNode={selectedNode}
                 onNodeSelect={setSelectedNode}
@@ -290,14 +290,9 @@ export default function GraphVisualizer() {
                 transform={transform}
                 onTransformChange={setTransform}
                 editMode={editMode}
-                panelConstraints={{
-                  leftPanel: {
-                    x: 20,
-                    y: 100,
-                    width: 320,
-                    collapsed: preferences.collapsed.navigation
-                  }
-                }}
+                behaviorMode={behaviorMode}
+                onNodesSelected={handleNodesSelected}
+                onEdgeCreated={handleEdgeCreated}
               />
             </ErrorBoundary>
           </div>

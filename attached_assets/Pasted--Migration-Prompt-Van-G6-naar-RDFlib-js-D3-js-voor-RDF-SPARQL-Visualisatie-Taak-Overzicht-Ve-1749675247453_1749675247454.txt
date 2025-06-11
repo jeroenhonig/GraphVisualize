@@ -1,0 +1,190 @@
+# Migration Prompt: Van G6 naar RDFlib.js + D3.js voor RDF/SPARQL Visualisatie
+
+## Taak Overzicht
+Vervang de huidige G6 graph visualisatie implementatie met een nieuwe stack die RDF data kan verwerken via SPARQL queries. De nieuwe implementatie moet bestaan uit:
+- **rdflib.js** voor RDF data parsing en SPARQL queries
+- **D3.js** voor graph visualisatie
+- Behoud alle bestaande UI functionaliteit waar mogelijk
+
+## Stap 1: Verwijder G6 Implementatie
+
+### Dependencies verwijderen:
+```bash
+npm uninstall @antv/g6
+# Ook andere G6 gerelateerde packages zoals @antv/layout-gpu indien aanwezig
+```
+
+### Code cleanup:
+- Verwijder alle G6 imports (`import G6 from '@antv/g6'`)
+- Verwijder G6 graph instantiatie code
+- Verwijder G6-specifieke event handlers en configuraties
+- Bewaar de container/wrapper elementen voor hergebruik
+
+## Stap 2: Installeer Nieuwe Dependencies
+
+```bash
+npm install rdflib d3 @types/rdflib @types/d3
+```
+
+## Stap 3: Implementeer RDF Data Layer
+
+### RDF Store Setup:
+```javascript
+import { Store, parse, Namespace } from 'rdflib';
+
+class RDFDataManager {
+  constructor() {
+    this.store = new Store();
+    this.loaded = false;
+  }
+  
+  async loadRDFData(data, format = 'text/turtle') {
+    // Implementeer RDF data loading
+    // Support voor Turtle, RDF/XML, JSON-LD
+  }
+  
+  executeSPARQLQuery(queryString) {
+    // Implementeer SPARQL query execution
+    // Return resultaten in format geschikt voor D3
+  }
+  
+  getGraphData() {
+    // Convert RDF triples naar nodes/links format
+    // Return: { nodes: [...], links: [...] }
+  }
+}
+```
+
+## Stap 4: Implementeer D3.js Visualisatie
+
+### Graph Visualisatie Component:
+```javascript
+import * as d3 from 'd3';
+
+class D3GraphVisualizer {
+  constructor(containerId, width = 800, height = 600) {
+    this.container = d3.select(`#${containerId}`);
+    this.width = width;
+    this.height = height;
+    this.setupSVG();
+    this.setupForceSimulation();
+  }
+  
+  setupSVG() {
+    // Maak SVG container met zoom/pan support
+  }
+  
+  setupForceSimulation() {
+    // Configureer D3 force simulation
+    // forceLink, forceManyBody, forceCenter
+  }
+  
+  updateGraph(data) {
+    // Update visualisatie met nieuwe data
+    // Handle enter/update/exit pattern
+  }
+  
+  addInteractions() {
+    // Implementeer drag, zoom, hover, click events
+  }
+}
+```
+
+## Stap 5: Integratie & State Management
+
+### Hoofdcomponent structuur:
+```javascript
+class RDFGraphApp {
+  constructor() {
+    this.dataManager = new RDFDataManager();
+    this.visualizer = new D3GraphVisualizer('graph-container');
+    this.setupEventHandlers();
+  }
+  
+  async loadData(source) {
+    // Laad RDF data
+    await this.dataManager.loadRDFData(source);
+    this.refreshGraph();
+  }
+  
+  executeQuery(sparqlQuery) {
+    // Voer SPARQL query uit
+    const results = this.dataManager.executeSPARQLQuery(sparqlQuery);
+    this.visualizer.updateGraph(results);
+  }
+  
+  refreshGraph() {
+    // Update complete graph
+    const graphData = this.dataManager.getGraphData();
+    this.visualizer.updateGraph(graphData);
+  }
+}
+```
+
+## Stap 6: UI Componenten Aanpassen
+
+- **SPARQL Query Interface**: Vervang bestaande filter/search met SPARQL query editor
+- **Data Upload**: Support voor RDF formaten (TTL, RDF/XML, JSON-LD)
+- **Export Functionaliteit**: Behoud maar pas aan voor nieuwe data format
+- **Styling**: Migreer bestaande CSS naar D3 SVG styling
+
+## Stap 7: Testing & Validatie
+
+### Test Cases:
+1. **RDF Data Loading**: Test verschillende RDF formaten
+2. **SPARQL Queries**: Test basis en complexe queries
+3. **Graph Rendering**: Verificeer nodes/links correct weergegeven
+4. **Interactiviteit**: Test zoom, pan, drag, selections
+5. **Performance**: Test met grote datasets
+
+### Sample RDF Data voor Testing:
+```turtle
+@prefix ex: <http://example.org/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+ex:alice foaf:name "Alice" .
+ex:alice foaf:knows ex:bob .
+ex:bob foaf:name "Bob" .
+ex:bob foaf:knows ex:charlie .
+```
+
+### Sample SPARQL Queries:
+```sparql
+# Alle connecties
+SELECT ?person1 ?person2 WHERE {
+  ?person1 foaf:knows ?person2 .
+}
+
+# Namen van alle personen
+SELECT ?name WHERE {
+  ?person foaf:name ?name .
+}
+```
+
+## Verwachte Deliverables
+
+1. **Werkende RDF Graph Visualizer** met D3.js rendering
+2. **SPARQL Query Interface** voor dynamische data filtering
+3. **RDF Data Import** functionaliteit
+4. **Responsive Design** die werkt op verschillende schermformats
+5. **Performance Optimalisaties** voor grote datasets
+6. **Documentatie** over hoe SPARQL queries te gebruiken
+
+## Belangrijke Aandachtspunten
+
+- **Behoud UX**: Zorg dat de nieuwe interface intuïtief blijft
+- **Performance**: RDF datasets kunnen groot zijn, implementeer lazy loading
+- **Error Handling**: Robuuste afhandeling van ongeldige RDF data of SPARQL queries
+- **Accessibility**: Behoud keyboard navigation en screen reader support
+- **Browser Compatibility**: Test op verschillende browsers
+
+## Output Verwachtingen
+
+Na implementatie moet de applicatie:
+- RDF data kunnen laden uit verschillende bronnen
+- SPARQL queries kunnen uitvoeren en resultaten visualiseren
+- Interactieve graph exploratie ondersteunen
+- Exporteren van query resultaten mogelijk maken
+- Stable performance hebben met datasets tot 10.000+ triples
+
+Begin met Stap 1 en werk systematisch door de stappen heen. Laat me weten als je ergens vastloopt of aanvullende uitleg nodig hebt bij specifieke implementatie details.
