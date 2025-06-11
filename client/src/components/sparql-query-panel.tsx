@@ -14,9 +14,10 @@ import { Play, Save, Eye } from "lucide-react";
 interface SparqlQueryPanelProps {
   graphId: string;
   onVisibilityChange: (visibleNodeIds: string[]) => void;
+  visibleNodeIds?: string[];
 }
 
-export default function SparqlQueryPanel({ graphId, onVisibilityChange }: SparqlQueryPanelProps) {
+export default function SparqlQueryPanel({ graphId, onVisibilityChange, visibleNodeIds = [] }: SparqlQueryPanelProps) {
   const [currentQuery, setCurrentQuery] = useState("");
   const [queryName, setQueryName] = useState("");
   const [selectedPreset, setSelectedPreset] = useState<string>("");
@@ -138,6 +139,39 @@ export default function SparqlQueryPanel({ graphId, onVisibilityChange }: Sparql
     executeSparqlMutation.mutate(currentQuery);
   };
 
+  const generateQueryFromView = () => {
+    if (visibleNodeIds.length === 0) {
+      toast({
+        title: "Geen Nodes Zichtbaar",
+        description: "Er zijn geen nodes zichtbaar om een query van te genereren",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Generate SPARQL query that selects the currently visible nodes
+    const nodeFilters = visibleNodeIds.map(nodeId => `"${nodeId}"`).join(", ");
+    const generatedQuery = `SELECT ?node ?property ?value WHERE {
+  ?node ?property ?value .
+  FILTER(?node IN (${nodeFilters}))
+}
+ORDER BY ?node ?property`;
+
+    setCurrentQuery(generatedQuery);
+    setQueryName(`View Query - ${new Date().toLocaleString("nl-NL", { 
+      year: "numeric", 
+      month: "2-digit", 
+      day: "2-digit", 
+      hour: "2-digit", 
+      minute: "2-digit" 
+    })}`);
+
+    toast({
+      title: "Query Gegenereerd",
+      description: `SPARQL query gegenereerd voor ${visibleNodeIds.length} zichtbare nodes`,
+    });
+  };
+
   const handleSaveQuery = () => {
     if (!queryName.trim() || !currentQuery.trim()) {
       toast({
@@ -206,26 +240,38 @@ export default function SparqlQueryPanel({ graphId, onVisibilityChange }: Sparql
             />
           </div>
           
-          <div className="flex space-x-2">
+          <div className="flex flex-col space-y-2">
             <Button 
-              onClick={handleExecuteQuery}
-              disabled={executeSparqlMutation.isPending}
+              onClick={generateQueryFromView}
+              variant="secondary"
               size="sm"
-              className="flex-1"
+              className="w-full"
             >
-              <Play className="h-4 w-4 mr-1" />
-              {executeSparqlMutation.isPending ? "Uitvoeren..." : "Uitvoeren"}
+              <Eye className="h-4 w-4 mr-1" />
+              Genereer Query van Huidige View ({visibleNodeIds.length} nodes)
             </Button>
             
-            <Button 
-              onClick={handleSaveQuery}
-              disabled={saveVisibilitySetMutation.isPending}
-              variant="outline"
-              size="sm"
-            >
-              <Save className="h-4 w-4 mr-1" />
-              Opslaan
-            </Button>
+            <div className="flex space-x-2">
+              <Button 
+                onClick={handleExecuteQuery}
+                disabled={executeSparqlMutation.isPending}
+                size="sm"
+                className="flex-1"
+              >
+                <Play className="h-4 w-4 mr-1" />
+                {executeSparqlMutation.isPending ? "Uitvoeren..." : "Uitvoeren"}
+              </Button>
+              
+              <Button 
+                onClick={handleSaveQuery}
+                disabled={saveVisibilitySetMutation.isPending}
+                variant="outline"
+                size="sm"
+              >
+                <Save className="h-4 w-4 mr-1" />
+                Opslaan
+              </Button>
+            </div>
           </div>
 
           <div>
