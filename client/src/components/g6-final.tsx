@@ -114,11 +114,12 @@ export default function G6GraphCanvas({
 
         console.log('G6 Final: Prepared data:', { nodes: nodes.length, edges: edges.length });
 
-        // Create graph with G6 v5.0.48 compatible config
+        // Create graph with explicit rendering mode
         const graphInstance = new Graph({
           container,
           width,
           height,
+          renderer: 'canvas',
           data: { nodes, edges },
           layout: {
             type: 'force',
@@ -128,8 +129,12 @@ export default function G6GraphCanvas({
             preventOverlap: true,
             center: [width / 2, height / 2]
           },
-          behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element']
+          behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element'],
+          autoFit: 'view'
         });
+
+        // Force render
+        graphInstance.render();
 
         // Event handlers
         graphInstance.on('node:click', (evt: any) => {
