@@ -139,6 +139,13 @@ export default function G6V5Working({
                 fill: '#ffc107',
                 stroke: '#ff6f00',
                 lineWidth: 3
+              },
+              'relation-source': {
+                fill: '#4caf50',
+                stroke: '#2e7d32',
+                lineWidth: 4,
+                shadowColor: '#4caf50',
+                shadowBlur: 10
               }
             }
           },
@@ -152,16 +159,20 @@ export default function G6V5Working({
           layout: {
             type: 'force',
             center: [width / 2, height / 2],
-            linkDistance: 150,
-            nodeStrength: -800,
-            edgeStrength: 0.3,
+            linkDistance: 250,
+            nodeStrength: -2000,
+            edgeStrength: 0.2,
             preventOverlap: true,
-            nodeSize: 30,
-            alpha: 0.5,
-            alphaDecay: 0.02,
-            velocityDecay: 0.4,
-            collideStrength: 1.0,
-            clustering: false
+            nodeSize: 50,
+            alpha: 0.8,
+            alphaDecay: 0.015,
+            velocityDecay: 0.2,
+            collideStrength: 2.5,
+            clustering: false,
+            tick: 500,
+            // Add more spacing parameters
+            nodeSpacing: 100,
+            chargeStrength: -3000
           },
           behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element']
         });
@@ -169,13 +180,65 @@ export default function G6V5Working({
         // Store selected node for manual highlighting
         let selectedNodeId: string | null = null;
         
-        // Node click handler with manual color update
+        // Drag-and-drop relationship builder state
+        let isDraggingForRelation = false;
+        let relationSourceNode: string | null = null;
+        let tempEdge: any = null;
+        let relationMode = false;
+        
+        // Node click handler with relationship creation support
         g6Graph.on('node:click', (event: any) => {
           console.log('Node clicked:', event);
           const nodeId = event.itemId || event.target?.id;
           
           if (nodeId) {
-            // Find the original node data from the nodes array
+            // Handle relationship creation mode
+            if (relationMode && relationSourceNode && relationSourceNode !== nodeId) {
+              const sourceNode = nodes.find(n => n.id === relationSourceNode);
+              const targetNode = nodes.find(n => n.id === nodeId);
+              
+              if (sourceNode && targetNode) {
+                console.log('Creating relationship:', sourceNode.data.label, '→', targetNode.data.label);
+                
+                // Create new edge
+                const newEdgeId = `edge_${relationSourceNode}_${nodeId}_${Date.now()}`;
+                const newEdge = {
+                  id: newEdgeId,
+                  source: relationSourceNode,
+                  target: nodeId,
+                  data: {
+                    label: 'nieuwe relatie',
+                    type: 'custom'
+                  }
+                };
+                
+                // Add edge to graph
+                g6Graph.addEdgeData([newEdge]);
+                
+                // Reset relation mode
+                relationMode = false;
+                if (relationSourceNode) {
+                  g6Graph.setElementState(relationSourceNode, 'relation-source', false);
+                }
+                relationSourceNode = null;
+                
+                console.log('Relationship created successfully');
+              }
+              return;
+            }
+            
+            // Reset relation mode if clicking same node
+            if (relationMode && relationSourceNode === nodeId) {
+              relationMode = false;
+              if (relationSourceNode) {
+                g6Graph.setElementState(relationSourceNode, 'relation-source', false);
+              }
+              relationSourceNode = null;
+              console.log('Relation mode cancelled');
+              return;
+            }
+            
+            // Normal node selection
             const originalNode = nodes.find(n => n.id === nodeId);
             if (originalNode) {
               console.log('Node selected:', originalNode.data.label);
@@ -195,19 +258,16 @@ export default function G6V5Working({
               
               onNodeSelect(visualizationNode as any);
               
-              // Manual node style update using G6 v5 element states
+              // Clear all node selections and highlight current
               try {
-                // Clear all node selections first
                 nodes.forEach((node: any) => {
                   g6Graph.setElementState(node.id, 'selected', false);
                 });
-                
-                // Set selected state on clicked node
                 g6Graph.setElementState(nodeId, 'selected', true);
                 
-                console.log(`Node "${originalNode.data.label}" highlighted - state-based selection`);
+                console.log(`Node "${originalNode.data.label}" highlighted`);
               } catch (e) {
-                console.warn('State-based highlighting failed:', e);
+                console.warn('Selection highlighting failed:', e);
               }
             }
           }
@@ -304,8 +364,12 @@ export default function G6V5Working({
               onNodeExpand(contextMenuTargetNode);
               break;
             case 'relation':
-              console.log('Creating relation from:', originalNode.data.label);
-              // TODO: Implement relation creation UI
+              console.log('Starting relation mode from:', originalNode.data.label);
+              relationMode = true;
+              relationSourceNode = contextMenuTargetNode;
+              // Highlight source node for relation creation
+              g6Graph.setElementState(contextMenuTargetNode, 'relation-source', true);
+              console.log('Relation mode active - click another node to create connection');
               break;
             case 'delete':
               console.log('Delete node requested:', originalNode.data.label);
@@ -388,6 +452,14 @@ export default function G6V5Working({
           console.log('Canvas clicked - clearing selection');
           selectedNodeId = null;
           hideContextMenu();
+          
+          // Reset relation mode
+          if (relationMode && relationSourceNode) {
+            relationMode = false;
+            g6Graph.setElementState(relationSourceNode, 'relation-source', false);
+            relationSourceNode = null;
+            console.log('Relation mode cancelled');
+          }
           
           // Reset all nodes to normal state
           try {
