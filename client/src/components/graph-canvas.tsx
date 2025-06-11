@@ -183,42 +183,22 @@ export default function GraphCanvas({
     };
   }, [panelConstraints]);
 
-  // Constrain transform to stay within canvas bounds
+  // Improved constraint logic that allows reasonable panning
   const constrainTransform = useCallback((newTransform: GraphTransform): GraphTransform => {
-    const constraints = getCanvasConstraints();
+    // Allow generous panning bounds - don't constrain too tightly
+    const maxPanDistance = 1000; // Allow panning up to 1000px in any direction
     
-    // Calculate the bounds of the content in screen space
-    const contentBounds = {
-      left: newTransform.translateX,
-      right: newTransform.translateX + (constraints.width * newTransform.scale),
-      top: newTransform.translateY,
-      bottom: newTransform.translateY + (constraints.height * newTransform.scale)
-    };
-
     let { translateX, translateY, scale } = newTransform;
 
-    // Ensure content doesn't go beyond left boundary
-    if (contentBounds.left > constraints.left) {
-      translateX = constraints.left;
-    }
+    // Constrain scale to reasonable bounds
+    scale = Math.min(Math.max(scale, 0.1), 3);
 
-    // Ensure content doesn't go beyond right boundary
-    if (contentBounds.right < constraints.right) {
-      translateX = constraints.right - (constraints.width * scale);
-    }
-
-    // Ensure content doesn't go beyond top boundary
-    if (contentBounds.top > constraints.top) {
-      translateY = constraints.top;
-    }
-
-    // Ensure content doesn't go beyond bottom boundary
-    if (contentBounds.bottom < constraints.bottom) {
-      translateY = constraints.bottom - (constraints.height * scale);
-    }
+    // Allow generous panning but prevent going too far off-screen
+    translateX = Math.min(Math.max(translateX, -maxPanDistance), maxPanDistance);
+    translateY = Math.min(Math.max(translateY, -maxPanDistance), maxPanDistance);
 
     return { translateX, translateY, scale };
-  }, [getCanvasConstraints]);
+  }, []);
 
   // Create node mutation
   const createNodeMutation = useMutation({
@@ -619,7 +599,6 @@ export default function GraphCanvas({
     if (e.button === 0) { // Left mouse button - canvas panning setup
       e.preventDefault();
       setDragStart({ x: e.clientX - transform.translateX, y: e.clientY - transform.translateY });
-      console.log('Canvas panning setup - dragStart:', { x: e.clientX - transform.translateX, y: e.clientY - transform.translateY });
     }
   }, [graph?.nodes, localNodePositions, transform, onNodeSelect]);
 
@@ -751,11 +730,9 @@ export default function GraphCanvas({
           setHasDraggedSignificantly(true);
           // Start dragging based on what was set up in mouseDown
           if (draggedNode) {
-            console.log('Starting node drag');
             setIsNodeDragging(true);
             setActiveDragNodeId(draggedNode.id);
           } else {
-            console.log('Starting canvas panning - transform before:', transform);
             setIsDragging(true);
           }
         }
@@ -788,11 +765,8 @@ export default function GraphCanvas({
           translateY: deltaY
         };
         
-        console.log('Panning transform:', { deltaX, deltaY, newTransform });
-        // Temporarily disable constraints to test panning
-        // const constrainedTransform = constrainTransform(newTransform);
-        // console.log('Constrained transform:', constrainedTransform);
-        onTransformChange(newTransform);
+        const constrainedTransform = constrainTransform(newTransform);
+        onTransformChange(constrainedTransform);
       }
     };
 
