@@ -81,25 +81,15 @@ function validateTTLSyntax(content: string): { isValid: boolean; errors: string[
   };
 }
 
-// Simple and reliable TTL parser based on proven patterns
+// Minimal working TTL parser for basic RDF statements
 async function parseRdfAndCreateTriples(content: string, format: string, graphId: string) {
   console.log('Starting TTL parsing for graph:', graphId);
   
-  // Step 1: Validate TTL syntax before parsing
-  const validation = validateTTLSyntax(content);
-  if (!validation.isValid) {
-    console.error('TTL validation failed:', validation.errors);
-    throw new Error(`TTL validation failed: ${validation.errors.join('; ')}`);
-  }
-  
-  console.log('TTL validation passed, proceeding with parsing');
-  
   const prefixes = new Map<string, string>();
-  const subjects = new Set<string>();
   const statements: { subject: string, predicate: string, object: string, objectType: string }[] = [];
   
   try {
-    // Extract prefixes using regex
+    // Extract prefixes
     const prefixRegex = /@prefix\s+([^:]*):?\s*<([^>]+)>\s*\./g;
     let match;
     while ((match = prefixRegex.exec(content)) !== null) {
@@ -109,45 +99,51 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
       console.log(`Found prefix: ${prefix} -> ${uri}`);
     }
     
-    // Remove prefix declarations and comments more carefully
+    // Process TTL content line by line
     const lines = content.split('\n');
-    const rdfLines: string[] = [];
+    let currentSubject = '';
+    let statementBuffer = '';
     
     for (const line of lines) {
       const trimmed = line.trim();
-      if (!trimmed.startsWith('@prefix') && !trimmed.startsWith('#') && trimmed) {
-        rdfLines.push(line);
+      
+      // Skip empty lines, comments, and prefixes
+      if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('@prefix')) {
+        continue;
+      }
+      
+      statementBuffer += ' ' + trimmed;
+      
+      // Check if statement is complete (ends with .)
+      if (trimmed.endsWith('.')) {
+        const statement = statementBuffer.trim().replace(/\.$/, '');
+        if (statement) {
+          const parsed = parseBasicStatement(statement, prefixes);
+          if (parsed) {
+            statements.push(parsed);
+          }
+        }
+        statementBuffer = '';
       }
     }
     
-    const rdfContent = rdfLines.join('\n');
+    console.log(`Parsed ${statements.length} RDF statements`);
     
-    // Use a simple but effective approach: split on dots and parse each statement
-    const statementTexts = splitStatements(rdfContent);
-    console.log(`Found ${statementTexts.length} statements to parse`);
-    
-    for (const statementText of statementTexts) {
-      const trimmed = statementText.trim();
-      if (trimmed) {
-        parseStatement(trimmed, prefixes, statements, subjects);
-      }
-    }
-    
-    console.log(`Successfully parsed ${statements.length} triples from ${subjects.size} subjects`);
-    
-    // Create circular positioning for nodes
+    // Get unique subjects for positioning
+    const subjects = new Set(statements.map(s => s.subject));
     const subjectArray = Array.from(subjects);
-    const subjectPositions = new Map<string, {x: number, y: number}>();
     
+    // Create circular positioning
+    const positions = new Map<string, {x: number, y: number}>();
     for (let i = 0; i < subjectArray.length; i++) {
       const radius = 200 + (Math.floor(i / 8) * 100);
       const angle = (i % 8) * (2 * Math.PI / 8);
       const x = Math.round(600 + radius * Math.cos(angle));
       const y = Math.round(400 + radius * Math.sin(angle));
-      subjectPositions.set(subjectArray[i], { x, y });
+      positions.set(subjectArray[i], { x, y });
     }
     
-    // Store all triples in database
+    // Store triples in database
     for (const stmt of statements) {
       await storage.createRdfTriple({
         graphId,
@@ -159,9 +155,7 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
     }
     
     // Add position data
-    const positionEntries = Array.from(subjectPositions.entries());
-    for (let i = 0; i < positionEntries.length; i++) {
-      const [subject, position] = positionEntries[i];
+    for (const [subject, position] of Array.from(positions.entries())) {
       await storage.createRdfTriple({
         graphId,
         subject,
@@ -185,6 +179,45 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
     console.error('TTL parsing failed:', error);
     throw error;
   }
+}
+
+// Parse a basic RDF statement (subject predicate object)
+function parseBasicStatement(
+  statement: string, 
+  prefixes: Map<string, string>
+): { subject: string, predicate: string, object: string, objectType: string } | null {
+  try {
+    // Handle statements with semicolons (multiple predicates)
+    if (statement.includes(';')) {
+      const parts = statement.split(';');
+      const firstPart = parts[0].trim();
+      const tokens = firstPart.split(/\s+/);
+      
+      if (tokens.length >= 3) {
+        const subject = expandPrefix(tokens[0], prefixes);
+        const predicate = expandPrefix(tokens[1], prefixes);
+        const objectStr = tokens.slice(2).join(' ');
+        const { value, type } = parseObjectValue(objectStr, prefixes);
+        
+        return { subject, predicate, object: value, objectType: type };
+      }
+    } else {
+      // Simple statement
+      const tokens = statement.split(/\s+/);
+      if (tokens.length >= 3) {
+        const subject = expandPrefix(tokens[0], prefixes);
+        const predicate = expandPrefix(tokens[1], prefixes);
+        const objectStr = tokens.slice(2).join(' ');
+        const { value, type } = parseObjectValue(objectStr, prefixes);
+        
+        return { subject, predicate, object: value, objectType: type };
+      }
+    }
+  } catch (error) {
+    console.error('Error parsing basic statement:', error);
+  }
+  
+  return null;
 }
 
 // Split content into individual statements
