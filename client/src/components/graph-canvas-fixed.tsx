@@ -271,17 +271,18 @@ const GraphCanvas = React.memo(({
         version: G6.version
       });
 
-      // G6 v5 configuration according to official documentation
+      // G6 v5 simplified configuration
       const graph = new G6.Graph({
         container,
         width,
         height,
-        layout: layoutConfig,
-        modes: {
-          default: ['drag-canvas', 'zoom-canvas', 'drag-node', 'click-select'],
+        fitView: true,
+        fitViewPadding: [20, 40, 50, 20],
+        layout: {
+          type: 'circular',
+          radius: 200,
         },
         defaultNode: {
-          type: 'circle',
           size: 25,
           style: {
             fill: '#e6f7ff',
@@ -293,26 +294,18 @@ const GraphCanvas = React.memo(({
               fill: '#333',
               fontSize: 10,
             },
-            position: 'bottom',
-            offset: 5,
           },
         },
         defaultEdge: {
-          type: 'line',
           style: {
             stroke: '#91d5ff',
             lineWidth: 1,
             opacity: 0.8,
-            endArrow: {
-              path: 'M 0,0 L 8,4 L 8,-4 Z',
-              fill: '#91d5ff',
-            },
           },
         },
-        nodeStateStyles: G6_STATES.node,
-        edgeStateStyles: G6_STATES.edge,
-        fitView: true,
-        fitViewPadding: [20, 40, 50, 20],
+        modes: {
+          default: ['drag-canvas', 'zoom-canvas', 'drag-node'],
+        },
       });
 
       // Validate graph creation
@@ -324,18 +317,25 @@ const GraphCanvas = React.memo(({
       
       // Load data using correct G6 v5 API
       try {
-        // G6 v5 uses read() method for loading data
-        if (typeof graph.read === 'function') {
-          graph.read(processedGraphData);
-        } else {
-          // Fallback: set data directly and call render
-          graph.data = processedGraphData;
+        // G6 v5 uses addData() method or direct data property
+        if (typeof graph.addData === 'function') {
+          graph.addData(processedGraphData);
+        } else if (typeof graph.data === 'function') {
+          graph.data(processedGraphData);
           graph.render();
+        } else {
+          // Manual node and edge addition for G6 v5
+          processedGraphData.nodes.forEach(node => {
+            graph.addItem('node', node);
+          });
+          processedGraphData.edges.forEach(edge => {
+            graph.addItem('edge', edge);
+          });
         }
         
-        // Always call render after data loading
-        if (typeof graph.render === 'function') {
-          graph.render();
+        // Force layout refresh
+        if (typeof graph.refresh === 'function') {
+          graph.refresh();
         }
         
         console.log('G6 graph rendered successfully');
@@ -443,8 +443,12 @@ const GraphCanvas = React.memo(({
           for (const entry of entries) {
             const { width, height } = entry.contentRect;
             if (width > 0 && height > 0) {
-              // Use G6 v5 compatible resize method
-              graphRef.current.changeSize(width, height);
+              // Use G6 v5 compatible resize methods
+              if (typeof graphRef.current.resize === 'function') {
+                graphRef.current.resize(width, height);
+              } else if (typeof graphRef.current.updateLayout === 'function') {
+                graphRef.current.updateLayout({ width, height });
+              }
               // Delay fitView to prevent layout conflicts
               setTimeout(() => {
                 if (graphRef.current && typeof graphRef.current.fitView === 'function') {
