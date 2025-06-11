@@ -268,17 +268,69 @@ export default function GraphCanvasOptimized({
     }
   }, []);
 
-  // Main graph creation effect with comprehensive error handling
+  // Container ready state
+  const [containerReady, setContainerReady] = useState(false);
+
+  // Container mounting effect
   useLayoutEffect(() => {
+    let retryCount = 0;
+    const maxRetries = 20; // Max 1 second of retries
+    
+    const checkContainer = () => {
+      console.log(`Container check attempt ${retryCount + 1}:`, {
+        hasRef: !!containerRef.current,
+        parentElement: containerRef.current?.parentElement?.tagName,
+        offsetParent: containerRef.current?.offsetParent?.tagName,
+        clientWidth: containerRef.current?.clientWidth,
+        clientHeight: containerRef.current?.clientHeight,
+        offsetWidth: containerRef.current?.offsetWidth,
+        offsetHeight: containerRef.current?.offsetHeight
+      });
+      
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const hasWidth = rect.width > 0 || containerRef.current.offsetWidth > 0;
+        const hasHeight = rect.height > 0 || containerRef.current.offsetHeight > 0;
+        
+        if (hasWidth && hasHeight) {
+          console.log('Container ready with dimensions:', {
+            boundingRect: { width: rect.width, height: rect.height },
+            offsetDimensions: { width: containerRef.current.offsetWidth, height: containerRef.current.offsetHeight }
+          });
+          setContainerReady(true);
+          return;
+        }
+      }
+      
+      retryCount++;
+      if (retryCount < maxRetries) {
+        setTimeout(checkContainer, 50);
+      } else {
+        console.warn('Container check timed out after', maxRetries, 'attempts');
+        // Try to proceed anyway
+        setContainerReady(true);
+      }
+    };
+    
+    checkContainer();
+  }, []);
+
+  // Main graph creation effect with comprehensive error handling
+  useEffect(() => {
     console.log('Graph creation useEffect triggered:', { 
       hasContainer: !!containerRef.current, 
+      containerReady,
       hasGraph: !!graph,
       nodeCount: nodes.length,
       edgeCount: edges.length
     });
     
-    if (!graph || nodes.length === 0) {
-      console.log('Early return: missing graph or no nodes');
+    if (!graph || nodes.length === 0 || !containerReady) {
+      console.log('Early return: missing requirements', {
+        hasGraph: !!graph,
+        hasNodes: nodes.length > 0,
+        containerReady
+      });
       return;
     }
 
@@ -581,19 +633,7 @@ export default function GraphCanvasOptimized({
       }
     };
 
-    // Direct container check - useLayoutEffect ensures DOM is ready
-    if (!containerRef.current) {
-      console.log('Container not mounted in useLayoutEffect - DOM issue');
-      return;
-    }
-
-    const rect = containerRef.current.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) {
-      console.log('Container has zero dimensions, waiting for next render cycle');
-      return;
-    }
-
-    console.log('Container ready with dimensions:', rect.width, 'x', rect.height);
+    console.log('All requirements met, creating graph');
     createOptimizedGraph();
     
     // Return cleanup function
@@ -618,7 +658,7 @@ export default function GraphCanvasOptimized({
       };
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [graph, visibleNodes, nodeCount, edgeCount, currentLayout, editMode, onNodeSelect, relationMode, relationSourceNode]);
+  }, [graph, visibleNodes, nodeCount, edgeCount, currentLayout, editMode, onNodeSelect, relationMode, relationSourceNode, containerReady]);
 
   // Reageer op panel constraint changes
   useEffect(() => {
