@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import type { GraphData, VisualizationNode } from "@shared/schema";
-import type { GraphTransform } from "@/lib/graph-utils";
+import type { GraphTransform } from "@shared/schema";
 
 export function useGraph() {
   const [currentGraphId, setCurrentGraphId] = useState<string>();
@@ -10,8 +10,8 @@ export function useGraph() {
   const [visibleNodes, setVisibleNodes] = useState<Set<string>>(new Set());
   const [transform, setTransform] = useState<GraphTransform>({
     scale: 1,
-    translateX: 0,
-    translateY: 0,
+    x: 0,
+    y: 0,
   });
 
   // Fetch current graph
@@ -117,7 +117,7 @@ export function useGraph() {
 
   const resetView = useCallback(() => {
     // Reset transform (zoom and pan)
-    setTransform({ scale: 1, translateX: 0, translateY: 0 });
+    setTransform({ scale: 1, x: 0, y: 0 });
     
     // Show all nodes and edges
     if (currentGraph && currentGraph.nodes) {

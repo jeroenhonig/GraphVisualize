@@ -249,7 +249,7 @@ export default function GraphCanvas({
         g6Graph.render();
 
         // Bind events
-        g6Graph.on('node:click', (e) => {
+        g6Graph.on('node:click', (e: any) => {
           const nodeData = e.item.getModel();
           if (nodeData && onNodeSelect) {
             const originalNode = nodes.find(n => n.id === nodeData.id);
@@ -259,7 +259,7 @@ export default function GraphCanvas({
           }
         });
 
-        g6Graph.on('node:contextmenu', (e) => {
+        g6Graph.on('node:contextmenu', (e: any) => {
           e.preventDefault();
           const nodeData = e.item.getModel();
           if (nodeData) {
