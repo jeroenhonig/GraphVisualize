@@ -16,7 +16,9 @@ const TYPE_COLORS: Record<string, NodeTypeColor> = {
     primary: '#2563eb', // Blue
     secondary: '#dbeafe',
     hover: '#1d4ed8',
-    text: '#ffffff'
+    text: '#ffffff',
+    color: '#2563eb',
+    bgColor: '#dbeafe'
   },
   
   // Elements and Components
@@ -24,7 +26,9 @@ const TYPE_COLORS: Record<string, NodeTypeColor> = {
     primary: '#dc2626', // Red
     secondary: '#fecaca',
     hover: '#b91c1c',
-    text: '#ffffff'
+    text: '#ffffff',
+    color: '#dc2626',
+    bgColor: '#fecaca'
   },
   
   // Materials
@@ -32,7 +36,9 @@ const TYPE_COLORS: Record<string, NodeTypeColor> = {
     primary: '#059669', // Green
     secondary: '#d1fae5',
     hover: '#047857',
-    text: '#ffffff'
+    text: '#ffffff',
+    color: '#059669',
+    bgColor: '#d1fae5'
   },
   
   // Documents and Information
@@ -40,13 +46,17 @@ const TYPE_COLORS: Record<string, NodeTypeColor> = {
     primary: '#7c3aed', // Purple
     secondary: '#e9d5ff',
     hover: '#6d28d9',
-    text: '#ffffff'
+    text: '#ffffff',
+    color: '#7c3aed',
+    bgColor: '#e9d5ff'
   },
   document: {
     primary: '#7c3aed', // Purple
     secondary: '#e9d5ff',
     hover: '#6d28d9',
-    text: '#ffffff'
+    text: '#ffffff',
+    color: '#7c3aed',
+    bgColor: '#e9d5ff'
   },
   
   // Properties and Attributes
@@ -54,7 +64,9 @@ const TYPE_COLORS: Record<string, NodeTypeColor> = {
     primary: '#ea580c', // Orange
     secondary: '#fed7aa',
     hover: '#c2410c',
-    text: '#ffffff'
+    text: '#ffffff',
+    color: '#ea580c',
+    bgColor: '#fed7aa'
   },
   
   // Relations and Connections
@@ -62,7 +74,9 @@ const TYPE_COLORS: Record<string, NodeTypeColor> = {
     primary: '#0891b2', // Cyan
     secondary: '#cffafe',
     hover: '#0e7490',
-    text: '#ffffff'
+    text: '#ffffff',
+    color: '#0891b2',
+    bgColor: '#cffafe'
   },
   
   // Spaces and Locations
@@ -70,7 +84,9 @@ const TYPE_COLORS: Record<string, NodeTypeColor> = {
     primary: '#be185d', // Pink
     secondary: '#fce7f3',
     hover: '#9d174d',
-    text: '#ffffff'
+    text: '#ffffff',
+    color: '#be185d',
+    bgColor: '#fce7f3'
   },
   
   // Systems and Infrastructure
@@ -78,7 +94,9 @@ const TYPE_COLORS: Record<string, NodeTypeColor> = {
     primary: '#4338ca', // Indigo
     secondary: '#e0e7ff',
     hover: '#3730a3',
-    text: '#ffffff'
+    text: '#ffffff',
+    color: '#4338ca',
+    bgColor: '#e0e7ff'
   },
   
   // Equipment and Tools
@@ -86,7 +104,9 @@ const TYPE_COLORS: Record<string, NodeTypeColor> = {
     primary: '#b45309', // Amber
     secondary: '#fef3c7',
     hover: '#92400e',
-    text: '#ffffff'
+    text: '#ffffff',
+    color: '#b45309',
+    bgColor: '#fef3c7'
   },
   
   // Person and Entities
@@ -94,13 +114,17 @@ const TYPE_COLORS: Record<string, NodeTypeColor> = {
     primary: '#374151', // Gray
     secondary: '#f3f4f6',
     hover: '#1f2937',
-    text: '#ffffff'
+    text: '#ffffff',
+    color: '#374151',
+    bgColor: '#f3f4f6'
   },
   entity: {
     primary: '#374151', // Gray
     secondary: '#f3f4f6',
     hover: '#1f2937',
-    text: '#ffffff'
+    text: '#ffffff',
+    color: '#374151',
+    bgColor: '#f3f4f6'
   }
 };
 
@@ -109,7 +133,9 @@ const DEFAULT_COLOR: NodeTypeColor = {
   primary: '#6b7280', // Neutral gray
   secondary: '#f9fafb',
   hover: '#4b5563',
-  text: '#ffffff'
+  text: '#ffffff',
+  color: '#6b7280',
+  bgColor: '#f9fafb'
 };
 
 /**
