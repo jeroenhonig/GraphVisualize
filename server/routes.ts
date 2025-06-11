@@ -11,65 +11,56 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-// Enhanced TTL/RDF parser function
+// Simplified but robust TTL/RDF parser function
 async function parseRdfAndCreateTriples(content: string, format: string, graphId: string) {
-  const lines = content.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#'));
+  console.log('Starting TTL parsing for graph:', graphId);
+  
   const prefixes = new Map<string, string>();
   const subjects = new Set<string>();
   const statements: { subject: string, predicate: string, object: string, objectType: string }[] = [];
   
-  // Parse prefixes and collect statements
-  let currentSubject = '';
-  let currentStatements: string[] = [];
+  // Clean content and split into lines
+  const lines = content
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'));
   
+  // Extract prefixes
   for (const line of lines) {
-    // Handle @prefix declarations
     if (line.startsWith('@prefix')) {
       const match = line.match(/@prefix\s+([^:]*):?\s*<([^>]+)>\s*\./);
       if (match) {
         const prefix = match[1].trim();
         const uri = match[2];
         prefixes.set(prefix, uri);
-      }
-      continue;
-    }
-    
-    // Skip comments and empty lines
-    if (line.startsWith('#') || !line) continue;
-    
-    // Handle multi-line statements
-    if (line.includes('rdf:type') || line.includes('rdfs:') || line.includes('prop:') || line.includes('owl:')) {
-      // Start of new subject definition
-      if (currentSubject && currentStatements.length > 0) {
-        // Process previous subject's statements
-        await processSubjectStatements(currentSubject, currentStatements, prefixes, statements, subjects);
-      }
-      
-      // Start new subject
-      const parts = line.split(/\s+/);
-      if (parts.length >= 1) {
-        currentSubject = expandPrefix(parts[0], prefixes);
-        currentStatements = [line];
-      }
-    } else if (currentSubject && (line.includes(':') || line.includes('.'))) {
-      // Continue current subject's statements
-      currentStatements.push(line);
-    }
-    
-    // Process complete statement block ending with '.'
-    if (line.endsWith('.')) {
-      if (currentSubject && currentStatements.length > 0) {
-        await processSubjectStatements(currentSubject, currentStatements, prefixes, statements, subjects);
-        currentSubject = '';
-        currentStatements = [];
+        console.log(`Found prefix: ${prefix} -> ${uri}`);
       }
     }
   }
   
-  // Process any remaining statements
-  if (currentSubject && currentStatements.length > 0) {
-    await processSubjectStatements(currentSubject, currentStatements, prefixes, statements, subjects);
+  // Join non-prefix lines and split by statements
+  const rdfContent = lines
+    .filter(line => !line.startsWith('@prefix'))
+    .join(' ')
+    .replace(/\s+/g, ' ');
+  
+  // Split by periods to get complete statements
+  const rawStatements = rdfContent.split('.').map(s => s.trim()).filter(s => s);
+  
+  console.log(`Found ${rawStatements.length} raw statements`);
+  
+  // Parse each statement
+  for (const rawStatement of rawStatements) {
+    try {
+      parseSimpleStatement(rawStatement, prefixes, statements, subjects);
+    } catch (error) {
+      console.error('Error parsing statement:', rawStatement.substring(0, 100), error);
+    }
   }
+  
+  console.log(`Parsed ${statements.length} triples with ${subjects.size} subjects`);
   
   // Create position assignments for subjects
   const subjectPositions = new Map<string, {x: number, y: number}>();
@@ -84,14 +75,19 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
   }
   
   // Create all RDF triples
+  console.log('Creating RDF triples in database...');
   for (const stmt of statements) {
-    await storage.createRdfTriple({
-      graphId,
-      subject: stmt.subject,
-      predicate: stmt.predicate,
-      object: stmt.object,
-      objectType: stmt.objectType
-    });
+    try {
+      await storage.createRdfTriple({
+        graphId,
+        subject: stmt.subject,
+        predicate: stmt.predicate,
+        object: stmt.object,
+        objectType: stmt.objectType
+      });
+    } catch (error) {
+      console.error('Error creating triple:', stmt, error);
+    }
   }
   
   // Add position information for all subjects
@@ -112,6 +108,8 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
       objectType: 'literal'
     });
   }
+  
+  console.log('TTL parsing completed successfully');
 }
 
 // Helper function to expand prefixed URIs
@@ -155,43 +153,60 @@ function parseObjectValue(objectStr: string, prefixes: Map<string, string>): { v
   return { value: objectStr, type: 'literal' };
 }
 
-// Helper function to process statements for a subject
-async function processSubjectStatements(
-  subject: string, 
-  statements: string[], 
+// Helper function to parse a statement block
+async function parseStatementBlock(
+  block: string, 
   prefixes: Map<string, string>, 
-  outputStatements: { subject: string, predicate: string, object: string, objectType: string }[],
+  statements: { subject: string, predicate: string, object: string, objectType: string }[],
   subjects: Set<string>
 ) {
-  subjects.add(subject);
+  if (!block.trim()) return;
   
-  // Join all statements and parse them
-  const fullStatement = statements.join(' ').replace(/\s+/g, ' ');
+  // Split block into lines and normalize whitespace
+  const lines = block.split('\n').map(line => line.trim()).filter(line => line);
   
-  // Split by semicolons to get individual predicate-object pairs
-  const parts = fullStatement.split(';');
+  // Find the subject (first URI or prefixed name)
+  let subject = '';
+  let remainingContent = block;
   
-  for (let i = 0; i < parts.length; i++) {
-    let part = parts[i].trim();
+  // Extract subject from first line
+  const firstLine = lines[0];
+  const subjectMatch = firstLine.match(/^([^\s]+)/);
+  if (subjectMatch) {
+    subject = expandPrefix(subjectMatch[1], prefixes);
+    remainingContent = block.replace(subjectMatch[1], '').trim();
+    subjects.add(subject);
+  }
+  
+  if (!subject) return;
+  
+  // Parse predicate-object pairs
+  // Split by semicolons to separate different predicates
+  const predicateBlocks = remainingContent.split(';');
+  
+  for (let i = 0; i < predicateBlocks.length; i++) {
+    let predicateBlock = predicateBlocks[i].trim();
     
-    // Remove trailing dot from last part
-    if (i === parts.length - 1) {
-      part = part.replace(/\.$/, '').trim();
+    // Remove trailing dot from last block
+    if (i === predicateBlocks.length - 1) {
+      predicateBlock = predicateBlock.replace(/\.$/, '').trim();
     }
     
-    // Parse predicate and object
-    const match = part.match(/^([^\s]+)\s+(.+)$/);
-    if (match) {
-      const predicate = expandPrefix(match[1], prefixes);
-      const objectStr = match[2].trim();
+    if (!predicateBlock) continue;
+    
+    // Parse predicate and objects
+    const predicateMatch = predicateBlock.match(/^([^\s]+)\s+([\s\S]+)$/);
+    if (predicateMatch) {
+      const predicate = expandPrefix(predicateMatch[1], prefixes);
+      const objectsStr = predicateMatch[2].trim();
       
       // Handle multiple objects separated by commas
-      const objects = objectStr.split(',').map(o => o.trim());
+      const objects = splitObjects(objectsStr);
       
       for (const obj of objects) {
-        const { value, type } = parseObjectValue(obj, prefixes);
+        const { value, type } = parseObjectValue(obj.trim(), prefixes);
         
-        outputStatements.push({
+        statements.push({
           subject,
           predicate,
           object: value,
@@ -200,6 +215,38 @@ async function processSubjectStatements(
       }
     }
   }
+}
+
+// Helper function to split objects while respecting quoted strings
+function splitObjects(objectsStr: string): string[] {
+  const objects: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  let i = 0;
+  
+  while (i < objectsStr.length) {
+    const char = objectsStr[i];
+    
+    if (char === '"' && (i === 0 || objectsStr[i-1] !== '\\')) {
+      inQuotes = !inQuotes;
+      current += char;
+    } else if (char === ',' && !inQuotes) {
+      if (current.trim()) {
+        objects.push(current.trim());
+      }
+      current = '';
+    } else {
+      current += char;
+    }
+    
+    i++;
+  }
+  
+  if (current.trim()) {
+    objects.push(current.trim());
+  }
+  
+  return objects;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
