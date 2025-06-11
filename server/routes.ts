@@ -11,7 +11,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-// Simplified but robust TTL/RDF parser function
+// Simple and reliable TTL parser based on proven patterns
 async function parseRdfAndCreateTriples(content: string, format: string, graphId: string) {
   console.log('Starting TTL parsing for graph:', graphId);
   
@@ -19,65 +19,50 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
   const subjects = new Set<string>();
   const statements: { subject: string, predicate: string, object: string, objectType: string }[] = [];
   
-  // Clean content and split into lines
-  const lines = content
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line && !line.startsWith('#'));
-  
-  // Extract prefixes
-  for (const line of lines) {
-    if (line.startsWith('@prefix')) {
-      const match = line.match(/@prefix\s+([^:]*):?\s*<([^>]+)>\s*\./);
-      if (match) {
-        const prefix = match[1].trim();
-        const uri = match[2];
-        prefixes.set(prefix, uri);
-        console.log(`Found prefix: ${prefix} -> ${uri}`);
+  try {
+    // Extract prefixes using regex
+    const prefixRegex = /@prefix\s+([^:]*):?\s*<([^>]+)>\s*\./g;
+    let match;
+    while ((match = prefixRegex.exec(content)) !== null) {
+      const prefix = match[1].trim();
+      const uri = match[2];
+      prefixes.set(prefix, uri);
+      console.log(`Found prefix: ${prefix} -> ${uri}`);
+    }
+    
+    // Remove all prefix declarations and comments
+    const rdfContent = content
+      .replace(/@prefix[^.]*\./g, '')
+      .replace(/#[^\r\n]*/g, '')
+      .trim();
+    
+    // Use a simple but effective approach: split on dots and parse each statement
+    const statementTexts = splitStatements(rdfContent);
+    console.log(`Found ${statementTexts.length} statements to parse`);
+    
+    for (const statementText of statementTexts) {
+      const trimmed = statementText.trim();
+      if (trimmed) {
+        parseStatement(trimmed, prefixes, statements, subjects);
       }
     }
-  }
-  
-  // Join non-prefix lines and split by statements
-  const rdfContent = lines
-    .filter(line => !line.startsWith('@prefix'))
-    .join(' ')
-    .replace(/\s+/g, ' ');
-  
-  // Split by periods to get complete statements
-  const rawStatements = rdfContent.split('.').map(s => s.trim()).filter(s => s);
-  
-  console.log(`Found ${rawStatements.length} raw statements`);
-  
-  // Parse each statement
-  for (const rawStatement of rawStatements) {
-    try {
-      parseSimpleStatement(rawStatement, prefixes, statements, subjects);
-    } catch (error) {
-      console.error('Error parsing statement:', rawStatement.substring(0, 100), error);
+    
+    console.log(`Successfully parsed ${statements.length} triples from ${subjects.size} subjects`);
+    
+    // Create circular positioning for nodes
+    const subjectArray = Array.from(subjects);
+    const subjectPositions = new Map<string, {x: number, y: number}>();
+    
+    for (let i = 0; i < subjectArray.length; i++) {
+      const radius = 200 + (Math.floor(i / 8) * 100);
+      const angle = (i % 8) * (2 * Math.PI / 8);
+      const x = Math.round(600 + radius * Math.cos(angle));
+      const y = Math.round(400 + radius * Math.sin(angle));
+      subjectPositions.set(subjectArray[i], { x, y });
     }
-  }
-  
-  console.log(`Parsed ${statements.length} triples with ${subjects.size} subjects`);
-  
-  // Create position assignments for subjects
-  const subjectPositions = new Map<string, {x: number, y: number}>();
-  let nodeIndex = 0;
-  for (const subject of Array.from(subjects)) {
-    const radius = 200 + (Math.floor(nodeIndex / 8) * 100);
-    const angle = (nodeIndex % 8) * (2 * Math.PI / 8);
-    const x = Math.round(600 + radius * Math.cos(angle));
-    const y = Math.round(400 + radius * Math.sin(angle));
-    subjectPositions.set(subject, { x, y });
-    nodeIndex++;
-  }
-  
-  // Create all RDF triples
-  console.log('Creating RDF triples in database...');
-  for (const stmt of statements) {
-    try {
+    
+    // Store all triples in database
+    for (const stmt of statements) {
       await storage.createRdfTriple({
         graphId,
         subject: stmt.subject,
@@ -85,31 +70,114 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
         object: stmt.object,
         objectType: stmt.objectType
       });
-    } catch (error) {
-      console.error('Error creating triple:', stmt, error);
     }
-  }
-  
-  // Add position information for all subjects
-  for (const [subject, position] of Array.from(subjectPositions.entries())) {
-    await storage.createRdfTriple({
-      graphId,
-      subject,
-      predicate: 'graph:positionX',
-      object: position.x.toString(),
-      objectType: 'literal'
-    });
     
-    await storage.createRdfTriple({
-      graphId,
-      subject,
-      predicate: 'graph:positionY', 
-      object: position.y.toString(),
-      objectType: 'literal'
-    });
+    // Add position data
+    for (const [subject, position] of subjectPositions.entries()) {
+      await storage.createRdfTriple({
+        graphId,
+        subject,
+        predicate: 'graph:positionX',
+        object: position.x.toString(),
+        objectType: 'literal'
+      });
+      
+      await storage.createRdfTriple({
+        graphId,
+        subject,
+        predicate: 'graph:positionY',
+        object: position.y.toString(),
+        objectType: 'literal'
+      });
+    }
+    
+    console.log('TTL parsing completed successfully');
+    
+  } catch (error) {
+    console.error('TTL parsing failed:', error);
+    throw error;
+  }
+}
+
+// Split content into individual statements
+function splitStatements(content: string): string[] {
+  const statements: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  let quoteChar = '';
+  
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i];
+    const prevChar = i > 0 ? content[i - 1] : '';
+    
+    if (!inQuotes && (char === '"' || char === "'")) {
+      inQuotes = true;
+      quoteChar = char;
+    } else if (inQuotes && char === quoteChar && prevChar !== '\\') {
+      inQuotes = false;
+      quoteChar = '';
+    } else if (!inQuotes && char === '.') {
+      // Check if this is end of statement (not part of a URI or literal)
+      const nextChar = i < content.length - 1 ? content[i + 1] : '';
+      if (nextChar === '' || /\s/.test(nextChar)) {
+        if (current.trim()) {
+          statements.push(current.trim());
+        }
+        current = '';
+        continue;
+      }
+    }
+    
+    current += char;
   }
   
-  console.log('TTL parsing completed successfully');
+  if (current.trim()) {
+    statements.push(current.trim());
+  }
+  
+  return statements;
+}
+
+// Parse individual statement (handles semicolon syntax)
+function parseStatement(
+  statement: string,
+  prefixes: Map<string, string>,
+  statements: { subject: string, predicate: string, object: string, objectType: string }[],
+  subjects: Set<string>
+) {
+  const normalized = statement.replace(/\s+/g, ' ').trim();
+  
+  // Find subject (first token)
+  const tokens = normalized.split(/\s+/);
+  if (tokens.length < 3) return;
+  
+  const subject = expandPrefix(tokens[0], prefixes);
+  subjects.add(subject);
+  
+  // Handle predicate-object pairs (separated by semicolons)
+  const predicateSection = tokens.slice(1).join(' ');
+  const predicateParts = predicateSection.split(';');
+  
+  for (const part of predicateParts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    
+    const partTokens = trimmed.split(/\s+/);
+    if (partTokens.length < 2) continue;
+    
+    const predicate = expandPrefix(partTokens[0], prefixes);
+    const objectStr = partTokens.slice(1).join(' ');
+    
+    // Parse object value
+    const { value, type } = parseObjectValue(objectStr, prefixes);
+    
+    statements.push({
+      subject,
+      predicate,
+      object: value,
+      objectType: type
+    });
+  }
 }
 
 // Helper function to expand prefixed URIs
@@ -153,68 +221,89 @@ function parseObjectValue(objectStr: string, prefixes: Map<string, string>): { v
   return { value: objectStr, type: 'literal' };
 }
 
-// Helper function to parse a statement block
-async function parseStatementBlock(
-  block: string, 
-  prefixes: Map<string, string>, 
+// Complex statement parser for TTL format with semicolon support
+function parseComplexStatement(
+  statement: string,
+  prefixes: Map<string, string>,
   statements: { subject: string, predicate: string, object: string, objectType: string }[],
   subjects: Set<string>
 ) {
-  if (!block.trim()) return;
+  if (!statement.trim()) return;
   
-  // Split block into lines and normalize whitespace
-  const lines = block.split('\n').map(line => line.trim()).filter(line => line);
+  // Extract subject (first term)
+  const tokens = statement.trim().split(/\s+/);
+  if (tokens.length < 3) return;
   
-  // Find the subject (first URI or prefixed name)
-  let subject = '';
-  let remainingContent = block;
+  const subject = expandPrefix(tokens[0], prefixes);
+  subjects.add(subject);
   
-  // Extract subject from first line
-  const firstLine = lines[0];
-  const subjectMatch = firstLine.match(/^([^\s]+)/);
-  if (subjectMatch) {
-    subject = expandPrefix(subjectMatch[1], prefixes);
-    remainingContent = block.replace(subjectMatch[1], '').trim();
-    subjects.add(subject);
-  }
+  // Remove subject from statement and process predicates
+  const predicateSection = tokens.slice(1).join(' ');
   
-  if (!subject) return;
+  // Split by semicolons to handle multiple predicates
+  const predicateParts = predicateSection.split(';');
   
-  // Parse predicate-object pairs
-  // Split by semicolons to separate different predicates
-  const predicateBlocks = remainingContent.split(';');
-  
-  for (let i = 0; i < predicateBlocks.length; i++) {
-    let predicateBlock = predicateBlocks[i].trim();
+  for (const part of predicateParts) {
+    const trimmedPart = part.trim();
+    if (!trimmedPart) continue;
     
-    // Remove trailing dot from last block
-    if (i === predicateBlocks.length - 1) {
-      predicateBlock = predicateBlock.replace(/\.$/, '').trim();
+    // Split into predicate and object(s)
+    const partTokens = trimmedPart.split(/\s+/);
+    if (partTokens.length < 2) continue;
+    
+    const predicate = expandPrefix(partTokens[0], prefixes);
+    const objectStr = partTokens.slice(1).join(' ');
+    
+    // Handle multiple objects separated by commas
+    const objects = splitObjectsByComma(objectStr);
+    
+    for (const obj of objects) {
+      const { value, type } = parseObjectValue(obj.trim(), prefixes);
+      
+      statements.push({
+        subject,
+        predicate,
+        object: value,
+        objectType: type
+      });
     }
+  }
+}
+
+// Helper function to split objects by commas while respecting quotes
+function splitObjectsByComma(objectsStr: string): string[] {
+  const objects: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  let quoteChar = '';
+  
+  for (let i = 0; i < objectsStr.length; i++) {
+    const char = objectsStr[i];
+    const prevChar = i > 0 ? objectsStr[i - 1] : '';
     
-    if (!predicateBlock) continue;
-    
-    // Parse predicate and objects
-    const predicateMatch = predicateBlock.match(/^([^\s]+)\s+([\s\S]+)$/);
-    if (predicateMatch) {
-      const predicate = expandPrefix(predicateMatch[1], prefixes);
-      const objectsStr = predicateMatch[2].trim();
-      
-      // Handle multiple objects separated by commas
-      const objects = splitObjects(objectsStr);
-      
-      for (const obj of objects) {
-        const { value, type } = parseObjectValue(obj.trim(), prefixes);
-        
-        statements.push({
-          subject,
-          predicate,
-          object: value,
-          objectType: type
-        });
+    if (!inQuotes && (char === '"' || char === "'")) {
+      inQuotes = true;
+      quoteChar = char;
+      current += char;
+    } else if (inQuotes && char === quoteChar && prevChar !== '\\') {
+      inQuotes = false;
+      quoteChar = '';
+      current += char;
+    } else if (!inQuotes && char === ',') {
+      if (current.trim()) {
+        objects.push(current.trim());
       }
+      current = '';
+    } else {
+      current += char;
     }
   }
+  
+  if (current.trim()) {
+    objects.push(current.trim());
+  }
+  
+  return objects.length > 0 ? objects : [objectsStr];
 }
 
 // Helper function to split objects while respecting quoted strings
