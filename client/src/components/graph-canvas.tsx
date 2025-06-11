@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { GraphData, VisualizationNode, GraphTransform } from "@shared/schema";
 import { getNodeTypeColor } from "@/lib/color-utils";
+import { getLayoutConfig, G6_PERFORMANCE_CONFIG, NODE_STYLES, EDGE_STYLES } from "@/lib/g6-config";
+import GraphContextMenu from "./graph-context-menu";
 
 interface GraphCanvasProps {
   graph?: GraphData;
@@ -19,7 +21,7 @@ interface GraphCanvasProps {
   };
 }
 
-export default function GraphCanvas({
+export default function GraphCanvasOptimized({
   graph,
   selectedNode,
   onNodeSelect,
@@ -36,11 +38,173 @@ export default function GraphCanvas({
   const graphRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [renderError, setRenderError] = useState<string | null>(null);
+  const [currentLayout, setCurrentLayout] = useState<'force' | 'circular' | 'radial' | 'dagre'>('force');
+  
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    isOpen: boolean;
+    position: { x: number; y: number };
+    targetNodeId: string | null;
+  }>({
+    isOpen: false,
+    position: { x: 0, y: 0 },
+    targetNodeId: null
+  });
 
+  // Relation mode state
+  const [relationMode, setRelationMode] = useState(false);
+  const [relationSourceNode, setRelationSourceNode] = useState<string | null>(null);
+
+  // Performance monitoring
+  const nodeCount = graph?.nodes?.length || 0;
+  const edgeCount = graph?.edges?.length || 0;
+
+  // Memoized data preparation with performance optimization
+  const { nodes, edges } = useMemo(() => {
+    if (!graph) return { nodes: [], edges: [] };
+
+    // Performance warning for large datasets
+    if (nodeCount > G6_PERFORMANCE_CONFIG.MAX_NODES_WARNING) {
+      console.warn(`Performance: ${nodeCount} nodes detected. Consider filtering.`);
+    }
+
+    const visibleNodeIds = visibleNodes.size > 0 
+      ? Array.from(visibleNodes) 
+      : graph.nodes.map((n: any) => n.id);
+    
+    const processedNodes = graph.nodes
+      .filter((node: any) => visibleNodeIds.includes(node.id))
+      .slice(0, G6_PERFORMANCE_CONFIG.MAX_NODES_DISPLAY)
+      .map((node: any) => {
+        const colorData = getNodeTypeColor(node.type);
+        
+        return {
+          id: node.id,
+          label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
+          x: node.x,
+          y: node.y,
+          data: {
+            ...node,
+            colorData,
+            nodeData: node.data
+          }
+        };
+      });
+
+    const processedEdges = graph.edges
+      .filter((edge: any) => 
+        processedNodes.find((n: any) => n.id === edge.source) && 
+        processedNodes.find((n: any) => n.id === edge.target)
+      )
+      .map((edge: any) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        label: edge.label || '',
+        data: edge.data || {},
+        type: edge.type || 'line'
+      }));
+
+    return { nodes: processedNodes, edges: processedEdges };
+  }, [graph, visibleNodes, nodeCount]);
+
+  // Layout switching with error handling
+  const switchLayout = useCallback((layoutType: typeof currentLayout) => {
+    if (!graphRef.current) return;
+    
+    try {
+      const layoutConfig = getLayoutConfig(layoutType);
+      graphRef.current.updateLayout(layoutConfig);
+      setCurrentLayout(layoutType);
+    } catch (error) {
+      console.error('Layout switch failed:', error);
+      if (layoutType !== 'force') {
+        switchLayout('force');
+      }
+    }
+  }, []);
+
+  // Optimized zoom controls
+  const zoomIn = useCallback(() => {
+    if (!graphRef.current) return;
+    try {
+      const currentZoom = graphRef.current.getZoom();
+      graphRef.current.zoomTo(Math.min(currentZoom * 1.2, 3));
+    } catch (error) {
+      console.error('Zoom in failed:', error);
+    }
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    if (!graphRef.current) return;
+    try {
+      const currentZoom = graphRef.current.getZoom();
+      graphRef.current.zoomTo(Math.max(currentZoom * 0.8, 0.1));
+    } catch (error) {
+      console.error('Zoom out failed:', error);
+    }
+  }, []);
+
+  const fitView = useCallback(() => {
+    if (!graphRef.current) return;
+    try {
+      graphRef.current.fitView(20);
+    } catch (error) {
+      console.error('Fit view failed:', error);
+    }
+  }, []);
+
+  // Context menu handlers with proper node data
+  const handleContextMenuAction = useCallback((action: string) => {
+    if (!contextMenu.targetNodeId) return;
+
+    const targetNode = nodes.find((n: any) => n.id === contextMenu.targetNodeId);
+    if (!targetNode) return;
+
+    const visualizationNode = {
+      id: targetNode.data.id,
+      label: targetNode.data.label,
+      type: targetNode.data.type,
+      data: targetNode.data.nodeData || {},
+      x: targetNode.data.x,
+      y: targetNode.data.y
+    };
+
+    switch (action) {
+      case 'edit':
+        if (onNodeEdit) {
+          onNodeEdit(visualizationNode);
+        }
+        break;
+      case 'expand':
+        onNodeExpand(contextMenu.targetNodeId);
+        break;
+      case 'createRelation':
+        setRelationMode(true);
+        setRelationSourceNode(contextMenu.targetNodeId);
+        if (graphRef.current) {
+          try {
+            graphRef.current.setElementState(contextMenu.targetNodeId, 'relation-source', true);
+          } catch (error) {
+            console.error('Failed to set relation state:', error);
+          }
+        }
+        break;
+      case 'delete':
+        console.log('Delete node:', contextMenu.targetNodeId);
+        break;
+    }
+    
+    setContextMenu(prev => ({ ...prev, isOpen: false }));
+  }, [contextMenu.targetNodeId, nodes, onNodeEdit, onNodeExpand]);
+
+  // Main graph creation effect with comprehensive error handling
   useEffect(() => {
     if (!containerRef.current || !graph) return;
 
-    const createWorkingGraph = async () => {
+    const createOptimizedGraph = async () => {
+      const startTime = performance.now();
+      
       try {
         setIsLoading(true);
         setRenderError(null);
@@ -48,63 +212,23 @@ export default function GraphCanvas({
         const G6Module = await import('@antv/g6');
         const { Graph } = G6Module;
 
+        // Cleanup previous instance
         if (graphRef.current) {
           try {
+            graphRef.current.clear();
             graphRef.current.destroy();
-          } catch (e) {
-            console.warn('Graph cleanup:', e);
+          } catch (cleanupError) {
+            console.warn('Cleanup warning:', cleanupError);
           }
           graphRef.current = null;
         }
 
         const container = containerRef.current;
-        if (!container) return;
-        
         container.innerHTML = '';
         const width = container.clientWidth || 800;
         const height = container.clientHeight || 600;
 
-        const visibleNodeIds = visibleNodes.size > 0 ? Array.from(visibleNodes) : graph.nodes.map((n: any) => n.id);
-        
-        const nodes = graph.nodes
-          .filter((node: any) => visibleNodeIds.includes(node.id))
-          .slice(0, 100)
-          .map((node: any) => {
-            const colorData = getNodeTypeColor(node.type);
-            
-            return {
-              id: node.id,
-              label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
-              x: node.x,
-              y: node.y,
-              data: {
-                ...node,
-                colorData,
-                nodeData: node.data
-              }
-            };
-          });
-
-        const edges = graph.edges
-          .filter(edge => 
-            nodes.find(n => n.id === edge.source) && 
-            nodes.find(n => n.id === edge.target)
-          )
-          .slice(0, 200)
-          .map(edge => ({
-            id: edge.id,
-            source: edge.source,
-            target: edge.target,
-            data: {
-              ...edge,
-              label: edge.label || '',
-              type: edge.type || 'line'
-            }
-          }));
-
-
-
-        // Create G6 graph with optimized styling and interactivity
+        // Create optimized G6 graph with performance configuration
         const g6Graph = new Graph({
           container,
           width,
@@ -112,437 +236,211 @@ export default function GraphCanvas({
           data: { nodes, edges },
           node: {
             style: {
-              size: 25,
+              size: NODE_STYLES.default.size,
               fill: (d: any) => d.data?.colorData?.secondary || '#e6f3ff',
               stroke: (d: any) => d.data?.colorData?.primary || '#1890ff',
-              lineWidth: 2,
+              lineWidth: NODE_STYLES.default.lineWidth,
               labelText: (d: any) => d.label || d.id,
               labelFill: '#333',
-              labelFontSize: 11,
-              labelPosition: 'bottom'
+              labelFontSize: NODE_STYLES.default.labelFontSize,
+              labelPosition: NODE_STYLES.default.labelPosition
             },
             state: {
               selected: {
                 fill: '#ffeb3b',
                 stroke: '#ff9800',
-                lineWidth: 4,
-                size: 30
+                lineWidth: NODE_STYLES.selected.lineWidth,
+                size: NODE_STYLES.selected.size
               },
               hover: {
                 fill: '#ffc107',
                 stroke: '#ff6f00',
-                lineWidth: 3,
-                size: 28
+                lineWidth: NODE_STYLES.hover.lineWidth,
+                size: NODE_STYLES.hover.size
+              },
+              'relation-source': {
+                fill: '#4caf50',
+                stroke: '#2e7d32',
+                lineWidth: NODE_STYLES['relation-source'].lineWidth,
+                size: NODE_STYLES['relation-source'].size,
+                shadowColor: '#4caf50',
+                shadowBlur: NODE_STYLES['relation-source'].shadowBlur
               }
             }
           },
           edge: {
             style: {
               stroke: '#999',
-              lineWidth: 1.5,
-              endArrow: true,
+              lineWidth: EDGE_STYLES.default.lineWidth,
+              endArrow: EDGE_STYLES.default.endArrow,
               labelText: (d: any) => d.label || '',
               labelFill: '#666',
-              labelFontSize: 10
+              labelFontSize: EDGE_STYLES.default.labelFontSize
             }
           },
-          layout: {
-            type: 'force',
-            preventOverlap: true,
-            nodeSize: 30,
-            linkDistance: 120,
-            nodeStrength: -400,
-            edgeStrength: 0.5,
-            maxIteration: 300,
-            collideStrength: 1.5
-          },
+          layout: getLayoutConfig(currentLayout),
           behaviors: ['zoom-canvas', 'drag-canvas', 'drag-element']
         });
 
-        // Render the graph with enhanced visibility
-        g6Graph.render();
+        // Render with error handling
+        try {
+          g6Graph.render();
+        } catch (renderError) {
+          console.error('G6 render failed:', renderError);
+          throw new Error(`Render failed: ${renderError instanceof Error ? renderError.message : 'Unknown error'}`);
+        }
 
-        // Store selected node for manual highlighting
+        // Enhanced event handling with batch updates for performance
         let selectedNodeId: string | null = null;
-        
-        // Drag-and-drop relationship builder state
-        let isDraggingForRelation = false;
-        let relationSourceNode: string | null = null;
-        let tempEdge: any = null;
-        let relationMode = false;
-        
-        // Node click handler with relationship creation support
+
+        // Node click handling with relationship creation
         g6Graph.on('node:click', (event: any) => {
-          console.log('Node clicked:', event);
           const nodeId = event.itemId || event.target?.id;
           
           if (nodeId) {
             // Handle relationship creation mode
             if (relationMode && relationSourceNode && relationSourceNode !== nodeId) {
-              const sourceNode = nodes.find(n => n.id === relationSourceNode);
-              const targetNode = nodes.find(n => n.id === nodeId);
+              const sourceNode = nodes.find((n: any) => n.id === relationSourceNode);
+              const targetNode = nodes.find((n: any) => n.id === nodeId);
               
               if (sourceNode && targetNode) {
                 console.log('Creating relationship:', sourceNode.data.label, '→', targetNode.data.label);
                 
-                // Create new edge
-                const newEdgeId = `edge_${relationSourceNode}_${nodeId}_${Date.now()}`;
-                const newEdge = {
-                  id: newEdgeId,
-                  source: relationSourceNode,
-                  target: nodeId,
-                  data: {
-                    label: 'nieuwe relatie',
-                    type: 'custom'
-                  }
-                };
-                
-                // Add edge to graph
-                g6Graph.addEdgeData([newEdge]);
-                
-                // Reset relation mode
-                relationMode = false;
-                if (relationSourceNode) {
+                // Exit relation mode
+                setRelationMode(false);
+                try {
                   g6Graph.setElementState(relationSourceNode, 'relation-source', false);
+                } catch (error) {
+                  console.error('Failed to clear relation state:', error);
                 }
-                relationSourceNode = null;
-                
-                console.log('Relationship created successfully');
+                setRelationSourceNode(null);
+                return;
               }
-              return;
             }
-            
-            // Reset relation mode if clicking same node
-            if (relationMode && relationSourceNode === nodeId) {
-              relationMode = false;
-              if (relationSourceNode) {
-                g6Graph.setElementState(relationSourceNode, 'relation-source', false);
-              }
-              relationSourceNode = null;
-              console.log('Relation mode cancelled');
-              return;
-            }
-            
-            // Normal node selection
-            const originalNode = nodes.find(n => n.id === nodeId);
-            if (originalNode) {
-              console.log('Node selected:', originalNode.data.label);
-              
-              // Update selected node tracking
+
+            // Normal node selection with batch state updates
+            if (nodeId !== selectedNodeId) {
               selectedNodeId = nodeId;
               
-              // Pass node data to parent component
-              const visualizationNode = {
-                id: originalNode.data.id,
-                label: originalNode.data.label,
-                type: originalNode.data.type,
-                data: originalNode.data.nodeData || {},
-                x: originalNode.data.x,
-                y: originalNode.data.y
-              };
-              
-              onNodeSelect(visualizationNode as any);
-              
-              // Use G6 v5 element state management
-              try {
-                // Clear all selections first
-                nodes.forEach((node: any) => {
-                  g6Graph.setElementState(node.id, 'selected', false);
-                });
+              const originalNode = nodes.find((n: any) => n.id === nodeId);
+              if (originalNode && originalNode.data) {
+                const visualizationNode = {
+                  id: originalNode.data.id,
+                  label: originalNode.data.label,
+                  type: originalNode.data.type,
+                  data: originalNode.data.nodeData || {},
+                  x: originalNode.data.x,
+                  y: originalNode.data.y
+                };
                 
-                // Set selected state on clicked node
-                g6Graph.setElementState(nodeId, 'selected', true);
+                onNodeSelect(visualizationNode as any);
                 
-                console.log(`Node "${originalNode.label}" highlighted`);
-              } catch (e) {
-                console.warn('Selection highlighting failed:', e);
+                // Batch state updates for performance
+                try {
+                  g6Graph.setAutoPaint(false);
+                  nodes.forEach((node: any) => {
+                    g6Graph.setElementState(node.id, 'selected', false);
+                  });
+                  g6Graph.setElementState(nodeId, 'selected', true);
+                  g6Graph.setAutoPaint(true);
+                  g6Graph.paint();
+                } catch (error) {
+                  console.error('Selection state update failed:', error);
+                }
               }
             }
           }
         });
 
-        g6Graph.on('node:dblclick', (event: any) => {
-          console.log('Node double clicked:', event);
-          const nodeId = event.itemId || event.target?.id;
-          
-          if (nodeId) {
-            onNodeExpand(nodeId);
-          }
-        });
-
-        // Context menu implementation
-        let contextMenu: HTMLDivElement | null = null;
-        let contextMenuTargetNode: string | null = null;
-
-        // Create context menu element
-        const createContextMenu = () => {
-          if (contextMenu) return contextMenu;
-          
-          contextMenu = document.createElement('div');
-          contextMenu.className = 'g6-context-menu';
-          contextMenu.style.cssText = `
-            position: fixed;
-            background: white;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            z-index: 1000;
-            padding: 4px 0;
-            min-width: 150px;
-            display: none;
-          `;
-          
-          const menuItems = [
-            { label: 'Bewerk Node', action: 'edit' },
-            { label: 'Maak Relatie', action: 'relation' },
-            { label: 'Uitklappen', action: 'expand' },
-            { label: 'Verwijder Node', action: 'delete' }
-          ];
-          
-          menuItems.forEach(item => {
-            const menuItem = document.createElement('div');
-            menuItem.textContent = item.label;
-            menuItem.style.cssText = `
-              padding: 8px 16px;
-              cursor: pointer;
-              font-size: 14px;
-              color: #333;
-            `;
-            menuItem.addEventListener('mouseenter', () => {
-              menuItem.style.backgroundColor = '#f5f5f5';
-            });
-            menuItem.addEventListener('mouseleave', () => {
-              menuItem.style.backgroundColor = 'transparent';
-            });
-            menuItem.addEventListener('click', () => {
-              handleContextMenuAction(item.action);
-            });
-            contextMenu!.appendChild(menuItem);
-          });
-          
-          document.body.appendChild(contextMenu);
-          return contextMenu;
-        };
-
-        // Handle context menu actions
-        const handleContextMenuAction = (action: string) => {
-          if (!contextMenuTargetNode) return;
-          
-          const originalNode = nodes.find(n => n.id === contextMenuTargetNode);
-          if (!originalNode) return;
-          
-          const visualizationNode = {
-            id: originalNode.data.id,
-            label: originalNode.data.label,
-            type: originalNode.data.type,
-            data: originalNode.data.nodeData || {},
-            x: originalNode.data.x,
-            y: originalNode.data.y
-          };
-          
-          switch (action) {
-            case 'edit':
-              if (onNodeEdit) {
-                console.log('Opening node editor:', originalNode.data.label);
-                onNodeEdit(visualizationNode as any);
-              }
-              break;
-            case 'expand':
-              console.log('Expanding node:', originalNode.data.label);
-              onNodeExpand(contextMenuTargetNode);
-              break;
-            case 'relation':
-              console.log('Starting relation mode from:', originalNode.data.label);
-              relationMode = true;
-              relationSourceNode = contextMenuTargetNode;
-              // Highlight source node for relation creation
-              g6Graph.setElementState(contextMenuTargetNode, 'relation-source', true);
-              console.log('Relation mode active - click another node to create connection');
-              break;
-            case 'delete':
-              console.log('Delete node requested:', originalNode.data.label);
-              // TODO: Implement node deletion
-              break;
-          }
-          
-          hideContextMenu();
-        };
-
-        // Show context menu
-        const showContextMenu = (x: number, y: number, nodeId: string) => {
-          const menu = createContextMenu();
-          contextMenuTargetNode = nodeId;
-          
-          menu.style.left = x + 'px';
-          menu.style.top = y + 'px';
-          menu.style.display = 'block';
-        };
-
-        // Hide context menu
-        const hideContextMenu = () => {
-          if (contextMenu) {
-            contextMenu.style.display = 'none';
-            contextMenuTargetNode = null;
-          }
-        };
-
-        // Right-click context menu for node editing
+        // Context menu handling
         g6Graph.on('node:contextmenu', (event: any) => {
-          event.preventDefault?.();
-          console.log('Node right-clicked:', event);
+          event.preventDefault();
           const nodeId = event.itemId || event.target?.id;
           
-          if (nodeId) {
-            const originalEvent = event.originalEvent || event;
-            showContextMenu(originalEvent.clientX, originalEvent.clientY, nodeId);
+          if (nodeId && editMode) {
+            setContextMenu({
+              isOpen: true,
+              position: { x: event.canvasX + 10, y: event.canvasY + 10 },
+              targetNodeId: nodeId
+            });
           }
         });
 
-
-
-        // Hide context menu on outside click
-        document.addEventListener('click', (e) => {
-          if (contextMenu && !contextMenu.contains(e.target as Node)) {
-            hideContextMenu();
-          }
-        });
-
-        // Simple layout completion tracking without stopping
-        g6Graph.on('afterlayout', () => {
-          console.log('Layout completed - nodes positioned');
-        });
-
-        g6Graph.on('node:dragstart', (event: any) => {
-          console.log('Node drag started');
-          // Don't restart layout - just fix the position
-          refreshDraggedNodePosition(event);
-        });
-
-        g6Graph.on('node:drag', (event: any) => {
-          console.log('Node dragging');
-          refreshDraggedNodePosition(event);
-        });
-
-        g6Graph.on('node:dragend', (event: any) => {
-          console.log('Node drag ended');
-          const nodeId = event.itemId || event.target?.id;
-          if (nodeId) {
+        // Canvas click to clear selections
+        g6Graph.on('canvas:click', () => {
+          if (selectedNodeId) {
+            selectedNodeId = null;
             try {
-              const nodeData = g6Graph.getNodeData(nodeId);
-              if (nodeData) {
-                // Release fixed position to allow natural layout
-                delete nodeData.fx;
-                delete nodeData.fy;
-              }
-            } catch (e) {
-              console.warn('Failed to release drag position:', e);
+              g6Graph.setAutoPaint(false);
+              nodes.forEach((node: any) => {
+                g6Graph.setElementState(node.id, 'selected', false);
+              });
+              g6Graph.setAutoPaint(true);
+              g6Graph.paint();
+            } catch (error) {
+              console.error('Clear selection failed:', error);
             }
           }
+          
+          // Close context menu
+          setContextMenu(prev => ({ ...prev, isOpen: false }));
         });
 
-        // Function to handle dragged node position (adapted from G6 v3 docs)
-        const refreshDraggedNodePosition = (event: any) => {
-          const nodeId = event.itemId || event.target?.id;
-          if (nodeId && event.canvas) {
-            try {
-              const nodeData = g6Graph.getNodeData(nodeId);
-              if (nodeData) {
-                // Fix position during drag to prevent layout interference
-                nodeData.fx = event.canvas.x;
-                nodeData.fy = event.canvas.y;
+        // Keyboard event handling
+        const handleKeyDown = (e: KeyboardEvent) => {
+          if (e.key === 'Escape') {
+            if (relationMode) {
+              setRelationMode(false);
+              if (relationSourceNode && graphRef.current) {
+                try {
+                  graphRef.current.setElementState(relationSourceNode, 'relation-source', false);
+                } catch (error) {
+                  console.error('Failed to clear relation state on escape:', error);
+                }
               }
-            } catch (e) {
-              console.warn('Failed to update drag position:', e);
+              setRelationSourceNode(null);
             }
+            setContextMenu(prev => ({ ...prev, isOpen: false }));
           }
         };
 
-        // Hover effects
-        g6Graph.on('node:mouseenter', (event: any) => {
-          const { itemId } = event;
-          if (itemId) {
-            g6Graph.setElementState(itemId, 'hover', true);
-          }
-        });
+        document.addEventListener('keydown', handleKeyDown);
 
-        g6Graph.on('node:mouseleave', (event: any) => {
-          const { itemId } = event;
-          if (itemId) {
-            g6Graph.setElementState(itemId, 'hover', false);
-          }
-        });
-
-        // Edge selection
-        g6Graph.on('edge:click', (event: any) => {
-          console.log('Edge clicked:', event);
-          const { itemId, itemType } = event;
-          
-          if (itemType === 'edge' && itemId) {
-            const edgeData = edges.find(e => e.id === itemId);
-            if (edgeData) {
-              console.log('Edge selected:', edgeData.data?.data?.label || itemId);
-            }
-          }
-        });
-
-        // Canvas click to clear selection and hide context menu
-        g6Graph.on('canvas:click', () => {
-          console.log('Canvas clicked - clearing selection');
-          selectedNodeId = null;
-          hideContextMenu();
-          
-          // Reset relation mode
-          if (relationMode && relationSourceNode) {
-            relationMode = false;
-            g6Graph.setElementState(relationSourceNode, 'relation-source', false);
-            relationSourceNode = null;
-            console.log('Relation mode cancelled');
-          }
-          
-          // Reset all nodes to normal state
-          try {
-            nodes.forEach((node: any) => {
-              g6Graph.setElementState(node.id, 'selected', false);
-            });
-            console.log('All selections cleared - nodes back to normal state');
-          } catch (e) {
-            console.warn('Failed to clear selections:', e);
-          }
-        });
-
-        // Render graph
-        await g6Graph.render();
-
-        // Check if rendering worked
-        setTimeout(() => {
-          const hasElements = container.children.length > 0;
-          console.log('G6 v5: Render success check:', { 
-            hasElements, 
-            childCount: container.children.length,
-            containerSize: { width: container.clientWidth, height: container.clientHeight }
-          });
-          
-          if (!hasElements) {
-            setRenderError('G6 v5.0.48 rendering incomplete');
-          }
-        }, 1000);
-
+        // Store graph reference
         graphRef.current = g6Graph;
         setIsLoading(false);
-        console.log('G6 v5.0.48 working graph created');
+        
+        // Performance logging
+        const endTime = performance.now();
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Graph rendered in ${(endTime - startTime).toFixed(2)}ms with ${nodeCount} nodes, ${edgeCount} edges`);
+        }
+
+        // Cleanup function
+        return () => {
+          document.removeEventListener('keydown', handleKeyDown);
+        };
 
       } catch (error) {
-        console.error('G6 v5.0.48 creation error:', error);
-        setRenderError(`G6 v5.0.48 error: ${error instanceof Error ? error.message : 'Creation failed'}`);
+        console.error('Graph creation error:', error);
+        setRenderError(`Graph creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         setIsLoading(false);
       }
     };
 
-    createWorkingGraph();
-
+    const cleanup = createOptimizedGraph();
+    
+    // Return cleanup function
     return () => {
+      if (cleanup instanceof Promise) {
+        cleanup.then(cleanupFn => cleanupFn?.());
+      } else if (typeof cleanup === 'function') {
+        cleanup();
+      }
+      
       if (graphRef.current) {
         try {
+          graphRef.current.clear();
           graphRef.current.destroy();
         } catch (e) {
           console.warn('Cleanup error:', e);
@@ -550,27 +448,32 @@ export default function GraphCanvas({
         graphRef.current = null;
       }
     };
-  }, [graph, visibleNodes]);
+  }, [graph, visibleNodes, nodeCount, edgeCount, nodes, edges, currentLayout, editMode, onNodeSelect, relationMode, relationSourceNode]);
+
+  // Expose control functions for parent component
+  useEffect(() => {
+    if (graphRef.current) {
+      // Attach control functions to graph ref for external access
+      (graphRef.current as any).switchLayout = switchLayout;
+      (graphRef.current as any).zoomIn = zoomIn;
+      (graphRef.current as any).zoomOut = zoomOut;
+      (graphRef.current as any).fitView = fitView;
+    }
+  }, [switchLayout, zoomIn, zoomOut, fitView]);
 
   if (renderError) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-white dark:bg-gray-900">
         <div className="text-center p-8">
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-            G6 v5.0.48 Working Implementation
+            G6 Graph Render Error
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+          <p className="text-sm text-red-600 dark:text-red-400 mb-6">
             {renderError}
           </p>
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-            <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
-              Infrastructure Dataset
-            </h4>
-            <p className="text-sm text-blue-600 dark:text-blue-300">
-              {graph?.nodes?.length || 0} nodes • {graph?.edges?.length || 0} edges
-            </p>
-            <p className="text-xs text-gray-500 mt-2">
-              RDF infrastructure model - force layout with performance optimization
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
+            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+              Trying fallback to simple force layout...
             </p>
           </div>
         </div>
@@ -578,38 +481,58 @@ export default function GraphCanvas({
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-white dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Optimizing graph layout... ({nodeCount} nodes)
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full h-full relative bg-white dark:bg-gray-900">
+    <>
       <div
         ref={containerRef}
-        className="w-full h-full"
+        className="w-full h-full bg-white dark:bg-gray-900 rounded-lg overflow-hidden relative"
         style={{ minHeight: '400px' }}
       />
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-900/80">
-          <div className="text-center">
-            <div className="text-gray-500 dark:text-gray-400 mb-2">
-              G6 v5.0.48 force layout initialiseren...
-            </div>
-            <div className="text-xs text-gray-400">
-              Canvas rendering • Force simulation • Event binding
-            </div>
-          </div>
+      
+      <GraphContextMenu
+        isOpen={contextMenu.isOpen}
+        position={contextMenu.position}
+        onClose={() => setContextMenu(prev => ({ ...prev, isOpen: false }))}
+        onEdit={() => handleContextMenuAction('edit')}
+        onCreateRelation={() => handleContextMenuAction('createRelation')}
+        onDelete={() => handleContextMenuAction('delete')}
+        onExpand={() => handleContextMenuAction('expand')}
+      />
+      
+      {relationMode && (
+        <div className="absolute top-4 left-4 bg-green-100 dark:bg-green-900/20 border border-green-300 dark:border-green-700 rounded-lg p-3 shadow-lg">
+          <p className="text-sm text-green-800 dark:text-green-200 font-medium">
+            Relatie Modus Actief
+          </p>
+          <p className="text-xs text-green-600 dark:text-green-300 mt-1">
+            Klik op een andere node om een relatie te maken, of druk Escape om te annuleren
+          </p>
         </div>
       )}
       
-      {!isLoading && !renderError && (
-        <div className="absolute top-4 right-4 bg-white dark:bg-gray-800 p-3 rounded-lg shadow-md text-xs">
-          <div className="font-medium mb-2">G6 v5.0.48 Status:</div>
-          <div className="space-y-1 text-gray-600 dark:text-gray-300">
-            <div>• Canvas renderer actief</div>
-            <div>• Force layout algoritme</div>
-            <div>• Drag & zoom behaviors</div>
-            <div>• Node click events</div>
-            <div>• Performance geoptimaliseerd</div>
-          </div>
+      {nodeCount > G6_PERFORMANCE_CONFIG.MAX_NODES_WARNING && (
+        <div className="absolute top-4 right-4 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg p-3 shadow-lg">
+          <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+            Performance Waarschuwing
+          </p>
+          <p className="text-xs text-yellow-600 dark:text-yellow-300 mt-1">
+            {nodeCount} nodes gedetecteerd. Overweeg filtering voor betere prestaties.
+          </p>
         </div>
       )}
-    </div>
+    </>
   );
 }
