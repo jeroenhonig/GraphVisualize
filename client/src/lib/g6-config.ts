@@ -66,7 +66,7 @@ export const getLayoutConfig = (type: G6LayoutConfig['type']): G6LayoutConfig =>
         type: 'radial',
         unitRadius: 100,
         linkDistance: 100,
-        nodeStrength: -500,
+        nodeStrength: -30,
       };
     case 'dagre':
       return {

@@ -4,6 +4,35 @@ import { getNodeTypeColor } from "@/lib/color-utils";
 import { getLayoutConfig, G6_PERFORMANCE_CONFIG, NODE_STYLES, EDGE_STYLES } from "@/lib/g6-config";
 import GraphContextMenu from "./graph-context-menu";
 
+interface G6NodeModel {
+  id: string;
+  x?: number;
+  y?: number;
+  [key: string]: any;
+}
+
+interface G6GraphInstance {
+  render: () => void;
+  destroy: () => void;
+  clear: () => void;
+  setElementState: (id: string, state: string, value: boolean) => void;
+  updateLayout: (config: any) => void;
+  getZoom: () => number;
+  zoomTo: (ratio: number) => void;
+  fitView: (padding?: number) => void;
+  getNodes: () => any[];
+  updateData: (type: string, data: any) => void;
+  stopLayout: () => void;
+  setAutoPaint: (auto: boolean) => void;
+  paint: () => void;
+  changeSize: (width: number, height: number) => void;
+  on: (event: string, handler: Function) => void;
+  off: (event: string, handler?: Function) => void;
+  findById: (id: string) => any;
+  updateItem: (node: any, data: any) => void;
+  layout: () => void;
+}
+
 interface GraphCanvasProps {
   graph?: GraphData;
   selectedNode?: VisualizationNode;
@@ -35,10 +64,12 @@ export default function GraphCanvasOptimized({
   panelConstraints
 }: GraphCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const graphRef = useRef<any>(null);
+  const graphRef = useRef<G6GraphInstance | null>(null);
+  const keyDownHandlerRef = useRef<((e: KeyboardEvent) => void) | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [renderError, setRenderError] = useState<string | null>(null);
-  const [currentLayout, setCurrentLayout] = useState<'force' | 'circular' | 'radial' | 'dagre'>('force');
+  const [currentLayout, setCurrentLayout] = useState<'force' | 'circular' | 'radial' | 'dagre'>('circular');
+  const [loadedNodeCount, setLoadedNodeCount] = useState(100);
   
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -59,6 +90,13 @@ export default function GraphCanvasOptimized({
   const nodeCount = graph?.nodes?.length || 0;
   const edgeCount = graph?.edges?.length || 0;
 
+  // Progressive loading functie
+  const loadMoreNodes = useCallback(() => {
+    if (loadedNodeCount < nodeCount) {
+      setLoadedNodeCount(prev => Math.min(prev + 50, nodeCount));
+    }
+  }, [loadedNodeCount, nodeCount]);
+
   // Memoized data preparation with performance optimization
   const { nodes, edges } = useMemo(() => {
     if (!graph) return { nodes: [], edges: [] };
@@ -74,7 +112,7 @@ export default function GraphCanvasOptimized({
     
     const processedNodes = graph.nodes
       .filter((node: any) => visibleNodeIds.includes(node.id))
-      .slice(0, G6_PERFORMANCE_CONFIG.MAX_NODES_DISPLAY)
+      .slice(0, Math.min(G6_PERFORMANCE_CONFIG.MAX_NODES_DISPLAY, loadedNodeCount))
       .map((node: any, index: number) => {
         const colorData = getNodeTypeColor(node.type);
         
