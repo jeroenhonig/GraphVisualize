@@ -182,11 +182,10 @@ export default function GraphVisualizer() {
               variant="ghost"
               size="sm"
               onClick={rotateLayout}
-              className="px-3 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="p-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
               title="Roteer layout"
             >
-              <Layout className="h-4 w-4 mr-2" />
-              Layout
+              <Layout className="h-4 w-4" />
             </Button>
             
             {/* Graph Dropdown Menu */}

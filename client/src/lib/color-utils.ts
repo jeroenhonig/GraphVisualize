@@ -113,6 +113,12 @@ const DEFAULT_COLOR: NodeTypeColor = {
  * Get color scheme for a node type
  */
 export function getNodeTypeColor(nodeType: string): NodeTypeColor {
+  // Check for custom colors first
+  const customColors = getCustomColors();
+  if (customColors[nodeType]) {
+    return convertHexToNodeTypeColor(customColors[nodeType]);
+  }
+
   // Normalize the type string to lowercase for matching
   const normalizedType = nodeType.toLowerCase();
   
@@ -144,6 +150,47 @@ export function getNodeTypeColor(nodeType: string): NodeTypeColor {
   
   // Generate consistent color based on type string hash for completely unknown types
   return generateColorFromString(nodeType);
+}
+
+// Get custom colors from localStorage
+function getCustomColors(): Record<string, string> {
+  try {
+    const saved = localStorage.getItem('nodeTypeColors');
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+}
+
+// Convert hex color to NodeTypeColor object
+function convertHexToNodeTypeColor(hex: string): NodeTypeColor {
+  return {
+    primary: hex,
+    secondary: hex + '20', // Add transparency
+    hover: adjustBrightness(hex, -20),
+    text: getContrastColor(hex)
+  };
+}
+
+// Adjust color brightness
+function adjustBrightness(hex: string, percent: number): string {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const amt = Math.round(2.55 * percent);
+  const R = (num >> 16) + amt;
+  const G = (num >> 8 & 0x00FF) + amt;
+  const B = (num & 0x0000FF) + amt;
+  return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+    (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+    (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+}
+
+// Get contrasting text color
+function getContrastColor(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 128 ? '#000000' : '#ffffff';
 }
 
 /**
