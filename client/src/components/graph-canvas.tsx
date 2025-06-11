@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FileSpreadsheet, Upload, Plus } from "lucide-react";
+import { FileSpreadsheet, Upload, Plus, EyeOff } from "lucide-react";
 import { createGraphLayout, renderGraph, simulatePhysicsStep, type GraphTransform } from "@/lib/graph-utils";
 import type { GraphData, VisualizationNode, VisualizationEdge } from "@shared/schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -736,6 +736,25 @@ export default function GraphCanvas({
     }
   }, [relationSourceNode, contextMenu]);
 
+  const handleHideNode = useCallback((nodeId: string) => {
+    // Create new set without the node to hide
+    const newVisibleNodes = new Set(visibleNodes);
+    newVisibleNodes.delete(nodeId);
+    
+    // Update visible nodes (this will hide the node and connected edges)
+    onVisibleNodesChange(newVisibleNodes);
+    
+    // Close context menu
+    setContextMenu({ ...contextMenu, visible: false });
+    
+    // Show confirmation toast
+    const node = graph?.nodes.find(n => n.id === nodeId);
+    toast({
+      title: "Node Verborgen",
+      description: `${node?.label || nodeId} en bijbehorende relaties zijn verborgen`,
+    });
+  }, [visibleNodes, onVisibleNodesChange, contextMenu, graph?.nodes, toast]);
+
   const handleStartRelation = useCallback((nodeId: string) => {
     setRelationSourceNode(nodeId);
     setContextMenu({ ...contextMenu, visible: false });
@@ -978,6 +997,14 @@ export default function GraphCanvas({
                   Maak relatie
                 </button>
               )}
+              <div className="border-t border-gray-200 my-1"></div>
+              <button
+                onClick={() => handleHideNode(contextMenu.nodeId!)}
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <EyeOff className="h-4 w-4" />
+                Verberg node
+              </button>
             </>
           )}
         </div>

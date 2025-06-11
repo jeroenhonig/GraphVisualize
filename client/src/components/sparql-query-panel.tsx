@@ -245,10 +245,13 @@ ORDER BY ?node ?property`;
               onClick={generateQueryFromView}
               variant="secondary"
               size="sm"
-              className="w-full"
+              className="w-full text-xs"
+              title={`Genereer SPARQL query voor ${visibleNodeIds.length} zichtbare nodes`}
             >
-              <Eye className="h-4 w-4 mr-1" />
-              Genereer Query van Huidige View ({visibleNodeIds.length} nodes)
+              <Eye className="h-4 w-4 mr-1 flex-shrink-0" />
+              <span className="truncate">
+                Query van View ({visibleNodeIds.length})
+              </span>
             </Button>
             
             <div className="flex space-x-2">
