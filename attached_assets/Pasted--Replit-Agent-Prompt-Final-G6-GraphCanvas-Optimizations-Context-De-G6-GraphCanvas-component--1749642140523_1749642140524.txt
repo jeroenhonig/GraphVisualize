@@ -1,0 +1,364 @@
+# Replit Agent Prompt: Final G6 GraphCanvas Optimizations
+
+## Context
+De G6 GraphCanvas component (`GraphCanvasOptimized.tsx`) werkt nu goed, maar er zijn nog enkele optimalisaties nodig voor productie-kwaliteit. De node clustering is opgelost, maar performance en memory management kunnen nog verbeterd worden.
+
+## Bestanden om aan te passen
+1. `GraphCanvasOptimized.tsx` (of vergelijkbaar genaamd bestand)
+2. `lib/g6-config.ts` (of waar de G6 configuratie staat)
+
+## Prioriteit 1: Kritieke Fix in g6-config.ts
+
+### Stap 1: Controleer en Fix nodeStrength
+Open `lib/g6-config.ts` en zoek de `getLayoutConfig` functie. Zorg dat de force layout configuratie er EXACT zo uitziet:
+
+```typescript
+export const getLayoutConfig = (type: 'force' | 'circular' | 'radial' | 'dagre') => {
+  switch (type) {
+    case 'force':
+      return {
+        type: 'force',
+        center: undefined, // Will be set dynamically
+        gravity: 10,
+        linkDistance: 150,
+        nodeStrength: -30,  // KRITIEK: Was waarschijnlijk -500, MOET -30 zijn!
+        edgeStrength: 0.8,
+        preventOverlap: true,
+        nodeSize: 30,
+        alphaDecay: 0.01,
+        alphaMin: 0.001,
+        workerEnabled: true,  // Enable web worker voor performance
+        maxIteration: 1000
+      };
+    case 'circular':
+      return {
+        type: 'circular',
+        center: undefined,
+        radius: null,
+        startRadius: 10,
+        endRadius: 300,
+        clockwise: false,
+        divisions: 5,
+        ordering: 'degree',
+        angleRatio: 1,
+        workerEnabled: true
+      };
+    case 'radial':
+      return {
+        type: 'radial',
+        center: undefined,
+        linkDistance: 150,
+        nodeSize: 30,
+        preventOverlap: true,
+        strictRadial: false,
+        workerEnabled: true
+      };
+    case 'dagre':
+      return {
+        type: 'dagre',
+        center: undefined,
+        rankdir: 'TB',
+        align: 'DL',
+        nodesep: 20,
+        ranksep: 50,
+        controlPoints: true,
+        workerEnabled: false // Dagre doesn't support workers
+      };
+    default:
+      return { type: 'force', nodeStrength: -30, workerEnabled: true };
+  }
+};
+```
+
+## Prioriteit 2: Performance Optimalisaties in GraphCanvasOptimized.tsx
+
+### Stap 2: Voeg TypeScript Types toe
+Voeg deze interface toe bovenaan het bestand na de imports:
+
+```typescript
+interface G6NodeModel {
+  id: string;
+  x?: number;
+  y?: number;
+  [key: string]: any;
+}
+
+interface G6GraphInstance {
+  render: () => void;
+  destroy: () => void;
+  clear: () => void;
+  setElementState: (id: string, state: string, value: boolean) => void;
+  updateLayout: (config: any) => void;
+  getZoom: () => number;
+  zoomTo: (ratio: number) => void;
+  fitView: (padding?: number) => void;
+  getNodes: () => any[];
+  updateData: (type: string, data: any) => void;
+  stopLayout: () => void;
+  setAutoPaint: (auto: boolean) => void;
+  paint: () => void;
+  changeSize: (width: number, height: number) => void;
+  on: (event: string, handler: Function) => void;
+  off: (event: string, handler?: Function) => void;
+}
+```
+
+Update de graphRef type:
+```typescript
+const graphRef = useRef<G6GraphInstance | null>(null);
+```
+
+### Stap 3: Implementeer Batch State Updates
+Zoek alle plaatsen waar `setElementState` in een loop wordt aangeroepen en vervang ze met batch updates:
+
+```typescript
+// VERVANG dit patroon:
+nodes.forEach((node: any) => {
+  g6Graph.setElementState(node.id, 'selected', false);
+});
+
+// MET dit:
+g6Graph.setAutoPaint(false);
+nodes.forEach((node: any) => {
+  g6Graph.setElementState(node.id, 'selected', false);
+});
+g6Graph.setAutoPaint(true);
+g6Graph.paint();
+```
+
+Dit moet op DRIE plaatsen gebeuren:
+1. In de node click handler
+2. In de canvas click handler  
+3. In de emergency clustering prevention
+
+### Stap 4: Fix Memory Leak in Keyboard Event Listeners
+Vervang de huidige keyboard event handling met deze verbeterde versie:
+
+```typescript
+// Voeg deze ref toe bij de andere refs bovenaan de component
+const keyDownHandlerRef = useRef<((e: KeyboardEvent) => void) | null>(null);
+
+// In de useEffect waar de graph wordt gecreëerd, vervang de keyboard handler met:
+keyDownHandlerRef.current = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') {
+    if (relationMode) {
+      setRelationMode(false);
+      if (relationSourceNode && graphRef.current) {
+        try {
+          graphRef.current.setElementState(relationSourceNode, 'relation-source', false);
+        } catch (error) {
+          console.error('Failed to clear relation state on escape:', error);
+        }
+      }
+      setRelationSourceNode(null);
+    }
+    setContextMenu(prev => ({ ...prev, isOpen: false }));
+  }
+};
+
+document.addEventListener('keydown', keyDownHandlerRef.current);
+
+// In de cleanup functie van dezelfde useEffect:
+return () => {
+  if (keyDownHandlerRef.current) {
+    document.removeEventListener('keydown', keyDownHandlerRef.current);
+  }
+  // ... rest van cleanup
+};
+```
+
+### Stap 5: Voeg Resize Observer toe
+Voeg deze code toe NA de main useEffect:
+
+```typescript
+// Auto-resize handler
+useEffect(() => {
+  if (!containerRef.current || !graphRef.current) return;
+
+  const resizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const { width, height } = entry.contentRect;
+      if (width > 0 && height > 0 && graphRef.current) {
+        try {
+          graphRef.current.changeSize(width, height);
+          
+          // Herbereken center na resize
+          const leftOffset = panelConstraints?.leftPanel && !panelConstraints.leftPanel.collapsed 
+            ? panelConstraints.leftPanel.width 
+            : 0;
+          const rightOffset = panelConstraints?.rightPanel && !panelConstraints.rightPanel.collapsed 
+            ? panelConstraints.rightPanel.width 
+            : 0;
+          
+          const availableWidth = width - leftOffset - rightOffset;
+          const newCenterX = leftOffset + (availableWidth / 2);
+          const newCenterY = height / 2;
+          
+          graphRef.current.updateLayout({
+            center: [newCenterX, newCenterY]
+          });
+        } catch (error) {
+          console.warn('Resize handling failed:', error);
+        }
+      }
+    }
+  });
+
+  resizeObserver.observe(containerRef.current);
+
+  return () => {
+    resizeObserver.disconnect();
+  };
+}, [panelConstraints]);
+```
+
+### Stap 6: Verbeter Error Recovery
+In de catch block van `createOptimizedGraph`, voeg auto-retry toe:
+
+```typescript
+} catch (error) {
+  console.error('Graph creation error:', error);
+  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+  setRenderError(`Graph creation failed: ${errorMessage}`);
+  setIsLoading(false);
+  
+  // Auto-retry met simplified config na 2 seconden
+  if (!renderError && errorMessage.includes('render')) {
+    console.log('Attempting simplified layout retry...');
+    setTimeout(() => {
+      setRenderError(null);
+      setCurrentLayout('circular'); // Fallback naar eenvoudigere layout
+    }, 2000);
+  }
+}
+```
+
+### Stap 7: Voeg Performance Metrics toe
+Voeg deze performance monitoring toe in development mode:
+
+```typescript
+// Voeg toe NA succesvolle render
+if (process.env.NODE_ENV === 'development') {
+  // Monitor memory usage
+  if ('memory' in performance) {
+    const memInfo = (performance as any).memory;
+    console.log('Memory usage:', {
+      usedJSHeapSize: `${(memInfo.usedJSHeapSize / 1048576).toFixed(2)} MB`,
+      totalJSHeapSize: `${(memInfo.totalJSHeapSize / 1048576).toFixed(2)} MB`
+    });
+  }
+  
+  // Frame rate monitoring
+  let lastTime = performance.now();
+  let frames = 0;
+  const measureFPS = () => {
+    frames++;
+    const currentTime = performance.now();
+    if (currentTime >= lastTime + 1000) {
+      console.log(`FPS: ${Math.round((frames * 1000) / (currentTime - lastTime))}`);
+      frames = 0;
+      lastTime = currentTime;
+    }
+    if (graphRef.current) {
+      requestAnimationFrame(measureFPS);
+    }
+  };
+  requestAnimationFrame(measureFPS);
+}
+```
+
+### Stap 8: Optimaliseer Node Data Updates
+Vervang de emergency clustering prevention `updateData` calls met deze efficiëntere versie:
+
+```typescript
+if (clustered && nodePositions.length > 1) {
+  console.warn('Nodes clustering detected, applying emergency spread');
+  
+  // Batch update alle node posities
+  g6Graph.setAutoPaint(false);
+  
+  const updatedData = nodePositions.map((pos, index) => {
+    const angle = (index / nodePositions.length) * Math.PI * 2;
+    const radius = 200;
+    return {
+      id: pos.id,
+      x: centerX + Math.cos(angle) * radius,
+      y: centerY + Math.sin(angle) * radius
+    };
+  });
+  
+  // Update alle nodes in één keer
+  updatedData.forEach(nodeData => {
+    const node = g6Graph.findById(nodeData.id);
+    if (node) {
+      g6Graph.updateItem(node, nodeData);
+    }
+  });
+  
+  g6Graph.setAutoPaint(true);
+  g6Graph.paint();
+  g6Graph.layout(); // Herstart layout met nieuwe posities
+}
+```
+
+## Prioriteit 3: Extra Features
+
+### Stap 9: Voeg Progressive Loading toe
+Voeg deze state en functie toe voor grote datasets:
+
+```typescript
+// State voor progressive loading
+const [loadedNodeCount, setLoadedNodeCount] = useState(100);
+
+// Progressive loading functie
+const loadMoreNodes = useCallback(() => {
+  if (loadedNodeCount < nodeCount) {
+    setLoadedNodeCount(prev => Math.min(prev + 50, nodeCount));
+  }
+}, [loadedNodeCount, nodeCount]);
+
+// Voeg toe aan de nodes filter:
+.slice(0, Math.min(G6_PERFORMANCE_CONFIG.MAX_NODES_DISPLAY, loadedNodeCount))
+
+// Voeg een "Load More" indicator toe in de render:
+{loadedNodeCount < nodeCount && (
+  <button
+    onClick={loadMoreNodes}
+    className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-blue-600 transition-colors"
+  >
+    Load More Nodes ({loadedNodeCount}/{nodeCount})
+  </button>
+)}
+```
+
+## Verificatie Checklist
+Na implementatie, controleer:
+
+1. ✅ `nodeStrength` is exact `-30` in force layout (NIET -500)
+2. ✅ `workerEnabled: true` staat in alle layout configs (behalve dagre)
+3. ✅ Batch updates worden gebruikt voor state changes
+4. ✅ Memory leaks zijn gefixt in event listeners
+5. ✅ Resize observer werkt correct
+6. ✅ Performance metrics verschijnen in console (dev mode)
+7. ✅ Error recovery probeert circular layout als fallback
+8. ✅ TypeScript types zijn correct toegepast
+
+## Test Scenario's
+Test deze scenarios na implementatie:
+
+1. **Performance Test**: Laad 500+ nodes en check of FPS boven 30 blijft
+2. **Memory Test**: Check memory usage in console, moet stabiel blijven
+3. **Resize Test**: Resize het browser window, graph moet meeschalen
+4. **Panel Test**: Toggle panels, center moet correct aanpassen
+5. **Error Test**: Forceer een render error (bijv. door data te corrumperen), check of fallback werkt
+
+## Console Output Verwachtingen
+```
+Graph rendered in 245.32ms with 150 nodes, 200 edges
+Layout iteration 1 completed
+Node positions after layout: [{id: "node1", x: 523, y: 234}, ...]
+Memory usage: {usedJSHeapSize: "45.23 MB", totalJSHeapSize: "68.00 MB"}
+FPS: 58
+```
+
+Implementeer deze wijzigingen stap voor stap en test na elke sectie.

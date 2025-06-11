@@ -75,12 +75,21 @@ export default function GraphCanvasOptimized({
     const processedNodes = graph.nodes
       .filter((node: any) => visibleNodeIds.includes(node.id))
       .slice(0, G6_PERFORMANCE_CONFIG.MAX_NODES_DISPLAY)
-      .map((node: any) => {
+      .map((node: any, index: number) => {
         const colorData = getNodeTypeColor(node.type);
+        
+        // Circulaire posities zonder layout engine
+        const totalNodes = Math.min(graph.nodes.length, G6_PERFORMANCE_CONFIG.MAX_NODES_DISPLAY);
+        const angle = (index / totalNodes) * Math.PI * 2;
+        const radius = 200;
+        const centerX = 400;
+        const centerY = 300;
         
         return {
           id: node.id,
           label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
+          x: node.x || (centerX + Math.cos(angle) * radius),
+          y: node.y || (centerY + Math.sin(angle) * radius),
           data: {
             ...node,
             colorData,
@@ -295,9 +304,10 @@ export default function GraphCanvasOptimized({
             }
           },
           layout: {
-            type: 'grid',
-            rows: Math.ceil(Math.sqrt(processedNodes.length)),
-            cols: Math.ceil(Math.sqrt(processedNodes.length))
+            type: 'circular',
+            radius: 200,
+            startAngle: 0,
+            endAngle: Math.PI * 2
           },
           behaviors: ['zoom-canvas', 'drag-canvas', 'drag-element']
         });
@@ -310,17 +320,7 @@ export default function GraphCanvasOptimized({
           throw new Error(`Render failed: ${renderError instanceof Error ? renderError.message : 'Unknown error'}`);
         }
 
-        // Stop layout after short time to prevent hanging
-        setTimeout(() => {
-          try {
-            if (g6Graph.stopLayout) {
-              g6Graph.stopLayout();
-            }
-            console.log('Layout stopped to prevent hanging');
-          } catch (error) {
-            console.warn('Layout stop failed:', error);
-          }
-        }, 1000);
+        console.log('Graph rendered with circular layout');
 
         // Enhanced event handling with batch updates for performance
         let selectedNodeId: string | null = null;
