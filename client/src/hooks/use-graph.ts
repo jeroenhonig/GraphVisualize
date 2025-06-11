@@ -33,7 +33,7 @@ export function useGraph() {
     setCurrentGraphId(graphId);
     setSelectedNode(undefined);
     setVisibleNodes(new Set());
-    setTransform({ scale: 1, translateX: 0, translateY: 0 });
+    setTransform({ scale: 1, x: 0, y: 0 });
   }, []);
 
   // Auto-select the most recent graph if none is selected
@@ -157,7 +157,7 @@ export function useGraph() {
     const translateX = 600 - centerX * scale;
     const translateY = 400 - centerY * scale;
 
-    setTransform({ scale, translateX, translateY });
+    setTransform({ scale, x: translateX, y: translateY });
   }, [currentGraph, visibleNodes]);
 
   return {
