@@ -360,6 +360,35 @@ export default function GraphCanvasOptimized({
 
         console.log('Graph rendered with circular layout');
 
+        // Performance monitoring in development
+        if (process.env.NODE_ENV === 'development') {
+          // Monitor memory usage
+          if ('memory' in performance) {
+            const memInfo = (performance as any).memory;
+            console.log('Memory usage:', {
+              usedJSHeapSize: `${(memInfo.usedJSHeapSize / 1048576).toFixed(2)} MB`,
+              totalJSHeapSize: `${(memInfo.totalJSHeapSize / 1048576).toFixed(2)} MB`
+            });
+          }
+          
+          // Frame rate monitoring
+          let lastTime = performance.now();
+          let frames = 0;
+          const measureFPS = () => {
+            frames++;
+            const currentTime = performance.now();
+            if (currentTime >= lastTime + 1000) {
+              console.log(`FPS: ${Math.round((frames * 1000) / (currentTime - lastTime))}`);
+              frames = 0;
+              lastTime = currentTime;
+            }
+            if (graphRef.current) {
+              requestAnimationFrame(measureFPS);
+            }
+          };
+          requestAnimationFrame(measureFPS);
+        }
+
         // Enhanced event handling with batch updates for performance
         let selectedNodeId: string | null = null;
 
@@ -405,12 +434,15 @@ export default function GraphCanvasOptimized({
                 
                 onNodeSelect(visualizationNode as any);
                 
-                // Update state for selected node
+                // Update state for selected node with batch updates
                 try {
+                  g6Graph.setAutoPaint(false);
                   nodes.forEach((node: any) => {
                     g6Graph.setElementState(node.id, 'selected', false);
                   });
                   g6Graph.setElementState(nodeId, 'selected', true);
+                  g6Graph.setAutoPaint(true);
+                  g6Graph.paint();
                 } catch (error) {
                   console.error('Selection state update failed:', error);
                 }
@@ -450,8 +482,8 @@ export default function GraphCanvasOptimized({
           setContextMenu(prev => ({ ...prev, isOpen: false }));
         });
 
-        // Keyboard event handling
-        const handleKeyDown = (e: KeyboardEvent) => {
+        // Improved keyboard event handling with ref
+        keyDownHandlerRef.current = (e: KeyboardEvent) => {
           if (e.key === 'Escape') {
             if (relationMode) {
               setRelationMode(false);
@@ -468,7 +500,7 @@ export default function GraphCanvasOptimized({
           }
         };
 
-        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keydown', keyDownHandlerRef.current);
 
         // Store graph reference
         graphRef.current = g6Graph;
@@ -482,13 +514,32 @@ export default function GraphCanvasOptimized({
 
         // Cleanup function
         return () => {
-          document.removeEventListener('keydown', handleKeyDown);
+          if (keyDownHandlerRef.current) {
+            document.removeEventListener('keydown', keyDownHandlerRef.current);
+          }
+          if (g6Graph) {
+            try {
+              g6Graph.destroy();
+            } catch (destroyError) {
+              console.warn('Graph destroy failed:', destroyError);
+            }
+          }
         };
 
       } catch (error) {
         console.error('Graph creation error:', error);
-        setRenderError(`Graph creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        setRenderError(`Graph creation failed: ${errorMessage}`);
         setIsLoading(false);
+        
+        // Auto-retry met simplified config na 2 seconden
+        if (!renderError && errorMessage.includes('render')) {
+          console.log('Attempting simplified layout retry...');
+          setTimeout(() => {
+            setRenderError(null);
+            setCurrentLayout('circular'); // Fallback naar eenvoudigere layout
+          }, 2000);
+        }
       }
     };
 
@@ -547,6 +598,46 @@ export default function GraphCanvasOptimized({
         console.warn('Failed to update layout center:', error);
       }
     }
+  }, [panelConstraints]);
+
+  // Auto-resize handler with ResizeObserver
+  useEffect(() => {
+    if (!containerRef.current || !graphRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0 && graphRef.current) {
+          try {
+            graphRef.current.changeSize(width, height);
+            
+            // Herbereken center na resize
+            const leftOffset = panelConstraints?.leftPanel && !panelConstraints.leftPanel.collapsed 
+              ? panelConstraints.leftPanel.width 
+              : 0;
+            const rightOffset = panelConstraints?.rightPanel && !panelConstraints.rightPanel.collapsed 
+              ? panelConstraints.rightPanel.width 
+              : 0;
+            
+            const availableWidth = width - leftOffset - rightOffset;
+            const newCenterX = leftOffset + (availableWidth / 2);
+            const newCenterY = height / 2;
+            
+            graphRef.current.updateLayout({
+              center: [newCenterX, newCenterY]
+            });
+          } catch (error) {
+            console.warn('Resize handling failed:', error);
+          }
+        }
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
   }, [panelConstraints]);
 
   // Expose control functions for parent component
@@ -620,6 +711,15 @@ export default function GraphCanvasOptimized({
             Klik op een andere node om een relatie te maken, of druk Escape om te annuleren
           </p>
         </div>
+      )}
+
+      {loadedNodeCount < nodeCount && (
+        <button
+          onClick={loadMoreNodes}
+          className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-blue-600 transition-colors"
+        >
+          Load More Nodes ({loadedNodeCount}/{nodeCount})
+        </button>
       )}
       
       {nodeCount > G6_PERFORMANCE_CONFIG.MAX_NODES_WARNING && (
