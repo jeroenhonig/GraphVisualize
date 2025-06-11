@@ -43,14 +43,14 @@ export const getLayoutConfig = (type: G6LayoutConfig['type']): G6LayoutConfig =>
   const baseConfig = {
     preventOverlap: true,
     nodeSize: 25,
+    animate: true,
   };
 
   switch (type) {
     case 'force':
       return {
         ...baseConfig,
-        type: 'force',
-        center: [400, 300],
+        type: 'gForce',
         gravity: 10,
         linkDistance: 150,
         nodeStrength: -300,
@@ -63,8 +63,7 @@ export const getLayoutConfig = (type: G6LayoutConfig['type']): G6LayoutConfig =>
       return {
         ...baseConfig,
         type: 'circular',
-        center: [400, 300],
-        radius: null,
+        radius: 200,
         startRadius: 10,
         endRadius: 300,
         clockwise: true,
@@ -73,7 +72,6 @@ export const getLayoutConfig = (type: G6LayoutConfig['type']): G6LayoutConfig =>
       return {
         ...baseConfig,
         type: 'radial',
-        center: [400, 300],
         unitRadius: 100,
         linkDistance: 100,
         nodeStrength: -300,
@@ -88,8 +86,8 @@ export const getLayoutConfig = (type: G6LayoutConfig['type']): G6LayoutConfig =>
         ranksep: 50,
       };
     default:
-      console.warn(`Unknown layout type: ${type}, falling back to force`);
-      return { ...baseConfig, type: 'force' };
+      console.warn(`Unknown layout type: ${type}, falling back to gForce`);
+      return { ...baseConfig, type: 'gForce' };
   }
 };
 

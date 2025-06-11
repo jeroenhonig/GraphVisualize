@@ -125,7 +125,7 @@ const GraphCanvas = React.memo(({
         return {
           id: node.id,
           label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
-          // Remove type for default node rendering in G6 v5
+          type: 'circle', // G6 v5 requires explicit node type
           size: 25,
           style: {
             fill: colors.primary,
@@ -271,15 +271,15 @@ const GraphCanvas = React.memo(({
         version: G6.version
       });
 
+      // G6 v5 configuration according to official documentation
       const graph = new G6.Graph({
         container,
         width,
         height,
         layout: layoutConfig,
-        modes: {
-          default: ['drag-canvas', 'zoom-canvas', 'drag-node', 'click-select'],
-        },
+        mode: 'default',
         defaultNode: {
+          type: 'circle',
           size: 25,
           style: {
             fill: '#e6f7ff',
@@ -296,12 +296,13 @@ const GraphCanvas = React.memo(({
           },
         },
         defaultEdge: {
+          type: 'line',
           style: {
             stroke: '#91d5ff',
             lineWidth: 1,
             opacity: 0.8,
             endArrow: {
-              path: 'M 0,0 L 8,4 L 8,-4 Z',
+              path: G6.Arrow.triangle(10, 8, 0),
               fill: '#91d5ff',
             },
           },
@@ -319,18 +320,13 @@ const GraphCanvas = React.memo(({
 
       console.log('Loading G6 data:', { nodes: processedGraphData.nodes.length, edges: processedGraphData.edges.length });
       
-      // Load data using G6 v5 API with error handling
+      // Load data using correct G6 v5 API
       try {
-        // G6 v5 uses read() method instead of data()
-        if (typeof graph.read === 'function') {
-          graph.read(processedGraphData);
-        } else if (typeof graph.data === 'function') {
-          graph.data(processedGraphData);
-        } else {
-          // Fallback for different G6 v5 versions
-          graph.changeData(processedGraphData);
-        }
+        // According to G6 v5 documentation, use data() method
+        graph.data(processedGraphData);
         graph.render();
+        
+        console.log('G6 graph rendered successfully');
       } catch (dataError) {
         console.error('Error loading data into G6:', dataError);
         throw new Error(`Failed to load graph data: ${dataError?.message || 'Unknown data error'}`);
