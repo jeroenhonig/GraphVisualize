@@ -47,9 +47,7 @@ export default function G6GraphCanvas({
       try {
         const { Graph, ExtensionCategory, register } = await import('@antv/g6');
         
-        // Register force layout if needed
-        const { ForceLayout } = await import('@antv/g6');
-        register(ExtensionCategory.LAYOUT, 'force', ForceLayout);
+        // Force layout is built-in for G6 v5, no need to register
 
         const rect = containerRef.current!.getBoundingClientRect();
         const width = Math.max(rect.width, 800);
