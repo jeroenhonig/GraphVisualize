@@ -49,7 +49,7 @@ export default function GraphCanvas({
   
   // Node dragging state
   const [draggedNode, setDraggedNode] = useState<VisualizationNode | null>(null);
-  const [nodeDragStart, setNodeDragStart] = useState<{ x: number; y: number; nodeStartX?: number; nodeStartY?: number }>({ x: 0, y: 0 });
+  const [nodeDragStart, setNodeDragStart] = useState({ x: 0, y: 0 });
   const [isNodeDragging, setIsNodeDragging] = useState(false);
   const [activeDragNodeId, setActiveDragNodeId] = useState<string | null>(null);
   
@@ -579,20 +579,22 @@ export default function GraphCanvas({
         // Select node immediately
         onNodeSelect(node);
         
-        // Set up dragging data - store where the mouse clicked relative to node center
-        const rect = svgRef.current?.getBoundingClientRect();
-        if (rect) {
+        // Use SVG point transformation for accurate coordinate mapping
+        if (svgRef.current) {
+          const svg = svgRef.current;
+          const pt = svg.createSVGPoint();
+          pt.x = e.clientX;
+          pt.y = e.clientY;
+          
+          // Transform screen coordinates to SVG coordinates
+          const svgPoint = pt.matrixTransform(svg.getScreenCTM()?.inverse());
           const currentPos = localNodePositions[node.id] || { x: node.x, y: node.y };
-          const mouseX = (e.clientX - rect.left - transform.translateX) / transform.scale;
-          const mouseY = (e.clientY - rect.top - transform.translateY) / transform.scale;
           
           setDraggedNode(node);
-          // Store initial mouse position and node position for relative dragging
+          // Store the offset from mouse to node center
           setNodeDragStart({ 
-            x: mouseX, 
-            y: mouseY,
-            nodeStartX: currentPos.x,
-            nodeStartY: currentPos.y
+            x: svgPoint.x - currentPos.x, 
+            y: svgPoint.y - currentPos.y
           });
         }
         return;
@@ -626,19 +628,19 @@ export default function GraphCanvas({
 
     // Handle dragging for nodes that have been set up for dragging
     if (draggedNode && (isNodeDragging || (hasDraggedSignificantly && !isNodeDragging))) {
-      // Node dragging with proper coordinate transformation
-      const rect = svgRef.current?.getBoundingClientRect();
-      if (rect) {
-        const mouseX = (e.clientX - rect.left - transform.translateX) / transform.scale;
-        const mouseY = (e.clientY - rect.top - transform.translateY) / transform.scale;
+      // Use SVG point transformation for accurate dragging
+      if (svgRef.current) {
+        const svg = svgRef.current;
+        const pt = svg.createSVGPoint();
+        pt.x = e.clientX;
+        pt.y = e.clientY;
         
-        // Calculate how much the mouse has moved since drag started
-        const deltaX = mouseX - nodeDragStart.x;
-        const deltaY = mouseY - nodeDragStart.y;
+        // Transform screen coordinates to SVG coordinates
+        const svgPoint = pt.matrixTransform(svg.getScreenCTM()?.inverse());
         
-        // Apply the same delta to the node's starting position
-        const newX = (nodeDragStart.nodeStartX ?? 0) + deltaX;
-        const newY = (nodeDragStart.nodeStartY ?? 0) + deltaY;
+        // Position node maintaining the original offset
+        const newX = svgPoint.x - nodeDragStart.x;
+        const newY = svgPoint.y - nodeDragStart.y;
         
         // Update local position for immediate visual feedback
         setLocalNodePositions(prev => ({
@@ -746,18 +748,18 @@ export default function GraphCanvas({
 
       // Handle dragging for nodes that have been set up for dragging
       if (draggedNode && isNodeDragging) {
-        const rect = svgRef.current?.getBoundingClientRect();
-        if (rect) {
-          const mouseX = (e.clientX - rect.left - transform.translateX) / transform.scale;
-          const mouseY = (e.clientY - rect.top - transform.translateY) / transform.scale;
+        if (svgRef.current) {
+          const svg = svgRef.current;
+          const pt = svg.createSVGPoint();
+          pt.x = e.clientX;
+          pt.y = e.clientY;
           
-          // Calculate how much the mouse has moved since drag started
-          const deltaX = mouseX - nodeDragStart.x;
-          const deltaY = mouseY - nodeDragStart.y;
+          // Transform screen coordinates to SVG coordinates
+          const svgPoint = pt.matrixTransform(svg.getScreenCTM()?.inverse());
           
-          // Apply the same delta to the node's starting position
-          const newX = (nodeDragStart.nodeStartX ?? 0) + deltaX;
-          const newY = (nodeDragStart.nodeStartY ?? 0) + deltaY;
+          // Position node maintaining the original offset
+          const newX = svgPoint.x - nodeDragStart.x;
+          const newY = svgPoint.y - nodeDragStart.y;
           
           setLocalNodePositions(prev => ({
             ...prev,
