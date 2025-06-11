@@ -165,11 +165,10 @@ export default function G6V5Working({
               console.log('Selecting node:', nodeData.data);
               onNodeSelect(nodeData.data);
               
-              // Visual feedback - set element state for G6 v5.0.48
+              // Visual feedback using G6 v5.0.48 element state API
               try {
-                // Clear previous selections first
-                const allNodes = g6Graph.getAllNodesData();
-                allNodes.forEach((node: any) => {
+                // Clear previous selections by iterating through nodes
+                nodes.forEach(node => {
                   if (node.id !== itemId) {
                     g6Graph.setElementState(node.id, 'selected', false);
                   }
@@ -178,18 +177,9 @@ export default function G6V5Working({
                 // Set current node as selected
                 g6Graph.setElementState(itemId, 'selected', true);
                 g6Graph.render();
+                console.log('Node selection applied successfully');
               } catch (e) {
-                console.warn('Node selection failed:', e);
-                // Fallback: manual style update
-                try {
-                  g6Graph.updateNodeData([{
-                    id: itemId,
-                    data: { ...nodeData.data, selected: true }
-                  }]);
-                  g6Graph.render();
-                } catch (fallbackError) {
-                  console.warn('Fallback selection failed:', fallbackError);
-                }
+                console.warn('Element state selection failed:', e);
               }
             }
           }
@@ -222,13 +212,13 @@ export default function G6V5Working({
         // Canvas click to clear selection
         g6Graph.on('canvas:click', () => {
           console.log('Canvas clicked - clearing selection');
-          // Clear all node selections
+          // Clear all node selections using available nodes data
           try {
-            const allNodes = g6Graph.getAllNodesData();
-            allNodes.forEach((node: any) => {
+            nodes.forEach(node => {
               g6Graph.setElementState(node.id, 'selected', false);
             });
-            g6Graph.draw();
+            g6Graph.render();
+            console.log('All selections cleared successfully');
           } catch (e) {
             console.warn('Failed to clear selections:', e);
           }
