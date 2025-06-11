@@ -239,24 +239,30 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {/* Existing types from dataset */}
-                    {existingTypes.length > 0 && existingTypes.map((type: string) => (
-                      <SelectItem key={type} value={type}>
-                        {type.includes(':') ? type.split(':')[1] : type}
-                      </SelectItem>
-                    ))}
+                    {existingTypes.length > 0 && existingTypes
+                      .sort((a, b) => {
+                        const aDisplay = a.includes(':') ? a.split(':')[1] : a;
+                        const bDisplay = b.includes(':') ? b.split(':')[1] : b;
+                        return aDisplay.localeCompare(bDisplay);
+                      })
+                      .map((type: string) => (
+                        <SelectItem key={type} value={type}>
+                          {type.includes(':') ? type.split(':')[1] : type}
+                        </SelectItem>
+                      ))}
                     {/* Separator if we have existing types */}
                     {existingTypes.length > 0 && <div className="border-t my-1"></div>}
-                    {/* Common RDF types */}
+                    {/* Common RDF types - alphabetically sorted */}
                     <SelectItem value="building:Building">building:Building</SelectItem>
-                    <SelectItem value="building:Element">building:Element</SelectItem>
-                    <SelectItem value="building:Foundation">building:Foundation</SelectItem>
-                    <SelectItem value="building:Structure">building:Structure</SelectItem>
-                    <SelectItem value="building:Facade">building:Facade</SelectItem>
-                    <SelectItem value="material:Material">material:Material</SelectItem>
                     <SelectItem value="doc:Document">doc:Document</SelectItem>
-                    <SelectItem value="schema:Person">schema:Person</SelectItem>
+                    <SelectItem value="building:Element">building:Element</SelectItem>
+                    <SelectItem value="building:Facade">building:Facade</SelectItem>
+                    <SelectItem value="building:Foundation">building:Foundation</SelectItem>
+                    <SelectItem value="material:Material">material:Material</SelectItem>
                     <SelectItem value="schema:Organization">schema:Organization</SelectItem>
+                    <SelectItem value="schema:Person">schema:Person</SelectItem>
                     <SelectItem value="schema:Place">schema:Place</SelectItem>
+                    <SelectItem value="building:Structure">building:Structure</SelectItem>
                     <div className="border-t my-1"></div>
                     <SelectItem value="custom">+ Nieuw type aanmaken</SelectItem>
                   </SelectContent>
@@ -410,38 +416,38 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
                     <SelectValue placeholder="Selecteer eigenschap type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* Building/Construction Properties */}
-                    <SelectItem value="property:materialType">Material Type</SelectItem>
-                    <SelectItem value="property:structuralSystem">Structural System</SelectItem>
+                    {/* Building/Construction Properties - alphabetically sorted */}
+                    <SelectItem value="property:acousticRating">Acoustic Rating</SelectItem>
+                    <SelectItem value="property:area">Area</SelectItem>
+                    <SelectItem value="property:columnSpacing">Column Spacing</SelectItem>
+                    <SelectItem value="property:cost">Cost</SelectItem>
+                    <SelectItem value="property:facadeArea">Facade Area</SelectItem>
+                    <SelectItem value="property:fireRating">Fire Rating</SelectItem>
                     <SelectItem value="property:foundationDepth">Foundation Depth</SelectItem>
+                    <SelectItem value="property:height">Height</SelectItem>
+                    <SelectItem value="property:installationDate">Installation Date</SelectItem>
+                    <SelectItem value="property:length">Length</SelectItem>
+                    <SelectItem value="property:loadCapacity">Load Capacity</SelectItem>
+                    <SelectItem value="property:maintenanceSchedule">Maintenance Schedule</SelectItem>
+                    <SelectItem value="property:manufacturer">Manufacturer</SelectItem>
+                    <SelectItem value="property:materialStrength">Material Strength</SelectItem>
+                    <SelectItem value="property:materialType">Material Type</SelectItem>
+                    <SelectItem value="property:modelNumber">Model Number</SelectItem>
                     <SelectItem value="property:numberOfPiles">Number of Piles</SelectItem>
                     <SelectItem value="property:pileType">Pile Type</SelectItem>
-                    <SelectItem value="property:columnSpacing">Column Spacing</SelectItem>
-                    <SelectItem value="property:facadeArea">Facade Area</SelectItem>
-                    <SelectItem value="property:materialStrength">Material Strength</SelectItem>
-                    <SelectItem value="property:height">Height</SelectItem>
-                    <SelectItem value="property:width">Width</SelectItem>
-                    <SelectItem value="property:length">Length</SelectItem>
-                    <SelectItem value="property:area">Area</SelectItem>
-                    <SelectItem value="property:volume">Volume</SelectItem>
-                    <SelectItem value="property:weight">Weight</SelectItem>
-                    <SelectItem value="property:loadCapacity">Load Capacity</SelectItem>
-                    <SelectItem value="property:thermalResistance">Thermal Resistance</SelectItem>
-                    <SelectItem value="property:fireRating">Fire Rating</SelectItem>
-                    <SelectItem value="property:acousticRating">Acoustic Rating</SelectItem>
-                    <SelectItem value="property:installationDate">Installation Date</SelectItem>
-                    <SelectItem value="property:manufacturer">Manufacturer</SelectItem>
-                    <SelectItem value="property:modelNumber">Model Number</SelectItem>
-                    <SelectItem value="property:maintenanceSchedule">Maintenance Schedule</SelectItem>
-                    <SelectItem value="property:warranty">Warranty</SelectItem>
-                    <SelectItem value="property:cost">Cost</SelectItem>
+                    <SelectItem value="property:structuralSystem">Structural System</SelectItem>
                     <SelectItem value="property:supplier">Supplier</SelectItem>
-                    {/* Generic Properties */}
-                    <SelectItem value="rdfs:label">Label</SelectItem>
+                    <SelectItem value="property:thermalResistance">Thermal Resistance</SelectItem>
+                    <SelectItem value="property:volume">Volume</SelectItem>
+                    <SelectItem value="property:warranty">Warranty</SelectItem>
+                    <SelectItem value="property:weight">Weight</SelectItem>
+                    <SelectItem value="property:width">Width</SelectItem>
+                    {/* Generic Properties - alphabetically sorted */}
                     <SelectItem value="rdfs:comment">Comment</SelectItem>
-                    <SelectItem value="schema:name">Name</SelectItem>
                     <SelectItem value="schema:description">Description</SelectItem>
                     <SelectItem value="schema:identifier">Identifier</SelectItem>
+                    <SelectItem value="rdfs:label">Label</SelectItem>
+                    <SelectItem value="schema:name">Name</SelectItem>
                     <SelectItem value="schema:url">URL</SelectItem>
                     <div className="border-t my-1"></div>
                     <SelectItem value="custom">+ Aangepaste eigenschap</SelectItem>

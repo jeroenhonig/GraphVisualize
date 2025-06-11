@@ -76,7 +76,8 @@ export default function GraphStatistics({ graphData }: GraphStatisticsProps) {
             </div>
             <div className="bg-green-50 p-3 rounded">
               <div className="text-2xl font-bold text-green-600">{graphData.edgeCount}</div>
-              <div className="text-xs text-green-600">Kanten</div>
+              <div className="text-xs text-green-600">Relaties
+</div>
             </div>
           </div>
           

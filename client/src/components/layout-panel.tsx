@@ -121,15 +121,6 @@ export default function LayoutPanel({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onRotateLayout}
-            className="h-6 w-6 p-0"
-            title="Roteer layout"
-          >
-            <Layout className="h-3 w-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
             onClick={onToggleCollapse}
             className="h-6 w-6 p-0"
             title={collapsed ? "Uitklappen" : "Inklappen"}
