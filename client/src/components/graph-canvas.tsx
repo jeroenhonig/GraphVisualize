@@ -1,17 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FileSpreadsheet, Upload, Plus, EyeOff, Edit } from "lucide-react";
-import { createGraphLayout, renderGraph, simulatePhysicsStep, type GraphTransform } from "@/lib/graph-utils";
-import type { GraphData, VisualizationNode, VisualizationEdge } from "@shared/schema";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { nanoid } from "nanoid";
+import { useEffect, useRef, useState } from "react";
+import type { GraphData, VisualizationNode, GraphTransform } from "@shared/schema";
+import { getNodeTypeColor } from "@/lib/color-utils";
 
 interface GraphCanvasProps {
   graph?: GraphData;
@@ -41,1173 +30,586 @@ export default function GraphCanvas({
   transform,
   onTransformChange,
   editMode = false,
-  panelConstraints,
-}: GraphCanvasProps) {
-  const svgRef = useRef<SVGSVGElement>(null);
+  panelConstraints
+}: G6V5WorkingProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // Node dragging state
-  const [draggedNode, setDraggedNode] = useState<VisualizationNode | null>(null);
-  const [nodeDragStart, setNodeDragStart] = useState({ x: 0, y: 0 });
-  const [isNodeDragging, setIsNodeDragging] = useState(false);
-  const [activeDragNodeId, setActiveDragNodeId] = useState<string | null>(null);
-  
-  // Real-time node positions for immediate visual feedback
-  const [localNodePositions, setLocalNodePositions] = useState<Record<string, { x: number; y: number }>>({});
-  
-  // Physics simulation state
-  const [physicsEnabled, setPhysicsEnabled] = useState(true);
-  const [animationId, setAnimationId] = useState<number | null>(null);
-  const [physicsTimeout, setPhysicsTimeout] = useState<NodeJS.Timeout | null>(null);
-  
-  // Drag threshold to distinguish between click and drag
-  const [mouseDownPosition, setMouseDownPosition] = useState<{ x: number; y: number } | null>(null);
-  const [hasDraggedSignificantly, setHasDraggedSignificantly] = useState(false);
-  const DRAG_THRESHOLD = 5; // pixels
-  
-  // Context menu state
-  const [contextMenu, setContextMenu] = useState<{ 
-    x: number; 
-    y: number; 
-    visible: boolean; 
-    nodeId?: string;
-    type: 'canvas' | 'node' | 'relation';
-  }>({
-    x: 0,
-    y: 0,
-    visible: false,
-    type: 'canvas'
-  });
-  const [showCreateNodeDialog, setShowCreateNodeDialog] = useState(false);
-  const [showCreateRelationDialog, setShowCreateRelationDialog] = useState(false);
-  const [nodePosition, setNodePosition] = useState({ x: 0, y: 0 });
-  const [relationSourceNode, setRelationSourceNode] = useState<string | null>(null);
-  
-  // New node form state
-  const [newNodeLabel, setNewNodeLabel] = useState("");
-  const [newNodeType, setNewNodeType] = useState("");
-  const [customNodeType, setCustomNodeType] = useState("");
-  
-  // New relation form state
-  const [newRelationLabel, setNewRelationLabel] = useState("");
-  const [newRelationType, setNewRelationType] = useState("");
-  const [customRelationType, setCustomRelationType] = useState("");
-  
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const graphRef = useRef<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [renderError, setRenderError] = useState<string | null>(null);
 
-  // Extract existing node types from graph data
-  const getExistingNodeTypes = useCallback(() => {
-    if (!graph?.nodes) return [];
-    
-    const types = new Set<string>();
-    graph.nodes.forEach(node => {
-      if (node.type && node.type !== 'default') {
-        types.add(node.type);
-      }
-    });
-    
-    return Array.from(types).sort();
-  }, [graph?.nodes]);
+  useEffect(() => {
+    if (!containerRef.current || !graph) return;
 
-  // Extract existing edge types from graph data
-  const getExistingEdgeTypes = useCallback(() => {
-    if (!graph?.edges) return [];
-    
-    const types = new Set<string>();
-    graph.edges.forEach(edge => {
-      if (edge.type && edge.type !== 'relationship') {
-        types.add(edge.type);
-      }
-    });
-    
-    return Array.from(types).sort();
-  }, [graph?.edges]);
+    const createWorkingGraph = async () => {
+      try {
+        setIsLoading(true);
+        setRenderError(null);
 
-  const existingNodeTypes = getExistingNodeTypes();
-  const existingEdgeTypes = getExistingEdgeTypes();
+        const G6Module = await import('@antv/g6');
+        const { Graph } = G6Module;
 
-  // Calculate available canvas area excluding panels
-  const getCanvasConstraints = useCallback(() => {
-    const headerHeight = 80;
-    const margin = 20;
-    
-    let leftBoundary = margin;
-    let rightBoundary = window.innerWidth - margin;
-    let topBoundary = headerHeight + margin;
-    let bottomBoundary = window.innerHeight - margin;
+        if (graphRef.current) {
+          try {
+            graphRef.current.destroy();
+          } catch (e) {
+            console.warn('Graph cleanup:', e);
+          }
+          graphRef.current = null;
+        }
 
-    // Create a list of all panel boundaries to consider
-    const panelBoundaries: Array<{ left: number; right: number; top: number; bottom: number }> = [];
-
-    // Add left panel if not collapsed
-    if (panelConstraints?.leftPanel && !panelConstraints.leftPanel.collapsed) {
-      panelBoundaries.push({
-        left: panelConstraints.leftPanel.x,
-        right: panelConstraints.leftPanel.x + panelConstraints.leftPanel.width,
-        top: panelConstraints.leftPanel.y,
-        bottom: panelConstraints.leftPanel.y + Math.max(400, window.innerHeight - headerHeight - 100)
-      });
-    }
-
-    // Add right panel if not collapsed
-    if (panelConstraints?.rightPanel && !panelConstraints.rightPanel.collapsed) {
-      panelBoundaries.push({
-        left: panelConstraints.rightPanel.x,
-        right: panelConstraints.rightPanel.x + panelConstraints.rightPanel.width,
-        top: panelConstraints.rightPanel.y,
-        bottom: panelConstraints.rightPanel.y + Math.max(400, window.innerHeight - headerHeight - 100)
-      });
-    }
-
-    // Find the leftmost right edge and rightmost left edge
-    for (const panel of panelBoundaries) {
-      // If panel is on the left side, adjust left boundary
-      if (panel.left < window.innerWidth / 2) {
-        leftBoundary = Math.max(leftBoundary, panel.right + margin);
-      }
-      // If panel is on the right side, adjust right boundary
-      if (panel.right > window.innerWidth / 2) {
-        rightBoundary = Math.min(rightBoundary, panel.left - margin);
-      }
-    }
-
-    return {
-      left: leftBoundary,
-      right: rightBoundary,
-      top: topBoundary,
-      bottom: bottomBoundary,
-      width: Math.max(200, rightBoundary - leftBoundary),
-      height: Math.max(200, bottomBoundary - topBoundary)
-    };
-  }, [panelConstraints]);
-
-  // Improved constraint logic that allows reasonable panning
-  const constrainTransform = useCallback((newTransform: GraphTransform): GraphTransform => {
-    // Allow generous panning bounds - don't constrain too tightly
-    const maxPanDistance = 1000; // Allow panning up to 1000px in any direction
-    
-    let { translateX, translateY, scale } = newTransform;
-
-    // Constrain scale to reasonable bounds
-    scale = Math.min(Math.max(scale, 0.1), 3);
-
-    // Allow generous panning but prevent going too far off-screen
-    translateX = Math.min(Math.max(translateX, -maxPanDistance), maxPanDistance);
-    translateY = Math.min(Math.max(translateY, -maxPanDistance), maxPanDistance);
-
-    return { translateX, translateY, scale };
-  }, []);
-
-  // Create node mutation
-  const createNodeMutation = useMutation({
-    mutationFn: async (nodeData: {
-      graphId: string;
-      nodeId: string;
-      label: string;
-      type: string;
-      x: number;
-      y: number;
-      data: Record<string, any>;
-    }) => {
-      const graphId = graph?.graphId || graph?.id;
-      const response = await apiRequest("POST", `/api/graphs/${graphId}/nodes`, {
-        nodeId: nodeData.nodeId,
-        label: nodeData.label,
-        type: nodeData.type,
-        graphId: graphId,
-        x: nodeData.x,
-        y: nodeData.y,
-        data: nodeData.data,
-      });
-      return response.json();
-    },
-    onSuccess: (newNode) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/graphs", graph?.graphId || graph?.id] });
-      
-      // Add the new node to visible nodes immediately
-      if (newNode && newNode.nodeId) {
-        onVisibleNodesChange(new Set([...Array.from(visibleNodes), newNode.nodeId]));
-      }
-      
-      setContextMenu({ ...contextMenu, visible: false });
-      toast({
-        title: "Node aangemaakt",
-        description: "Nieuwe node is succesvol toegevoegd aan de graaf",
-      });
-    },
-    onError: (error: Error) => {
-      console.error("Error creating node:", error);
-      toast({
-        title: "Fout",
-        description: "Kon node niet aanmaken",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Update node position mutation
-  const updateNodePositionMutation = useMutation({
-    mutationFn: async ({ nodeId, x, y }: { nodeId: string; x: number; y: number }) => {
-      const encodedNodeId = encodeURIComponent(nodeId);
-      const response = await apiRequest("PATCH", `/api/nodes/${encodedNodeId}/position`, { x, y });
-      return response.json();
-    },
-    onMutate: async (variables) => {
-      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
-      await queryClient.cancelQueries({ queryKey: ["/api/graphs", graph?.graphId || graph?.id] });
-      
-      // Snapshot the previous value
-      const previousData = queryClient.getQueryData(["/api/graphs", graph?.graphId || graph?.id]);
-      
-      // Optimistically update the cache
-      queryClient.setQueryData(["/api/graphs", graph?.graphId || graph?.id], (old: any) => {
-        if (!old) return old;
+        const container = containerRef.current;
+        if (!container) return;
         
-        return {
-          ...old,
-          nodes: old.nodes.map((node: any) => 
-            node.id === variables.nodeId 
-              ? { ...node, x: variables.x, y: variables.y }
-              : node
+        container.innerHTML = '';
+        const width = container.clientWidth || 800;
+        const height = container.clientHeight || 600;
+
+        const visibleNodeIds = visibleNodes.size > 0 ? Array.from(visibleNodes) : graph.nodes.map(n => n.id);
+        
+        const nodes = graph.nodes
+          .filter(node => visibleNodeIds.includes(node.id))
+          .slice(0, 100)
+          .map(node => {
+            const colorData = getNodeTypeColor(node.type);
+            
+            return {
+              id: node.id,
+              label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
+              x: node.x,
+              y: node.y,
+              data: {
+                ...node,
+                colorData,
+                nodeData: node.data
+              }
+            };
+          });
+
+        const edges = graph.edges
+          .filter(edge => 
+            nodes.find(n => n.id === edge.source) && 
+            nodes.find(n => n.id === edge.target)
           )
-        };
-      });
-      
-      return { previousData };
-    },
-    onSuccess: (data, variables) => {
-      // Verify that the server response matches our expected position
-      const expectedX = Math.round(variables.x);
-      const expectedY = Math.round(variables.y);
-      
-      // Check if server returned the correct position
-      if (data && data.x === expectedX && data.y === expectedY) {
-        // Server confirmed the correct position, clear local state
-        setLocalNodePositions(prev => {
-          const updated = { ...prev };
-          delete updated[variables.nodeId];
-          return updated;
-        });
-        
-        // Now it's safe to invalidate and refresh
-        queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/graphs", graph?.graphId || graph?.id] });
-      } else {
-        // Server position doesn't match, keep local position until next attempt
-        console.warn(`Position mismatch for node ${variables.nodeId}: expected (${expectedX}, ${expectedY}), got (${data?.x}, ${data?.y})`);
-      }
-    },
-    onError: (error: Error, variables, context) => {
-      // Rollback the optimistic update
-      if (context?.previousData) {
-        queryClient.setQueryData(["/api/graphs", graph?.graphId || graph?.id], context.previousData);
-      }
-      
-      // Clear local position on error
-      setLocalNodePositions(prev => {
-        const updated = { ...prev };
-        delete updated[variables.nodeId];
-        return updated;
-      });
-      
-      toast({
-        title: "Fout",
-        description: "Kon node positie niet bijwerken",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Create relation mutation
-  const createRelationMutation = useMutation({
-    mutationFn: async ({ sourceId, targetId, label, type }: { 
-      sourceId: string; 
-      targetId: string; 
-      label?: string; 
-      type?: string;
-    }) => {
-      const graphId = graph?.graphId || graph?.id;
-      const response = await apiRequest("POST", `/api/graphs/${graphId}/edges`, {
-        sourceId,
-        targetId,
-        label: label || "relates_to",
-        type: type || "relationship"
-      });
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
-      setShowCreateRelationDialog(false);
-      setRelationSourceNode(null);
-      setNewRelationLabel("");
-      setNewRelationType("");
-      setCustomRelationType("");
-      toast({
-        title: "Relatie aangemaakt",
-        description: "Nieuwe relatie is succesvol toegevoegd",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Fout",
-        description: "Kon relatie niet aanmaken",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Context menu handlers
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    console.log('Context menu triggered', { graphId: graph?.graphId || graph?.id, clientX: e.clientX, clientY: e.clientY });
-    
-    if (!graph?.graphId && !graph?.id) {
-      console.log('No graph ID available', { graph });
-      return;
-    }
-    
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect) {
-      console.log('No SVG rect available');
-      return;
-    }
-
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    // Convert screen coordinates to SVG coordinates
-    const svgX = (x - transform.translateX) / transform.scale;
-    const svgY = (y - transform.translateY) / transform.scale;
-    
-    console.log('Setting node position and context menu', { svgX, svgY, clientX: e.clientX, clientY: e.clientY });
-    
-    setNodePosition({ x: svgX, y: svgY });
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      visible: true,
-      type: 'canvas'
-    });
-  }, [graph?.id, transform]);
-
-  const handleCreateNode = () => {
-    setContextMenu({ ...contextMenu, visible: false });
-    setShowCreateNodeDialog(true);
-  };
-
-  const handleCreateNodeSubmit = async () => {
-    if (!newNodeLabel.trim() || !graph?.id) {
-      toast({
-        title: "Fout",
-        description: "Node naam is verplicht",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Determine the final type to use
-    let finalType = newNodeType;
-    if (newNodeType === "custom" && customNodeType.trim()) {
-      finalType = customNodeType.trim();
-    } else if (!finalType) {
-      finalType = "Entity"; // Default fallback
-    }
-
-    try {
-      const newNodeId = nanoid();
-      const newNode = await createNodeMutation.mutateAsync({
-        graphId: graph.graphId || graph.id,
-        nodeId: newNodeId,
-        label: newNodeLabel,
-        type: finalType,
-        x: nodePosition.x,
-        y: nodePosition.y,
-        data: {},
-      });
-
-      // Make the new node visible immediately
-      onVisibleNodesChange(new Set([...Array.from(visibleNodes), newNodeId]));
-
-      setShowCreateNodeDialog(false);
-      setNewNodeLabel("");
-      setNewNodeType("");
-      setCustomNodeType("");
-    } catch (error) {
-      console.error("Error creating node:", error);
-    }
-  };
-
-
-  // Close context menu when clicking elsewhere
-  useEffect(() => {
-    const handleClickOutside = () => {
-      setContextMenu({ ...contextMenu, visible: false });
-    };
-
-    if (contextMenu.visible) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [contextMenu.visible]);
-
-  // Initialize layout when graph changes
-  useEffect(() => {
-    if (graph?.nodes && graph?.edges) {
-      setIsLoading(true);
-      
-      // Simulate layout calculation
-      setTimeout(() => {
-        const layoutNodes = createGraphLayout(graph.nodes, graph.edges);
-        
-        // Update visible nodes to show initial set
-        if (visibleNodes.size === 0 && layoutNodes.length > 0) {
-          const initialVisible = new Set(layoutNodes.slice(0, Math.min(20, layoutNodes.length)).map(n => n.id));
-          onVisibleNodesChange(initialVisible);
-        }
-        
-        // Disable physics after initial layout to prevent position interference
-        setPhysicsEnabled(false);
-        setIsLoading(false);
-      }, 500);
-    }
-  }, [graph?.id]);
-
-  // Handle node context menu for relation creation
-  const handleNodeContextMenu = useCallback((e: React.MouseEvent, nodeId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      visible: true,
-      nodeId,
-      type: 'node'
-    });
-  }, []);
-
-  // Render graph with real-time node positions
-  useEffect(() => {
-    if (!graph || !svgRef.current) return;
-
-    const visibleNodesArray = graph.nodes?.filter(node => visibleNodes.has(node.id)) || [];
-    const visibleEdges = graph.edges?.filter(
-      edge => visibleNodes.has(edge.source) && visibleNodes.has(edge.target)
-    ) || [];
-
-    // Apply local positions for real-time dragging feedback - prioritize local positions absolutely
-    const nodesWithLocalPositions = visibleNodesArray.map(node => {
-      const localPos = localNodePositions[node.id];
-      if (localPos) {
-        // During dragging, local position has absolute priority
-        return { ...node, x: localPos.x, y: localPos.y };
-      }
-      return node;
-    });
-
-    renderGraph(
-      svgRef.current,
-      nodesWithLocalPositions,
-      visibleEdges,
-      {
-        selectedNodeId: selectedNode?.id,
-        onNodeClick: onNodeSelect,
-        onNodeDoubleClick: (nodeId: string) => {
-          // Temporarily enable physics for node expansion
-          setPhysicsEnabled(true);
-          
-          // Clear any existing timeout
-          if (physicsTimeout) {
-            clearTimeout(physicsTimeout);
-          }
-          
-          // Auto-disable physics after 3 seconds
-          const timeout = setTimeout(() => {
-            setPhysicsEnabled(false);
-          }, 3000);
-          setPhysicsTimeout(timeout);
-          
-          // Call the expand function
-          onNodeExpand(nodeId);
-        },
-        onNodeContextMenu: (e: MouseEvent, nodeId: string) => {
-          handleNodeContextMenu(e as any, nodeId);
-        },
-        transform,
-      }
-    );
-  }, [graph, visibleNodes, selectedNode, transform, onNodeSelect, onNodeExpand, localNodePositions, handleNodeContextMenu, physicsTimeout]);
-
-  // Physics simulation loop
-  useEffect(() => {
-    if (!physicsEnabled || editMode || isNodeDragging || !graph?.nodes || !containerRef.current) return;
-
-    const animate = () => {
-      const bounds = {
-        width: containerRef.current?.clientWidth || 1200,
-        height: containerRef.current?.clientHeight || 800
-      };
-
-      const visibleNodesArray = graph.nodes?.filter(node => visibleNodes.has(node.id)) || [];
-      const visibleEdges = graph.edges?.filter(
-        edge => visibleNodes.has(edge.source) && visibleNodes.has(edge.target)
-      ) || [];
-
-      if (visibleNodesArray.length > 0) {
-        // Apply local positions from dragging
-        const nodesWithLocalPositions = visibleNodesArray.map(node => {
-          const localPos = localNodePositions[node.id];
-          return localPos ? { ...node, x: localPos.x, y: localPos.y } : node;
-        });
-
-        // Run physics simulation
-        const updatedNodes = simulatePhysicsStep(nodesWithLocalPositions, visibleEdges, bounds);
-        
-        // Update local positions with physics results (unless node is being dragged)
-        if (!isNodeDragging) {
-          const newLocalPositions: Record<string, { x: number; y: number }> = {};
-          updatedNodes.forEach(node => {
-            // Don't override positions of nodes that were recently dragged
-            if (!localNodePositions[node.id] || !activeDragNodeId || activeDragNodeId !== node.id) {
-              newLocalPositions[node.id] = { x: node.x, y: node.y };
+          .slice(0, 200)
+          .map(edge => ({
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+            data: {
+              ...edge,
+              label: edge.label || '',
+              type: edge.type || 'line'
             }
-          });
-          setLocalNodePositions(prev => ({ ...prev, ...newLocalPositions }));
-        }
-      }
-
-      const id = requestAnimationFrame(animate);
-      setAnimationId(id);
-    };
-
-    const id = requestAnimationFrame(animate);
-    setAnimationId(id);
-
-    return () => {
-      if (id) cancelAnimationFrame(id);
-    };
-  }, [graph, visibleNodes, physicsEnabled, localNodePositions, isNodeDragging]);
-
-  // Cleanup animation on unmount
-  useEffect(() => {
-    return () => {
-      if (animationId) cancelAnimationFrame(animationId);
-    };
-  }, [animationId]);
-
-  // Enhanced mouse handlers for both panning and node dragging
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    const target = e.target as Element;
-    const nodeElement = target.closest('[data-node-id]');
-    
-    // Store initial mouse position for drag threshold
-    setMouseDownPosition({ x: e.clientX, y: e.clientY });
-    setHasDraggedSignificantly(false);
-    
-    if (nodeElement && e.button === 0) {
-      // Node interaction
-      const nodeId = nodeElement.getAttribute('data-node-id');
-      const node = graph?.nodes.find(n => n.id === nodeId);
-      
-      if (node) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Select node immediately
-        onNodeSelect(node);
-        
-        // Use SVG point transformation for accurate coordinate mapping
-        if (svgRef.current) {
-          const svg = svgRef.current;
-          const pt = svg.createSVGPoint();
-          pt.x = e.clientX;
-          pt.y = e.clientY;
-          
-          // Transform screen coordinates to SVG coordinates
-          const svgPoint = pt.matrixTransform(svg.getScreenCTM()?.inverse());
-          const currentPos = localNodePositions[node.id] || { x: node.x, y: node.y };
-          
-          setDraggedNode(node);
-          // Store the offset from mouse to node center
-          setNodeDragStart({ 
-            x: svgPoint.x - currentPos.x, 
-            y: svgPoint.y - currentPos.y
-          });
-        }
-        return;
-      }
-    }
-    
-    if (e.button === 0) { // Left mouse button - canvas panning setup
-      e.preventDefault();
-      setDragStart({ x: e.clientX - transform.translateX, y: e.clientY - transform.translateY });
-    }
-  }, [graph?.nodes, localNodePositions, transform, onNodeSelect]);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    // Check if we've moved beyond the drag threshold
-    if (mouseDownPosition && !hasDraggedSignificantly) {
-      const deltaX = Math.abs(e.clientX - mouseDownPosition.x);
-      const deltaY = Math.abs(e.clientY - mouseDownPosition.y);
-      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-      
-      if (distance > DRAG_THRESHOLD) {
-        setHasDraggedSignificantly(true);
-        // Start dragging based on what was set up in mouseDown
-        if (draggedNode) {
-          setIsNodeDragging(true);
-          setActiveDragNodeId(draggedNode.id);
-        } else {
-          setIsDragging(true);
-        }
-      }
-    }
-
-    // Handle dragging for nodes that have been set up for dragging
-    if (draggedNode && (isNodeDragging || (hasDraggedSignificantly && !isNodeDragging))) {
-      // Use SVG point transformation for accurate dragging
-      if (svgRef.current) {
-        const svg = svgRef.current;
-        const pt = svg.createSVGPoint();
-        pt.x = e.clientX;
-        pt.y = e.clientY;
-        
-        // Transform screen coordinates to SVG coordinates
-        const svgPoint = pt.matrixTransform(svg.getScreenCTM()?.inverse());
-        
-        // Position node maintaining the original offset
-        const newX = svgPoint.x - nodeDragStart.x;
-        const newY = svgPoint.y - nodeDragStart.y;
-        
-        // Update local position for immediate visual feedback
-        setLocalNodePositions(prev => ({
-          ...prev,
-          [draggedNode.id]: { x: newX, y: newY }
-        }));
-      }
-    } else if (isDragging) {
-      // Canvas panning with constraints
-      const deltaX = e.clientX - dragStart.x;
-      const deltaY = e.clientY - dragStart.y;
-      const newTransform = {
-        ...transform,
-        translateX: deltaX,
-        translateY: deltaY
-      };
-      
-      // Apply constraints to keep canvas within panel bounds
-      const constrainedTransform = constrainTransform(newTransform);
-      onTransformChange(constrainedTransform);
-    }
-  }, [isNodeDragging, draggedNode, nodeDragStart, isDragging, dragStart, transform, onTransformChange, mouseDownPosition, hasDraggedSignificantly, DRAG_THRESHOLD]);
-
-  const handleMouseUp = useCallback(() => {
-    if (isNodeDragging && draggedNode && hasDraggedSignificantly) {
-      // Only save position if we actually dragged significantly
-      const localPos = localNodePositions[draggedNode.id];
-      if (localPos) {
-        console.log(`Saving position for ${draggedNode.id}:`, localPos);
-        updateNodePositionMutation.mutate({
-          nodeId: draggedNode.id,
-          x: Math.round(localPos.x),
-          y: Math.round(localPos.y)
-        });
-        
-        // Keep the local position until the mutation succeeds
-        // Don't clear it immediately to prevent visual jumping
-      }
-    }
-    
-    // Reset drag states but keep local positions for dragged node
-    setIsDragging(false);
-    setIsNodeDragging(false);
-    setDraggedNode(null);
-    setMouseDownPosition(null);
-    setHasDraggedSignificantly(false);
-    setActiveDragNodeId(null);
-  }, [isNodeDragging, draggedNode, hasDraggedSignificantly, localNodePositions, updateNodePositionMutation]);
-
-  const handleCreateRelation = useCallback((targetNodeId: string) => {
-    if (relationSourceNode && targetNodeId !== relationSourceNode) {
-      setShowCreateRelationDialog(true);
-      setContextMenu({ ...contextMenu, visible: false });
-    }
-  }, [relationSourceNode, contextMenu]);
-
-  const handleHideNode = useCallback((nodeId: string) => {
-    // Create new set without the node to hide
-    const newVisibleNodes = new Set(visibleNodes);
-    newVisibleNodes.delete(nodeId);
-    
-    // Update visible nodes (this will hide the node and connected edges)
-    onVisibleNodesChange(newVisibleNodes);
-    
-    // Close context menu
-    setContextMenu({ ...contextMenu, visible: false });
-    
-    // Show confirmation toast
-    const node = graph?.nodes.find(n => n.id === nodeId);
-    toast({
-      title: "Node Verborgen",
-      description: `${node?.label || nodeId} en bijbehorende relaties zijn verborgen`,
-    });
-  }, [visibleNodes, onVisibleNodesChange, contextMenu, graph?.nodes, toast]);
-
-  const handleEditNode = useCallback((nodeId: string) => {
-    const node = graph?.nodes.find(n => n.id === nodeId);
-    if (node && onNodeEdit) {
-      onNodeEdit(node);
-    }
-    setContextMenu({ ...contextMenu, visible: false });
-  }, [graph?.nodes, onNodeEdit, contextMenu]);
-
-  const handleStartRelation = useCallback((nodeId: string) => {
-    setRelationSourceNode(nodeId);
-    setContextMenu({ ...contextMenu, visible: false });
-    toast({
-      title: "Relatie Modus",
-      description: "Rechtermuisklik op een andere node om een relatie te maken",
-    });
-  }, [contextMenu, toast]);
-
-  // Zoom handler with constraints
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    
-    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = Math.min(Math.max(transform.scale * zoomFactor, 0.1), 3);
-
-    const newTransform = {
-      ...transform,
-      scale: newScale,
-    };
-    
-    // Apply constraints to keep canvas within panel bounds
-    const constrainedTransform = constrainTransform(newTransform);
-    onTransformChange(constrainedTransform);
-  }, [transform, onTransformChange, constrainTransform]);
-
-  // Global mouse event handlers for smooth dragging
-  useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      // Check if we've moved beyond the drag threshold
-      if (mouseDownPosition && !hasDraggedSignificantly) {
-        const deltaX = Math.abs(e.clientX - mouseDownPosition.x);
-        const deltaY = Math.abs(e.clientY - mouseDownPosition.y);
-        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-        
-        if (distance > DRAG_THRESHOLD) {
-          setHasDraggedSignificantly(true);
-          // Start dragging based on what was set up in mouseDown
-          if (draggedNode) {
-            setIsNodeDragging(true);
-            setActiveDragNodeId(draggedNode.id);
-          } else {
-            setIsDragging(true);
-          }
-        }
-      }
-
-      if (!isDragging && !isNodeDragging) return;
-
-      // Handle dragging for nodes that have been set up for dragging
-      if (draggedNode && isNodeDragging) {
-        if (svgRef.current) {
-          const svg = svgRef.current;
-          const pt = svg.createSVGPoint();
-          pt.x = e.clientX;
-          pt.y = e.clientY;
-          
-          // Transform screen coordinates to SVG coordinates
-          const svgPoint = pt.matrixTransform(svg.getScreenCTM()?.inverse());
-          
-          // Position node maintaining the original offset
-          const newX = svgPoint.x - nodeDragStart.x;
-          const newY = svgPoint.y - nodeDragStart.y;
-          
-          setLocalNodePositions(prev => ({
-            ...prev,
-            [draggedNode.id]: { x: newX, y: newY }
           }));
-        }
-      } else if (isDragging) {
-        // Canvas panning with constraints
-        const deltaX = e.clientX - dragStart.x;
-        const deltaY = e.clientY - dragStart.y;
-        const newTransform = {
-          ...transform,
-          translateX: deltaX,
-          translateY: deltaY
-        };
+
+        console.log('Creating G6 v5.0.48 working graph:', { nodes: nodes.length, edges: edges.length });
+
+        // Create G6 graph with optimized styling and interactivity
+        const g6Graph = new Graph({
+          container,
+          width,
+          height,
+          data: { nodes, edges },
+          node: {
+            style: {
+              size: 25,
+              fill: (d: any) => d.data?.colorData?.secondary || '#e6f3ff',
+              stroke: (d: any) => d.data?.colorData?.primary || '#1890ff',
+              lineWidth: 2,
+              labelText: (d: any) => d.label || d.id,
+              labelFill: '#333',
+              labelFontSize: 11,
+              labelPosition: 'bottom'
+            },
+            state: {
+              selected: {
+                fill: '#ffeb3b',
+                stroke: '#ff9800',
+                lineWidth: 4,
+                size: 30
+              },
+              hover: {
+                fill: '#ffc107',
+                stroke: '#ff6f00',
+                lineWidth: 3,
+                size: 28
+              }
+            }
+          },
+          edge: {
+            style: {
+              stroke: '#999',
+              lineWidth: 1.5,
+              endArrow: true,
+              labelText: (d: any) => d.label || '',
+              labelFill: '#666',
+              labelFontSize: 10
+            }
+          },
+          layout: {
+            type: 'force',
+            preventOverlap: true,
+            nodeSize: 30,
+            linkDistance: 120,
+            nodeStrength: -400,
+            edgeStrength: 0.5,
+            maxIteration: 300,
+            collideStrength: 1.5
+          },
+          behaviors: ['zoom-canvas', 'drag-canvas', 'drag-element']
+        });
+
+        // Render the graph with enhanced visibility
+        g6Graph.render();
+
+        // Store selected node for manual highlighting
+        let selectedNodeId: string | null = null;
         
-        const constrainedTransform = constrainTransform(newTransform);
-        onTransformChange(constrainedTransform);
-      }
-    };
+        // Drag-and-drop relationship builder state
+        let isDraggingForRelation = false;
+        let relationSourceNode: string | null = null;
+        let tempEdge: any = null;
+        let relationMode = false;
+        
+        // Node click handler with relationship creation support
+        g6Graph.on('node:click', (event: any) => {
+          console.log('Node clicked:', event);
+          const nodeId = event.itemId || event.target?.id;
+          
+          if (nodeId) {
+            // Handle relationship creation mode
+            if (relationMode && relationSourceNode && relationSourceNode !== nodeId) {
+              const sourceNode = nodes.find(n => n.id === relationSourceNode);
+              const targetNode = nodes.find(n => n.id === nodeId);
+              
+              if (sourceNode && targetNode) {
+                console.log('Creating relationship:', sourceNode.data.label, '→', targetNode.data.label);
+                
+                // Create new edge
+                const newEdgeId = `edge_${relationSourceNode}_${nodeId}_${Date.now()}`;
+                const newEdge = {
+                  id: newEdgeId,
+                  source: relationSourceNode,
+                  target: nodeId,
+                  data: {
+                    label: 'nieuwe relatie',
+                    type: 'custom'
+                  }
+                };
+                
+                // Add edge to graph
+                g6Graph.addEdgeData([newEdge]);
+                
+                // Reset relation mode
+                relationMode = false;
+                if (relationSourceNode) {
+                  g6Graph.setElementState(relationSourceNode, 'relation-source', false);
+                }
+                relationSourceNode = null;
+                
+                console.log('Relationship created successfully');
+              }
+              return;
+            }
+            
+            // Reset relation mode if clicking same node
+            if (relationMode && relationSourceNode === nodeId) {
+              relationMode = false;
+              if (relationSourceNode) {
+                g6Graph.setElementState(relationSourceNode, 'relation-source', false);
+              }
+              relationSourceNode = null;
+              console.log('Relation mode cancelled');
+              return;
+            }
+            
+            // Normal node selection
+            const originalNode = nodes.find(n => n.id === nodeId);
+            if (originalNode) {
+              console.log('Node selected:', originalNode.data.label);
+              
+              // Update selected node tracking
+              selectedNodeId = nodeId;
+              
+              // Pass node data to parent component
+              const visualizationNode = {
+                id: originalNode.data.id,
+                label: originalNode.data.label,
+                type: originalNode.data.type,
+                data: originalNode.data.nodeData || {},
+                x: originalNode.data.x,
+                y: originalNode.data.y
+              };
+              
+              onNodeSelect(visualizationNode as any);
+              
+              // Use G6 v5 element state management
+              try {
+                // Clear all selections first
+                nodes.forEach((node: any) => {
+                  g6Graph.setElementState(node.id, 'selected', false);
+                });
+                
+                // Set selected state on clicked node
+                g6Graph.setElementState(nodeId, 'selected', true);
+                
+                console.log(`Node "${originalNode.label}" highlighted`);
+              } catch (e) {
+                console.warn('Selection highlighting failed:', e);
+              }
+            }
+          }
+        });
 
-    const handleGlobalMouseUp = () => {
-      if (isNodeDragging && draggedNode && hasDraggedSignificantly) {
-        const localPos = localNodePositions[draggedNode.id];
-        if (localPos) {
-          updateNodePositionMutation.mutate({
-            nodeId: draggedNode.id,
-            x: Math.round(localPos.x),
-            y: Math.round(localPos.y)
+        g6Graph.on('node:dblclick', (event: any) => {
+          console.log('Node double clicked:', event);
+          const nodeId = event.itemId || event.target?.id;
+          
+          if (nodeId) {
+            onNodeExpand(nodeId);
+          }
+        });
+
+        // Context menu implementation
+        let contextMenu: HTMLDivElement | null = null;
+        let contextMenuTargetNode: string | null = null;
+
+        // Create context menu element
+        const createContextMenu = () => {
+          if (contextMenu) return contextMenu;
+          
+          contextMenu = document.createElement('div');
+          contextMenu.className = 'g6-context-menu';
+          contextMenu.style.cssText = `
+            position: fixed;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 1000;
+            padding: 4px 0;
+            min-width: 150px;
+            display: none;
+          `;
+          
+          const menuItems = [
+            { label: 'Bewerk Node', action: 'edit' },
+            { label: 'Maak Relatie', action: 'relation' },
+            { label: 'Uitklappen', action: 'expand' },
+            { label: 'Verwijder Node', action: 'delete' }
+          ];
+          
+          menuItems.forEach(item => {
+            const menuItem = document.createElement('div');
+            menuItem.textContent = item.label;
+            menuItem.style.cssText = `
+              padding: 8px 16px;
+              cursor: pointer;
+              font-size: 14px;
+              color: #333;
+            `;
+            menuItem.addEventListener('mouseenter', () => {
+              menuItem.style.backgroundColor = '#f5f5f5';
+            });
+            menuItem.addEventListener('mouseleave', () => {
+              menuItem.style.backgroundColor = 'transparent';
+            });
+            menuItem.addEventListener('click', () => {
+              handleContextMenuAction(item.action);
+            });
+            contextMenu!.appendChild(menuItem);
           });
-        }
+          
+          document.body.appendChild(contextMenu);
+          return contextMenu;
+        };
+
+        // Handle context menu actions
+        const handleContextMenuAction = (action: string) => {
+          if (!contextMenuTargetNode) return;
+          
+          const originalNode = nodes.find(n => n.id === contextMenuTargetNode);
+          if (!originalNode) return;
+          
+          const visualizationNode = {
+            id: originalNode.data.id,
+            label: originalNode.data.label,
+            type: originalNode.data.type,
+            data: originalNode.data.nodeData || {},
+            x: originalNode.data.x,
+            y: originalNode.data.y
+          };
+          
+          switch (action) {
+            case 'edit':
+              if (onNodeEdit) {
+                console.log('Opening node editor:', originalNode.data.label);
+                onNodeEdit(visualizationNode as any);
+              }
+              break;
+            case 'expand':
+              console.log('Expanding node:', originalNode.data.label);
+              onNodeExpand(contextMenuTargetNode);
+              break;
+            case 'relation':
+              console.log('Starting relation mode from:', originalNode.data.label);
+              relationMode = true;
+              relationSourceNode = contextMenuTargetNode;
+              // Highlight source node for relation creation
+              g6Graph.setElementState(contextMenuTargetNode, 'relation-source', true);
+              console.log('Relation mode active - click another node to create connection');
+              break;
+            case 'delete':
+              console.log('Delete node requested:', originalNode.data.label);
+              // TODO: Implement node deletion
+              break;
+          }
+          
+          hideContextMenu();
+        };
+
+        // Show context menu
+        const showContextMenu = (x: number, y: number, nodeId: string) => {
+          const menu = createContextMenu();
+          contextMenuTargetNode = nodeId;
+          
+          menu.style.left = x + 'px';
+          menu.style.top = y + 'px';
+          menu.style.display = 'block';
+        };
+
+        // Hide context menu
+        const hideContextMenu = () => {
+          if (contextMenu) {
+            contextMenu.style.display = 'none';
+            contextMenuTargetNode = null;
+          }
+        };
+
+        // Right-click context menu for node editing
+        g6Graph.on('node:contextmenu', (event: any) => {
+          event.preventDefault?.();
+          console.log('Node right-clicked:', event);
+          const nodeId = event.itemId || event.target?.id;
+          
+          if (nodeId) {
+            const originalEvent = event.originalEvent || event;
+            showContextMenu(originalEvent.clientX, originalEvent.clientY, nodeId);
+          }
+        });
+
+
+
+        // Hide context menu on outside click
+        document.addEventListener('click', (e) => {
+          if (contextMenu && !contextMenu.contains(e.target as Node)) {
+            hideContextMenu();
+          }
+        });
+
+        // Simple layout completion tracking without stopping
+        g6Graph.on('afterlayout', () => {
+          console.log('Layout completed - nodes positioned');
+        });
+
+        g6Graph.on('node:dragstart', (event: any) => {
+          console.log('Node drag started');
+          // Don't restart layout - just fix the position
+          refreshDraggedNodePosition(event);
+        });
+
+        g6Graph.on('node:drag', (event: any) => {
+          console.log('Node dragging');
+          refreshDraggedNodePosition(event);
+        });
+
+        g6Graph.on('node:dragend', (event: any) => {
+          console.log('Node drag ended');
+          const nodeId = event.itemId || event.target?.id;
+          if (nodeId) {
+            try {
+              const nodeData = g6Graph.getNodeData(nodeId);
+              if (nodeData) {
+                // Release fixed position to allow natural layout
+                delete nodeData.fx;
+                delete nodeData.fy;
+              }
+            } catch (e) {
+              console.warn('Failed to release drag position:', e);
+            }
+          }
+        });
+
+        // Function to handle dragged node position (adapted from G6 v3 docs)
+        const refreshDraggedNodePosition = (event: any) => {
+          const nodeId = event.itemId || event.target?.id;
+          if (nodeId && event.canvas) {
+            try {
+              const nodeData = g6Graph.getNodeData(nodeId);
+              if (nodeData) {
+                // Fix position during drag to prevent layout interference
+                nodeData.fx = event.canvas.x;
+                nodeData.fy = event.canvas.y;
+              }
+            } catch (e) {
+              console.warn('Failed to update drag position:', e);
+            }
+          }
+        };
+
+        // Hover effects
+        g6Graph.on('node:mouseenter', (event: any) => {
+          const { itemId } = event;
+          if (itemId) {
+            g6Graph.setElementState(itemId, 'hover', true);
+          }
+        });
+
+        g6Graph.on('node:mouseleave', (event: any) => {
+          const { itemId } = event;
+          if (itemId) {
+            g6Graph.setElementState(itemId, 'hover', false);
+          }
+        });
+
+        // Edge selection
+        g6Graph.on('edge:click', (event: any) => {
+          console.log('Edge clicked:', event);
+          const { itemId, itemType } = event;
+          
+          if (itemType === 'edge' && itemId) {
+            const edgeData = edges.find(e => e.id === itemId);
+            if (edgeData) {
+              console.log('Edge selected:', edgeData.data?.data?.label || itemId);
+            }
+          }
+        });
+
+        // Canvas click to clear selection and hide context menu
+        g6Graph.on('canvas:click', () => {
+          console.log('Canvas clicked - clearing selection');
+          selectedNodeId = null;
+          hideContextMenu();
+          
+          // Reset relation mode
+          if (relationMode && relationSourceNode) {
+            relationMode = false;
+            g6Graph.setElementState(relationSourceNode, 'relation-source', false);
+            relationSourceNode = null;
+            console.log('Relation mode cancelled');
+          }
+          
+          // Reset all nodes to normal state
+          try {
+            nodes.forEach((node: any) => {
+              g6Graph.setElementState(node.id, 'selected', false);
+            });
+            console.log('All selections cleared - nodes back to normal state');
+          } catch (e) {
+            console.warn('Failed to clear selections:', e);
+          }
+        });
+
+        // Render graph
+        await g6Graph.render();
+
+        // Check if rendering worked
+        setTimeout(() => {
+          const hasElements = container.children.length > 0;
+          console.log('G6 v5: Render success check:', { 
+            hasElements, 
+            childCount: container.children.length,
+            containerSize: { width: container.clientWidth, height: container.clientHeight }
+          });
+          
+          if (!hasElements) {
+            setRenderError('G6 v5.0.48 rendering incomplete');
+          }
+        }, 1000);
+
+        graphRef.current = g6Graph;
+        setIsLoading(false);
+        console.log('G6 v5.0.48 working graph created');
+
+      } catch (error) {
+        console.error('G6 v5.0.48 creation error:', error);
+        setRenderError(`G6 v5.0.48 error: ${error instanceof Error ? error.message : 'Creation failed'}`);
+        setIsLoading(false);
       }
-      
-      setIsDragging(false);
-      setIsNodeDragging(false);
-      setDraggedNode(null);
-      setMouseDownPosition(null);
-      setHasDraggedSignificantly(false);
-      setActiveDragNodeId(null);
     };
 
-    if (mouseDownPosition || isDragging || isNodeDragging) {
-      document.addEventListener('mousemove', handleGlobalMouseMove);
-      document.addEventListener('mouseup', handleGlobalMouseUp);
-      
-      return () => {
-        document.removeEventListener('mousemove', handleGlobalMouseMove);
-        document.removeEventListener('mouseup', handleGlobalMouseUp);
-      };
-    }
-  }, [
-    isDragging, 
-    isNodeDragging, 
-    draggedNode, 
-    nodeDragStart, 
-    dragStart, 
-    transform, 
-    onTransformChange, 
-    constrainTransform,
-    mouseDownPosition,
-    hasDraggedSignificantly,
-    DRAG_THRESHOLD,
-    localNodePositions,
-    updateNodePositionMutation
-  ]);
+    createWorkingGraph();
 
-  if (!graph) {
+    return () => {
+      if (graphRef.current) {
+        try {
+          graphRef.current.destroy();
+        } catch (e) {
+          console.warn('Cleanup error:', e);
+        }
+        graphRef.current = null;
+      }
+    };
+  }, [graph, visibleNodes]);
+
+  if (renderError) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Card className="max-w-md">
-          <CardContent className="p-8 text-center">
-            <FileSpreadsheet className="h-16 w-16 text-gray-300 mx-auto mb-6" />
-            <h3 className="text-xl font-medium text-gray-900 mb-2">Geen Grafiek Geladen</h3>
-            <p className="text-gray-600 mb-6">
-              Upload een Excel bestand om te beginnen met het visualiseren van uw data als een interactieve grafiek.
+      <div className="w-full h-full flex items-center justify-center bg-white dark:bg-gray-900">
+        <div className="text-center p-8">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+            G6 v5.0.48 Working Implementation
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            {renderError}
+          </p>
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+            <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+              Infrastructure Dataset
+            </h4>
+            <p className="text-sm text-blue-600 dark:text-blue-300">
+              {graph?.nodes?.length || 0} nodes • {graph?.edges?.length || 0} edges
             </p>
-            <Button>
-              <Upload className="h-4 w-4 mr-2" />
-              Excel Bestand Uploaden
-            </Button>
-          </CardContent>
-        </Card>
+            <p className="text-xs text-gray-500 mt-2">
+              RDF infrastructure model - force layout with performance optimization
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div 
-      ref={containerRef}
-      className="w-full h-full relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100"
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      onWheel={handleWheel}
-    >
-      {/* Grid Background */}
-      <svg className="absolute inset-0 w-full h-full pointer-events-none">
-        <defs>
-          <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-            <path d="M 50 0 L 0 0 0 50" fill="none" stroke="hsl(210, 40%, 90%)" strokeWidth="1" opacity="0.5"/>
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#grid)" />
-      </svg>
-
-      {/* Main Graph SVG */}
-      <svg
-        ref={svgRef}
-        className="w-full h-full cursor-grab"
-        style={{
-          cursor: isDragging ? 'grabbing' : 'grab',
-        }}
-        viewBox="0 0 1200 800"
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onWheel={handleWheel}
-        onContextMenu={handleContextMenu}
+    <div className="w-full h-full relative bg-white dark:bg-gray-900">
+      <div
+        ref={containerRef}
+        className="w-full h-full"
+        style={{ minHeight: '400px' }}
       />
-
-      {/* Loading State */}
       {isLoading && (
-        <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center">
-          <Card>
-            <CardContent className="p-6 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Grafiek wordt geladen...</p>
-              <p className="text-sm text-gray-500 mt-1">
-                Verwerking van {graph.nodeCount} nodes...
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-
-
-
-
-      {/* Context Menu */}
-      {contextMenu.visible && (
-        <div
-          className="fixed bg-white border border-gray-200 rounded-lg shadow-xl py-1 z-[9999] min-w-[160px]"
-          style={{
-            left: `${contextMenu.x}px`,
-            top: `${contextMenu.y}px`,
-            pointerEvents: 'auto',
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          {contextMenu.type === 'canvas' && (
-            <button
-              onClick={handleCreateNode}
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              Nieuwe Node maken
-            </button>
-          )}
-          
-          {contextMenu.type === 'node' && contextMenu.nodeId && (
-            <>
-              <button
-                onClick={() => handleEditNode(contextMenu.nodeId!)}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-              >
-                <Edit className="h-4 w-4" />
-                Bewerk node
-              </button>
-              <div className="border-t border-gray-200 my-1"></div>
-              <button
-                onClick={() => handleStartRelation(contextMenu.nodeId!)}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-                Start relatie
-              </button>
-              {relationSourceNode && relationSourceNode !== contextMenu.nodeId && (
-                <button
-                  onClick={() => handleCreateRelation(contextMenu.nodeId!)}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  Maak relatie
-                </button>
-              )}
-              <div className="border-t border-gray-200 my-1"></div>
-              <button
-                onClick={() => handleEditNode(contextMenu.nodeId!)}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-              >
-                <Edit className="h-4 w-4" />
-                Bewerk node
-              </button>
-              <button
-                onClick={() => handleHideNode(contextMenu.nodeId!)}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-              >
-                <EyeOff className="h-4 w-4" />
-                Verberg node
-              </button>
-            </>
-          )}
+        <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-900/80">
+          <div className="text-center">
+            <div className="text-gray-500 dark:text-gray-400 mb-2">
+              G6 v5.0.48 force layout initialiseren...
+            </div>
+            <div className="text-xs text-gray-400">
+              Canvas rendering • Force simulation • Event binding
+            </div>
+          </div>
         </div>
       )}
       
-
-
-      {/* Create Node Dialog */}
-      <Dialog open={showCreateNodeDialog} onOpenChange={setShowCreateNodeDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nieuwe Node Maken</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="nodeLabel">Node Naam</Label>
-              <Input
-                id="nodeLabel"
-                value={newNodeLabel}
-                onChange={(e) => setNewNodeLabel(e.target.value)}
-                placeholder="Voer node naam in..."
-              />
-            </div>
-            <div>
-              <Label htmlFor="nodeType">Node Type</Label>
-              <Select value={newNodeType} onValueChange={setNewNodeType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecteer of voer nieuw type in" />
-                </SelectTrigger>
-                <SelectContent>
-                  {existingNodeTypes.length > 0 && (
-                    <>
-                      {existingNodeTypes.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="custom">Nieuw type...</SelectItem>
-                    </>
-                  )}
-                  {existingNodeTypes.length === 0 && (
-                    <SelectItem value="custom">Nieuw type maken</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-              {newNodeType === "custom" && (
-                <div className="mt-2">
-                  <Input
-                    value={customNodeType}
-                    onChange={(e) => setCustomNodeType(e.target.value)}
-                    placeholder="Voer nieuw node type in..."
-                  />
-                </div>
-              )}
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowCreateNodeDialog(false)}
-              >
-                Annuleren
-              </Button>
-              <Button 
-                onClick={handleCreateNodeSubmit}
-                disabled={createNodeMutation.isPending}
-              >
-                {createNodeMutation.isPending ? "Maken..." : "Node Maken"}
-              </Button>
-            </div>
+      {!isLoading && !renderError && (
+        <div className="absolute top-4 right-4 bg-white dark:bg-gray-800 p-3 rounded-lg shadow-md text-xs">
+          <div className="font-medium mb-2">G6 v5.0.48 Status:</div>
+          <div className="space-y-1 text-gray-600 dark:text-gray-300">
+            <div>• Canvas renderer actief</div>
+            <div>• Force layout algoritme</div>
+            <div>• Drag & zoom behaviors</div>
+            <div>• Node click events</div>
+            <div>• Performance geoptimaliseerd</div>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create Relation Dialog */}
-      <Dialog open={showCreateRelationDialog} onOpenChange={setShowCreateRelationDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nieuwe Relatie Maken</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Van Node</Label>
-              <Input
-                value={relationSourceNode || ""}
-                disabled
-                className="bg-gray-100"
-              />
-            </div>
-            <div>
-              <Label>Naar Node</Label>
-              <Input
-                value={contextMenu.nodeId || ""}
-                disabled
-                className="bg-gray-100"
-              />
-            </div>
-            <div>
-              <Label htmlFor="relationLabel">Relatie Label</Label>
-              <Input
-                id="relationLabel"
-                value={newRelationLabel}
-                onChange={(e) => setNewRelationLabel(e.target.value)}
-                placeholder="Voer relatie beschrijving in..."
-              />
-            </div>
-            <div>
-              <Label htmlFor="relationType">Relatie Type</Label>
-              <Select value={newRelationType} onValueChange={setNewRelationType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecteer of voer nieuw type in" />
-                </SelectTrigger>
-                <SelectContent>
-                  {existingEdgeTypes.length > 0 && (
-                    <>
-                      {existingEdgeTypes.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="custom">Nieuw type...</SelectItem>
-                    </>
-                  )}
-                  {existingEdgeTypes.length === 0 && (
-                    <SelectItem value="custom">Nieuw type maken</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-              {newRelationType === "custom" && (
-                <div className="mt-2">
-                  <Input
-                    value={customRelationType}
-                    onChange={(e) => setCustomRelationType(e.target.value)}
-                    placeholder="Voer nieuw relatie type in..."
-                  />
-                </div>
-              )}
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setShowCreateRelationDialog(false);
-                  setRelationSourceNode(null);
-                  setNewRelationLabel("");
-                  setNewRelationType("");
-                  setCustomRelationType("");
-                }}
-              >
-                Annuleren
-              </Button>
-              <Button 
-                onClick={() => {
-                  if (relationSourceNode && contextMenu.nodeId) {
-                    // Determine the final type to use
-                    let finalType = newRelationType;
-                    if (newRelationType === "custom" && customRelationType.trim()) {
-                      finalType = customRelationType.trim();
-                    } else if (!finalType) {
-                      finalType = "relates_to"; // Default fallback
-                    }
-
-                    createRelationMutation.mutate({
-                      sourceId: relationSourceNode,
-                      targetId: contextMenu.nodeId,
-                      label: newRelationLabel || finalType,
-                      type: finalType
-                    });
-                  }
-                }}
-                disabled={createRelationMutation.isPending}
-              >
-                {createRelationMutation.isPending ? "Maken..." : "Relatie Maken"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </div>
   );
 }
