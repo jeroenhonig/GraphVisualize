@@ -31,7 +31,7 @@ export default function GraphCanvas({
   onTransformChange,
   editMode = false,
   panelConstraints
-}: G6V5WorkingProps) {
+}: GraphCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,12 +64,12 @@ export default function GraphCanvas({
         const width = container.clientWidth || 800;
         const height = container.clientHeight || 600;
 
-        const visibleNodeIds = visibleNodes.size > 0 ? Array.from(visibleNodes) : graph.nodes.map(n => n.id);
+        const visibleNodeIds = visibleNodes.size > 0 ? Array.from(visibleNodes) : graph.nodes.map((n: any) => n.id);
         
         const nodes = graph.nodes
-          .filter(node => visibleNodeIds.includes(node.id))
+          .filter((node: any) => visibleNodeIds.includes(node.id))
           .slice(0, 100)
-          .map(node => {
+          .map((node: any) => {
             const colorData = getNodeTypeColor(node.type);
             
             return {
@@ -102,7 +102,7 @@ export default function GraphCanvas({
             }
           }));
 
-        console.log('Creating G6 v5.0.48 working graph:', { nodes: nodes.length, edges: edges.length });
+
 
         // Create G6 graph with optimized styling and interactivity
         const g6Graph = new Graph({
