@@ -579,7 +579,7 @@ export default function GraphCanvas({
         // Select node immediately
         onNodeSelect(node);
         
-        // Set up dragging data for potential use
+        // Set up dragging data for potential use - calculate offset from node center
         const rect = svgRef.current?.getBoundingClientRect();
         if (rect) {
           const currentPos = localNodePositions[node.id] || { x: node.x, y: node.y };
@@ -587,6 +587,8 @@ export default function GraphCanvas({
           const svgY = (e.clientY - rect.top - transform.translateY) / transform.scale;
           
           setDraggedNode(node);
+          // Calculate the offset from mouse position to node center
+          // This ensures the node stays at the same relative position under the cursor
           setNodeDragStart({ 
             x: svgX - currentPos.x, 
             y: svgY - currentPos.y 
@@ -633,14 +635,10 @@ export default function GraphCanvas({
         const newY = svgY - nodeDragStart.y;
         
         // Update local position for immediate visual feedback
-        setLocalNodePositions(prev => {
-          const updated = {
-            ...prev,
-            [draggedNode.id]: { x: newX, y: newY }
-          };
-          console.log(`Dragging ${draggedNode.id} to:`, { x: newX, y: newY });
-          return updated;
-        });
+        setLocalNodePositions(prev => ({
+          ...prev,
+          [draggedNode.id]: { x: newX, y: newY }
+        }));
       }
     } else if (isDragging) {
       // Canvas panning with constraints
@@ -747,6 +745,7 @@ export default function GraphCanvas({
           const svgX = (e.clientX - rect.left - transform.translateX) / transform.scale;
           const svgY = (e.clientY - rect.top - transform.translateY) / transform.scale;
           
+          // Calculate new position maintaining the original offset from mouse to node center
           const newX = svgX - nodeDragStart.x;
           const newY = svgY - nodeDragStart.y;
           
