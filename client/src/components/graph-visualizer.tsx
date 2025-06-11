@@ -47,6 +47,8 @@ export default function GraphVisualizer() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [behaviorMode, setBehaviorMode] = useState<'default' | 'connect' | 'select' | 'edit' | 'readonly'>('default');
+  const [selectedNodes, setSelectedNodes] = useState<any[]>([]);
   const [expandedTreeItems, setExpandedTreeItems] = useState<Set<string>>(new Set(['nodes', 'relations', 'saved-views']));
   const [saveViewDialogOpen, setSaveViewDialogOpen] = useState(false);
   const [nodeDetailsModalOpen, setNodeDetailsModalOpen] = useState(false);
@@ -156,6 +158,29 @@ export default function GraphVisualizer() {
   const handleNodeEdit = (node: any) => {
     setEditingNode(node);
     setNodeDetailsModalOpen(true);
+  };
+
+  // D3 Behavior handlers
+  const handleNodesSelected = (nodes: any[]) => {
+    setSelectedNodes(nodes);
+    console.log('Multiple nodes selected:', nodes.length);
+  };
+
+  const handleEdgeCreated = (source: string, target: string) => {
+    console.log('Edge created:', { source, target });
+    toast({
+      title: "Connectie gemaakt",
+      description: `Nieuwe verbinding tussen ${source} en ${target}`,
+    });
+  };
+
+  const changeBehaviorMode = (mode: 'default' | 'connect' | 'select' | 'edit' | 'readonly') => {
+    setBehaviorMode(mode);
+    setSelectedNodes([]); // Clear selection when changing modes
+    toast({
+      title: "Interactie modus gewijzigd",
+      description: `Modus: ${mode}`,
+    });
   };
 
   return (
