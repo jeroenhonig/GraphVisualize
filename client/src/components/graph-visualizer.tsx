@@ -79,10 +79,7 @@ export default function GraphVisualizer() {
   // Mutations for saved views
   const deleteSavedViewMutation = useMutation({
     mutationFn: async (viewId: string) => {
-      const response = await apiRequest(`/api/saved-views/${viewId}`, {
-        method: "DELETE",
-      });
-      return response;
+      return await apiRequest("DELETE", `/api/saved-views/${viewId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -104,12 +101,9 @@ export default function GraphVisualizer() {
 
   const applySavedViewMutation = useMutation({
     mutationFn: async (viewId: string) => {
-      const response = await apiRequest(`/api/saved-views/${viewId}/apply`, {
-        method: "POST",
-      });
-      return response;
+      return await apiRequest("POST", `/api/saved-views/${viewId}/apply`);
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       setVisibleNodes(new Set(data.visibleNodeIds));
       if (data.transform) {
         setTransform(JSON.parse(data.transform));

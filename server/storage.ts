@@ -455,7 +455,7 @@ export class DatabaseStorage implements IStorage {
       const yTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.POSITION_Y);
 
       // Collect data properties (all predicates that are not system predicates)
-      const systemPredicates = [
+      const systemPredicates: string[] = [
         RDF_PREDICATES.TYPE,
         RDF_PREDICATES.LABEL,
         RDF_PREDICATES.POSITION_X,

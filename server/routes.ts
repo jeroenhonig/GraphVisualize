@@ -436,7 +436,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const viewId = nanoid();
       const savedView = await storage.createSavedView({
         ...result.data,
-        viewId,
         graphId,
       });
 
