@@ -132,7 +132,7 @@ export default function LayoutPanel({
 
       {/* Content */}
       <div 
-        className={`h-full overflow-y-auto overflow-x-hidden ${collapsed ? 'hidden' : ''}`} 
+        className={`h-full overflow-y-auto overflow-x-hidden ${collapsed ? 'opacity-0 pointer-events-none' : ''}`} 
         style={{ height: 'calc(100% - 56px)' }}
       >
         {children}

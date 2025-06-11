@@ -46,7 +46,15 @@ export function useLayoutPreferences() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setPreferences({ ...DEFAULT_PREFERENCES, ...parsed });
+        // Force navigation panel to be expanded for proper container mounting
+        setPreferences({ 
+          ...DEFAULT_PREFERENCES, 
+          ...parsed,
+          collapsed: {
+            ...parsed.collapsed,
+            navigation: false  // Always expand navigation for proper GraphCanvas mounting
+          }
+        });
       } catch (error) {
         console.warn('Failed to parse layout preferences:', error);
       }
