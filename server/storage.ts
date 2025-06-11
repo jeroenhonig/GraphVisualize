@@ -444,14 +444,29 @@ export class DatabaseStorage implements IStorage {
     const edges: VisualizationEdge[] = [];
     const processedEdges = new Set<string>();
 
-    // Process each subject (potential node or edge)
+    // Process each subject (potential node or edge) - handle both custom and standard RDF predicates
     for (const [subject, subjectTripleList] of Array.from(subjectTriples.entries())) {
-      const typeTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.TYPE);
+      // Check for both custom and standard RDF type predicates
+      const typeTriple = subjectTripleList.find((t: any) => 
+        t.predicate === RDF_PREDICATES.TYPE || 
+        t.predicate === 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
+      );
       
-      // Treat any subject with properties as a node (not just RDF_TYPES.NODE)
-      const labelTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.LABEL);
-      const xTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.POSITION_X);
-      const yTriple = subjectTripleList.find((t: any) => t.predicate === RDF_PREDICATES.POSITION_Y);
+      // Check for both custom and standard RDF label predicates
+      const labelTriple = subjectTripleList.find((t: any) => 
+        t.predicate === RDF_PREDICATES.LABEL || 
+        t.predicate === 'http://www.w3.org/2000/01/rdf-schema#label'
+      );
+      
+      // Position predicates (custom only for now)
+      const xTriple = subjectTripleList.find((t: any) => 
+        t.predicate === RDF_PREDICATES.POSITION_X || 
+        t.predicate === 'graph:positionX'
+      );
+      const yTriple = subjectTripleList.find((t: any) => 
+        t.predicate === RDF_PREDICATES.POSITION_Y || 
+        t.predicate === 'graph:positionY'
+      );
 
       // Collect data properties (all predicates that are not system predicates)
       const systemPredicates: string[] = [
@@ -459,7 +474,16 @@ export class DatabaseStorage implements IStorage {
         RDF_PREDICATES.LABEL,
         RDF_PREDICATES.POSITION_X,
         RDF_PREDICATES.POSITION_Y,
-        RDF_PREDICATES.CONNECTS_TO
+        RDF_PREDICATES.CONNECTS_TO,
+        // Standard RDF/RDFS/OWL predicates
+        'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
+        'http://www.w3.org/2000/01/rdf-schema#label',
+        'http://www.w3.org/2000/01/rdf-schema#comment',
+        'http://purl.org/dc/terms/created',
+        'http://purl.org/dc/terms/creator',
+        'http://www.w3.org/2002/07/owl#versionInfo',
+        'graph:positionX',
+        'graph:positionY'
       ];
       
       const data: Record<string, any> = {};
@@ -486,10 +510,35 @@ export class DatabaseStorage implements IStorage {
         y = 400 + radius * Math.sin(angle);
       }
 
+      // Extract readable type from RDF type URI
+      let nodeType = "Resource";
+      if (typeTriple?.object) {
+        const typeUri = typeTriple.object;
+        if (typeUri.includes('#')) {
+          nodeType = typeUri.split('#').pop() || "Resource";
+        } else if (typeUri.includes('/')) {
+          nodeType = typeUri.split('/').pop() || "Resource";
+        } else {
+          nodeType = typeUri;
+        }
+      }
+
+      // Extract readable label from subject URI if no label exists
+      let nodeLabel = labelTriple?.object;
+      if (!nodeLabel) {
+        if (subject.includes('#')) {
+          nodeLabel = subject.split('#').pop() || subject;
+        } else if (subject.includes('/')) {
+          nodeLabel = subject.split('/').pop() || subject;
+        } else {
+          nodeLabel = subject;
+        }
+      }
+
       nodes.push({
         id: subject,
-        label: labelTriple?.object || subject,
-        type: typeTriple?.object || "unknown",
+        label: nodeLabel,
+        type: nodeType,
         data,
         x,
         y,
