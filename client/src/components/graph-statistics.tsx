@@ -120,7 +120,7 @@ export default function GraphStatistics({ graphData }: GraphStatisticsProps) {
       {Object.keys(edgeTypes).length > 0 && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Verbinding Types</CardTitle>
+            <CardTitle className="text-sm">Relatie Types</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {Object.entries(edgeTypes)
