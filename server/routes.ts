@@ -15,19 +15,19 @@ const upload = multer({
 function validateTTLSyntax(content: string): { isValid: boolean; errors: string[] } {
   const errors: string[] = [];
   const lines = content.split('\n');
-  
+
   let inStatement = false;
   let statementDepth = 0;
   let inString = false;
   let stringChar = '';
-  
+
   // Basic validation checks
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     const lineNum = i + 1;
-    
+
     if (!line || line.startsWith('#')) continue;
-    
+
     // Check prefix declarations
     if (line.startsWith('@prefix')) {
       const prefixMatch = line.match(/@prefix\s+([^:]*):?\s*<([^>]+)>\s*\./);
@@ -36,19 +36,19 @@ function validateTTLSyntax(content: string): { isValid: boolean; errors: string[
       }
       continue;
     }
-    
+
     // Check for basic TTL syntax issues
     if (line.includes(';;')) {
       errors.push(`Line ${lineNum}: Double semicolon found - invalid syntax`);
     }
-    
+
     // Check for unclosed strings
     let lineInString = false;
     let lineStringChar = '';
     for (let j = 0; j < line.length; j++) {
       const char = line[j];
       const prevChar = j > 0 ? line[j - 1] : '';
-      
+
       if (!lineInString && (char === '"' || char === "'")) {
         lineInString = true;
         lineStringChar = char;
@@ -57,24 +57,24 @@ function validateTTLSyntax(content: string): { isValid: boolean; errors: string[
         lineStringChar = '';
       }
     }
-    
+
     if (lineInString) {
       errors.push(`Line ${lineNum}: Unclosed string literal`);
     }
   }
-  
+
   // Check overall structure
   const prefixCount = (content.match(/@prefix/g) || []).length;
   const statementCount = content.split('.').filter(s => s.trim() && !s.includes('@prefix')).length;
-  
+
   if (prefixCount === 0) {
     errors.push('No @prefix declarations found - TTL files typically require namespace prefixes');
   }
-  
+
   if (statementCount === 0) {
     errors.push('No RDF statements found in the file');
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors
@@ -84,10 +84,10 @@ function validateTTLSyntax(content: string): { isValid: boolean; errors: string[
 // Minimal working TTL parser for basic RDF statements
 async function parseRdfAndCreateTriples(content: string, format: string, graphId: string) {
   console.log('Starting TTL parsing for graph:', graphId);
-  
+
   const prefixes = new Map<string, string>();
   const statements: { subject: string, predicate: string, object: string, objectType: string }[] = [];
-  
+
   try {
     // Extract prefixes
     const prefixRegex = /@prefix\s+([^:]*):?\s*<([^>]+)>\s*\./g;
@@ -98,22 +98,22 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
       prefixes.set(prefix, uri);
       console.log(`Found prefix: ${prefix} -> ${uri}`);
     }
-    
+
     // Process TTL content line by line
     const lines = content.split('\n');
     let currentSubject = '';
     let statementBuffer = '';
-    
+
     for (const line of lines) {
       const trimmed = line.trim();
-      
+
       // Skip empty lines, comments, and prefixes
       if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('@prefix')) {
         continue;
       }
-      
+
       statementBuffer += ' ' + trimmed;
-      
+
       // Check if statement is complete (ends with .)
       if (trimmed.endsWith('.')) {
         const statement = statementBuffer.trim().replace(/\.$/, '');
@@ -126,13 +126,13 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
         statementBuffer = '';
       }
     }
-    
+
     console.log(`Parsed ${statements.length} RDF statements`);
-    
+
     // Get unique subjects for positioning
     const subjects = new Set(statements.map(s => s.subject));
     const subjectArray = Array.from(subjects);
-    
+
     // Create circular positioning
     const positions = new Map<string, {x: number, y: number}>();
     for (let i = 0; i < subjectArray.length; i++) {
@@ -142,7 +142,7 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
       const y = Math.round(400 + radius * Math.sin(angle));
       positions.set(subjectArray[i], { x, y });
     }
-    
+
     // Store triples in database
     for (const stmt of statements) {
       await storage.createRdfTriple({
@@ -153,7 +153,7 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
         objectType: stmt.objectType
       });
     }
-    
+
     // Add position data
     for (const [subject, position] of Array.from(positions.entries())) {
       await storage.createRdfTriple({
@@ -163,7 +163,7 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
         object: position.x.toString(),
         objectType: 'literal'
       });
-      
+
       await storage.createRdfTriple({
         graphId,
         subject,
@@ -172,9 +172,9 @@ async function parseRdfAndCreateTriples(content: string, format: string, graphId
         objectType: 'literal'
       });
     }
-    
+
     console.log('TTL parsing completed successfully');
-    
+
   } catch (error) {
     console.error('TTL parsing failed:', error);
     throw error;
@@ -192,13 +192,13 @@ function parseBasicStatement(
       const parts = statement.split(';');
       const firstPart = parts[0].trim();
       const tokens = firstPart.split(/\s+/);
-      
+
       if (tokens.length >= 3) {
         const subject = expandPrefix(tokens[0], prefixes);
         const predicate = expandPrefix(tokens[1], prefixes);
         const objectStr = tokens.slice(2).join(' ');
         const { value, type } = parseObjectValue(objectStr, prefixes);
-        
+
         return { subject, predicate, object: value, objectType: type };
       }
     } else {
@@ -209,14 +209,14 @@ function parseBasicStatement(
         const predicate = expandPrefix(tokens[1], prefixes);
         const objectStr = tokens.slice(2).join(' ');
         const { value, type } = parseObjectValue(objectStr, prefixes);
-        
+
         return { subject, predicate, object: value, objectType: type };
       }
     }
   } catch (error) {
     console.error('Error parsing basic statement:', error);
   }
-  
+
   return null;
 }
 
@@ -226,11 +226,11 @@ function splitStatements(content: string): string[] {
   let current = '';
   let inQuotes = false;
   let quoteChar = '';
-  
+
   for (let i = 0; i < content.length; i++) {
     const char = content[i];
     const prevChar = i > 0 ? content[i - 1] : '';
-    
+
     if (!inQuotes && (char === '"' || char === "'")) {
       inQuotes = true;
       quoteChar = char;
@@ -248,14 +248,14 @@ function splitStatements(content: string): string[] {
         continue;
       }
     }
-    
+
     current += char;
   }
-  
+
   if (current.trim()) {
     statements.push(current.trim());
   }
-  
+
   return statements;
 }
 
@@ -268,42 +268,42 @@ function parseStatement(
 ) {
   try {
     const normalized = statement.replace(/\s+/g, ' ').trim();
-    
+
     // Skip empty statements
     if (!normalized) return;
-    
+
     // Split into tokens, being careful with quoted strings
     const tokens = tokenizeStatement(normalized);
     if (tokens.length < 3) return;
-    
+
     const subject = expandPrefix(tokens[0], prefixes);
     if (!subject) return;
-    
+
     subjects.add(subject);
-    
+
     // Parse predicate-object pairs
     let i = 1;
     while (i < tokens.length) {
       if (i + 1 >= tokens.length) break;
-      
+
       const predicate = expandPrefix(tokens[i], prefixes);
       if (!predicate) {
         i++;
         continue;
       }
-      
+
       const objectStr = tokens[i + 1];
       const { value, type } = parseObjectValue(objectStr, prefixes);
-      
+
       statements.push({
         subject,
         predicate,
         object: value,
         objectType: type
       });
-      
+
       i += 2;
-      
+
       // Skip semicolon if present
       if (i < tokens.length && tokens[i] === ';') {
         i++;
@@ -320,11 +320,11 @@ function tokenizeStatement(statement: string): string[] {
   let current = '';
   let inQuotes = false;
   let quoteChar = '';
-  
+
   for (let i = 0; i < statement.length; i++) {
     const char = statement[i];
     const prevChar = i > 0 ? statement[i - 1] : '';
-    
+
     if (!inQuotes && (char === '"' || char === "'")) {
       inQuotes = true;
       quoteChar = char;
@@ -348,11 +348,11 @@ function tokenizeStatement(statement: string): string[] {
       current += char;
     }
   }
-  
+
   if (current.trim()) {
     tokens.push(current.trim());
   }
-  
+
   return tokens;
 }
 
@@ -371,17 +371,17 @@ function expandPrefix(term: string, prefixes: Map<string, string>): string {
 // Helper function to parse object value and determine type
 function parseObjectValue(objectStr: string, prefixes: Map<string, string>): { value: string, type: string } {
   objectStr = objectStr.trim();
-  
+
   // Handle URIs
   if (objectStr.startsWith('<') && objectStr.endsWith('>')) {
     return { value: objectStr.slice(1, -1), type: 'uri' };
   }
-  
+
   // Handle prefixed URIs
   if (objectStr.includes(':') && !objectStr.startsWith('"')) {
     return { value: expandPrefix(objectStr, prefixes), type: 'uri' };
   }
-  
+
   // Handle literals with language tags or datatypes
   if (objectStr.startsWith('"')) {
     let value = objectStr;
@@ -393,7 +393,7 @@ function parseObjectValue(objectStr: string, prefixes: Map<string, string>): { v
     }
     return { value, type: 'literal' };
   }
-  
+
   return { value: objectStr, type: 'literal' };
 }
 
@@ -405,37 +405,37 @@ function parseComplexStatement(
   subjects: Set<string>
 ) {
   if (!statement.trim()) return;
-  
+
   // Extract subject (first term)
   const tokens = statement.trim().split(/\s+/);
   if (tokens.length < 3) return;
-  
+
   const subject = expandPrefix(tokens[0], prefixes);
   subjects.add(subject);
-  
+
   // Remove subject from statement and process predicates
   const predicateSection = tokens.slice(1).join(' ');
-  
+
   // Split by semicolons to handle multiple predicates
   const predicateParts = predicateSection.split(';');
-  
+
   for (const part of predicateParts) {
     const trimmedPart = part.trim();
     if (!trimmedPart) continue;
-    
+
     // Split into predicate and object(s)
     const partTokens = trimmedPart.split(/\s+/);
     if (partTokens.length < 2) continue;
-    
+
     const predicate = expandPrefix(partTokens[0], prefixes);
     const objectStr = partTokens.slice(1).join(' ');
-    
+
     // Handle multiple objects separated by commas
     const objects = splitObjectsByComma(objectStr);
-    
+
     for (const obj of objects) {
       const { value, type } = parseObjectValue(obj.trim(), prefixes);
-      
+
       statements.push({
         subject,
         predicate,
@@ -452,11 +452,11 @@ function splitObjectsByComma(objectsStr: string): string[] {
   let current = '';
   let inQuotes = false;
   let quoteChar = '';
-  
+
   for (let i = 0; i < objectsStr.length; i++) {
     const char = objectsStr[i];
     const prevChar = i > 0 ? objectsStr[i - 1] : '';
-    
+
     if (!inQuotes && (char === '"' || char === "'")) {
       inQuotes = true;
       quoteChar = char;
@@ -474,11 +474,11 @@ function splitObjectsByComma(objectsStr: string): string[] {
       current += char;
     }
   }
-  
+
   if (current.trim()) {
     objects.push(current.trim());
   }
-  
+
   return objects.length > 0 ? objects : [objectsStr];
 }
 
@@ -488,10 +488,10 @@ function splitObjects(objectsStr: string): string[] {
   let current = '';
   let inQuotes = false;
   let i = 0;
-  
+
   while (i < objectsStr.length) {
     const char = objectsStr[i];
-    
+
     if (char === '"' && (i === 0 || objectsStr[i-1] !== '\\')) {
       inQuotes = !inQuotes;
       current += char;
@@ -503,14 +503,14 @@ function splitObjects(objectsStr: string): string[] {
     } else {
       current += char;
     }
-    
+
     i++;
   }
-  
+
   if (current.trim()) {
     objects.push(current.trim());
   }
-  
+
   return objects;
 }
 
@@ -574,7 +574,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { graphId } = req.params;
       const { label, type, data, x, y } = req.body;
-      
+
       const graph = await storage.getGraph(graphId);
       if (!graph) {
         return res.status(404).json({ message: "Graph not found" });
@@ -607,7 +607,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { graphId } = req.params;
       const { sourceId, targetId, label, type } = req.body;
-      
+
       if (!sourceId || !targetId) {
         return res.status(400).json({ message: "sourceId and targetId are required" });
       }
@@ -643,7 +643,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const success = await storage.updateNodePosition(nodeId, x, y);
-      
+
       if (success) {
         // Return the exact coordinates that were saved
         res.json({ success: true, x: Math.round(x), y: Math.round(y) });
@@ -667,7 +667,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Updating properties for node:', nodeId);
 
       const success = await storage.updateNodeProperties(nodeId, { label, type, data });
-      
+
       if (!success) {
         console.error('Node not found for property update:', nodeId);
         return res.status(404).json({ message: "Node not found" });
@@ -685,11 +685,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Decode the URL-encoded nodeId
       const nodeId = decodeURIComponent(req.params.nodeId);
-      
+
       console.log('Deleting node:', nodeId);
-      
+
       const deleted = await storage.deleteNodeFromTriples(nodeId);
-      
+
       if (!deleted) {
         console.error('Node not found for deletion:', nodeId);
         return res.status(404).json({ message: "Node not found" });
@@ -707,7 +707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { edgeId } = req.params;
       const deleted = await storage.deleteEdgeFromTriples(edgeId);
-      
+
       if (!deleted) {
         return res.status(404).json({ message: "Edge not found" });
       }
@@ -722,7 +722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/graphs/:graphId", async (req, res) => {
     try {
       const { graphId } = req.params;
-      
+
       const deleted = await storage.deleteGraph(graphId);
       if (!deleted) {
         return res.status(404).json({ message: "Graph not found" });
@@ -738,7 +738,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/graphs/:graphId/upload", upload.single('file'), async (req, res) => {
     try {
       const { graphId } = req.params;
-      
+
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
       }
@@ -836,7 +836,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/graphs/:graphId/visibility-sets", async (req, res) => {
     try {
       const { graphId } = req.params;
-      
+
       const result = insertVisibilitySetSchema.safeParse(req.body);
       if (!result.success) {
         return res.status(400).json({ message: "Invalid visibility set data", errors: result.error.errors });
@@ -871,7 +871,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/graphs/:graphId/visibility-sets/:setId/activate", async (req, res) => {
     try {
       const { graphId, setId } = req.params;
-      
+
       await storage.setActiveVisibilitySet(graphId, setId);
       res.json({ success: true });
     } catch (error) {
@@ -898,13 +898,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Saved Views API endpoints
-  
+
   // Create a saved view
   app.post("/api/graphs/:graphId/saved-views", async (req, res) => {
     try {
       const { graphId } = req.params;
       console.log('Received saved view data:', JSON.stringify(req.body, null, 2));
-      
+
       const result = insertSavedViewSchema.safeParse(req.body);
       if (!result.success) {
         console.log('Validation errors:', result.error.errors);
@@ -1005,7 +1005,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const graphs = await storage.getAllGraphs();
       const allTypes = new Set<string>();
-      
+
       for (const graph of graphs) {
         const graphData = await storage.getVisualizationData(graph.graphId);
         graphData.nodes.forEach(node => {
@@ -1014,11 +1014,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
           allTypes.add(rdfType);
         });
       }
-      
+
       res.json(Array.from(allTypes).sort());
     } catch (error) {
       console.error("Failed to get node types:", error);
       res.status(500).json({ error: "Failed to get node types" });
+    }
+  });
+
+  // Code review routes
+  app.post('/api/code-review', async (req, res) => {
+    try {
+      const { code, filename, language } = req.body;
+
+      if (!code || !filename || !language) {
+        return res.status(400).json({ error: 'Missing required fields: code, filename, language' });
+      }
+
+      const review = await reviewCode({ code, filename, language });
+      res.json(review);
+    } catch (error) {
+      console.error('Code review error:', error);
+      res.status(500).json({ error: 'Failed to review code' });
+    }
+  });
+
+  app.post('/api/fix-bugs', async (req, res) => {
+    try {
+      const { code, filename, language } = req.body;
+
+      if (!code || !filename || !language) {
+        return res.status(400).json({ error: 'Missing required fields: code, filename, language' });
+      }
+
+      const fixedCode = await fixBugs(code, filename, language);
+      res.json({ fixedCode });
+    } catch (error) {
+      console.error('Bug fixing error:', error);
+      res.status(500).json({ error: 'Failed to fix bugs' });
     }
   });
 
