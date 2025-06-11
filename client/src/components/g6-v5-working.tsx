@@ -166,7 +166,10 @@ export default function G6V5Working({
           behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element']
         });
 
-        // Node click handler with proper selection logic
+        // Store selected node for manual highlighting
+        let selectedNodeId: string | null = null;
+        
+        // Node click handler with manual color update
         g6Graph.on('node:click', (event: any) => {
           console.log('Node clicked:', event);
           const nodeId = event.itemId || event.target?.id;
@@ -176,6 +179,9 @@ export default function G6V5Working({
             const originalNode = nodes.find(n => n.id === nodeId);
             if (originalNode) {
               console.log('Node selected:', originalNode.data.label);
+              
+              // Update selected node tracking
+              selectedNodeId = nodeId;
               
               // Pass node data to parent component
               const visualizationNode = {
@@ -189,13 +195,20 @@ export default function G6V5Working({
               
               onNodeSelect(visualizationNode as any);
               
-              // Clear all selections first, then set only this node as selected
-              nodes.forEach((node: any) => {
-                g6Graph.setElementState(node.id, 'selected', false);
-              });
-              g6Graph.setElementState(nodeId, 'selected', true);
-              
-              console.log(`Only node "${originalNode.data.label}" should be highlighted`);
+              // Manual node style update using G6 v5 element states
+              try {
+                // Clear all node selections first
+                nodes.forEach((node: any) => {
+                  g6Graph.setElementState(node.id, 'selected', false);
+                });
+                
+                // Set selected state on clicked node
+                g6Graph.setElementState(nodeId, 'selected', true);
+                
+                console.log(`Node "${originalNode.data.label}" highlighted - state-based selection`);
+              } catch (e) {
+                console.warn('State-based highlighting failed:', e);
+              }
             }
           }
         });
@@ -258,13 +271,14 @@ export default function G6V5Working({
         // Canvas click to clear selection
         g6Graph.on('canvas:click', () => {
           console.log('Canvas clicked - clearing selection');
-          // Clear all node selections using available nodes data
+          selectedNodeId = null;
+          
+          // Reset all nodes to normal state
           try {
-            nodes.forEach(node => {
+            nodes.forEach((node: any) => {
               g6Graph.setElementState(node.id, 'selected', false);
             });
-            g6Graph.render();
-            console.log('All selections cleared successfully');
+            console.log('All selections cleared - nodes back to normal state');
           } catch (e) {
             console.warn('Failed to clear selections:', e);
           }
