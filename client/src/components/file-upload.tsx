@@ -46,10 +46,14 @@ export default function FileUpload({ onGraphCreated }: FileUploadProps) {
       return response.json();
     },
     onSuccess: (data) => {
-      const fileType = data.fileType || 'Excel';
+      const isRDF = data.success && data.message?.includes('RDF');
+      const fileType = isRDF ? 'RDF' : 'Excel';
+      
       toast({
         title: `${fileType} Bestand Geüpload`,
-        description: `Graph "${data.graph.name}" succesvol aangemaakt met ${data.nodeCount} knopen en ${data.edgeCount} kanten`,
+        description: isRDF 
+          ? `Graph "${data.graph.name}" succesvol aangemaakt uit RDF bestand`
+          : `Graph "${data.graph.name}" succesvol aangemaakt met ${data.nodeCount} knopen en ${data.edgeCount} kanten`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
       if (onGraphCreated) {
