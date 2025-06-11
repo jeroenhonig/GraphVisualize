@@ -736,6 +736,97 @@ export default function GraphCanvas({
     onTransformChange(constrainedTransform);
   }, [transform, onTransformChange, constrainTransform]);
 
+  // Global mouse event handlers for smooth dragging
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!isDragging && !isNodeDragging) return;
+
+      // Check if we've moved beyond the drag threshold
+      if (mouseDownPosition && !hasDraggedSignificantly) {
+        const deltaX = Math.abs(e.clientX - mouseDownPosition.x);
+        const deltaY = Math.abs(e.clientY - mouseDownPosition.y);
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distance > DRAG_THRESHOLD) {
+          setHasDraggedSignificantly(true);
+        }
+      }
+
+      // Handle dragging for nodes that have been set up for dragging
+      if (draggedNode && isNodeDragging) {
+        const rect = svgRef.current?.getBoundingClientRect();
+        if (rect) {
+          const svgX = (e.clientX - rect.left - transform.translateX) / transform.scale;
+          const svgY = (e.clientY - rect.top - transform.translateY) / transform.scale;
+          
+          const newX = svgX - nodeDragStart.x;
+          const newY = svgY - nodeDragStart.y;
+          
+          setLocalNodePositions(prev => ({
+            ...prev,
+            [draggedNode.id]: { x: newX, y: newY }
+          }));
+        }
+      } else if (isDragging) {
+        // Canvas panning with constraints
+        const deltaX = e.clientX - dragStart.x;
+        const deltaY = e.clientY - dragStart.y;
+        const newTransform = {
+          ...transform,
+          translateX: deltaX,
+          translateY: deltaY
+        };
+        
+        const constrainedTransform = constrainTransform(newTransform);
+        onTransformChange(constrainedTransform);
+      }
+    };
+
+    const handleGlobalMouseUp = () => {
+      if (isNodeDragging && draggedNode && hasDraggedSignificantly) {
+        const localPos = localNodePositions[draggedNode.id];
+        if (localPos) {
+          updateNodePositionMutation.mutate({
+            nodeId: draggedNode.id,
+            x: Math.round(localPos.x),
+            y: Math.round(localPos.y)
+          });
+        }
+      }
+      
+      setIsDragging(false);
+      setIsNodeDragging(false);
+      setDraggedNode(null);
+      setMouseDownPosition(null);
+      setHasDraggedSignificantly(false);
+      setActiveDragNodeId(null);
+    };
+
+    if (isDragging || isNodeDragging) {
+      document.addEventListener('mousemove', handleGlobalMouseMove);
+      document.addEventListener('mouseup', handleGlobalMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleGlobalMouseMove);
+        document.removeEventListener('mouseup', handleGlobalMouseUp);
+      };
+    }
+  }, [
+    isDragging, 
+    isNodeDragging, 
+    draggedNode, 
+    nodeDragStart, 
+    dragStart, 
+    transform, 
+    onTransformChange, 
+    constrainTransform,
+    mouseDownPosition,
+    hasDraggedSignificantly,
+    DRAG_THRESHOLD,
+    localNodePositions,
+    updateNodePositionMutation
+  ]);
+
   if (!graph) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -784,6 +875,10 @@ export default function GraphCanvas({
           cursor: isDragging ? 'grabbing' : 'grab',
         }}
         viewBox="0 0 1200 800"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onWheel={handleWheel}
         onContextMenu={handleContextMenu}
       />
 
