@@ -127,30 +127,37 @@ const GraphCanvas = React.memo(({
     };
   }, [graph?.nodes, graph?.edges]);
 
-  // Cleanup function
+  // Cleanup function with proper DOM isolation
   const cleanupGraph = useCallback(() => {
+    // Prevent cleanup race conditions
     if (graphRef.current) {
       try {
-        // Properly destroy the G6 graph instance
-        graphRef.current.destroy();
+        // Temporarily disable React's DOM management for this container
+        const container = containerRef.current;
+        if (container) {
+          container.style.pointerEvents = 'none';
+        }
+        
+        // Use async cleanup to avoid blocking React
+        setTimeout(() => {
+          try {
+            if (graphRef.current) {
+              graphRef.current.destroy();
+              graphRef.current = null;
+            }
+          } catch (error) {
+            console.warn('Async graph cleanup warning:', error);
+          }
+        }, 0);
+        
       } catch (error) {
         console.warn('Graph cleanup warning:', error);
       }
-      graphRef.current = null;
     }
 
     if (resizeObserverRef.current) {
       resizeObserverRef.current.disconnect();
       resizeObserverRef.current = null;
-    }
-
-    // Clear container content safely
-    if (containerRef.current) {
-      try {
-        containerRef.current.innerHTML = '';
-      } catch (error) {
-        console.warn('Container cleanup warning:', error);
-      }
     }
   }, []);
 
@@ -190,20 +197,20 @@ const GraphCanvas = React.memo(({
       setIsLoading(true);
       setRenderError(null);
 
-      // Clean up existing graph
+      // Clean up existing graph with proper G6 lifecycle
       if (graphRef.current) {
         try {
+          // Disable event listeners before cleanup
+          graphRef.current.off();
           graphRef.current.destroy();
-          graphRef.current = null;
         } catch (error) {
           console.warn('Graph cleanup warning:', error);
         }
+        graphRef.current = null;
       }
       
-      // Clear container safely
-      while (container.firstChild) {
-        container.removeChild(container.firstChild);
-      }
+      // Don't manually clear container - let G6 handle its own cleanup
+      // This prevents React/G6 DOM manipulation conflicts
 
       // Check G6 availability
       const G6 = (window as any).G6;
@@ -301,21 +308,18 @@ const GraphCanvas = React.memo(({
 
   // Effect for graph creation
   useEffect(() => {
-    if (processedGraphData && containerRef.current) {
+    let isMounted = true;
+    
+    if (processedGraphData && containerRef.current && isMounted) {
       createGraph();
     }
 
     return () => {
-      if (graphRef.current) {
-        try {
-          graphRef.current.destroy();
-        } catch (error) {
-          console.warn('Graph cleanup error:', error);
-        }
-        graphRef.current = null;
-      }
+      isMounted = false;
+      // Use cleanup function instead of direct cleanup
+      cleanupGraph();
     };
-  }, [processedGraphData, createGraph]);
+  }, [processedGraphData, createGraph, cleanupGraph]);
 
   // Update selected node highlight
   useEffect(() => {
