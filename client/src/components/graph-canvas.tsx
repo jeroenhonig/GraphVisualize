@@ -278,18 +278,26 @@ export default function GraphCanvas({
       return { previousData };
     },
     onSuccess: (data, variables) => {
-      // Clear the local position for this node after successful update
-      setLocalNodePositions(prev => {
-        const updated = { ...prev };
-        delete updated[variables.nodeId];
-        return updated;
-      });
+      // Verify that the server response matches our expected position
+      const expectedX = Math.round(variables.x);
+      const expectedY = Math.round(variables.y);
       
-      // Delay the invalidation to prevent visual jump
-      setTimeout(() => {
+      // Check if server returned the correct position
+      if (data && data.x === expectedX && data.y === expectedY) {
+        // Server confirmed the correct position, clear local state
+        setLocalNodePositions(prev => {
+          const updated = { ...prev };
+          delete updated[variables.nodeId];
+          return updated;
+        });
+        
+        // Now it's safe to invalidate and refresh
         queryClient.invalidateQueries({ queryKey: ["/api/graphs"] });
         queryClient.invalidateQueries({ queryKey: ["/api/graphs", graph?.graphId || graph?.id] });
-      }, 100);
+      } else {
+        // Server position doesn't match, keep local position until next attempt
+        console.warn(`Position mismatch for node ${variables.nodeId}: expected (${expectedX}, ${expectedY}), got (${data?.x}, ${data?.y})`);
+      }
     },
     onError: (error: Error, variables, context) => {
       // Rollback the optimistic update

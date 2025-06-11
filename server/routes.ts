@@ -119,8 +119,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid coordinates" });
       }
 
-      await storage.updateNodePosition(nodeId, x, y);
-      res.json({ success: true });
+      const success = await storage.updateNodePosition(nodeId, x, y);
+      
+      if (success) {
+        // Return the exact coordinates that were saved
+        res.json({ success: true, x: Math.round(x), y: Math.round(y) });
+      } else {
+        res.status(404).json({ message: "Node not found" });
+      }
     } catch (error) {
       res.status(500).json({ message: "Failed to update node position" });
     }
