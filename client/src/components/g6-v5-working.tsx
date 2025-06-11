@@ -66,23 +66,28 @@ export default function G6GraphCanvas({
             const colorData = getNodeTypeColor(node.type);
             return {
               id: node.id,
-              x: node.x || Math.random() * width,
-              y: node.y || Math.random() * height,
-              size: selectedNode?.id === node.id ? 20 : 15,
-              color: colorData.secondary,
-              style: {
-                fill: colorData.secondary,
-                stroke: colorData.primary,
-                lineWidth: selectedNode?.id === node.id ? 3 : 2,
+              data: {
+                x: node.x || Math.random() * width,
+                y: node.y || Math.random() * height,
+                label: node.label,
+                type: node.type,
+                originalNode: node
               },
-              label: node.label,
-              labelCfg: {
-                style: {
+              style: {
+                keyShape: {
+                  r: selectedNode?.id === node.id ? 20 : 15,
+                  fill: colorData.secondary,
+                  stroke: colorData.primary,
+                  lineWidth: selectedNode?.id === node.id ? 3 : 2,
+                },
+                labelShape: {
+                  text: node.label,
                   fill: '#333',
                   fontSize: 12,
+                  position: 'bottom',
+                  offsetY: 8
                 }
-              },
-              originalNode: node
+              }
             };
           });
 
@@ -100,23 +105,8 @@ export default function G6GraphCanvas({
               stroke: '#999',
               lineWidth: 1.5,
               opacity: 0.6,
-              endArrow: {
-                path: G6.Arrow.triangle(6, 8, 10),
-                fill: '#999'
-              }
-            },
-            labelCfg: edge.label ? {
-              style: {
-                fill: '#666',
-                fontSize: 10,
-                background: {
-                  fill: 'white',
-                  stroke: '#ccc',
-                  padding: [2, 4, 2, 4],
-                  radius: 2
-                }
-              }
-            } : undefined
+              endArrow: true
+            }
           }));
 
         console.log('G6 Working: Data prepared:', { nodes: nodes.length, edges: edges.length });
@@ -138,26 +128,36 @@ export default function G6GraphCanvas({
           behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element']
         });
 
-        // Event handlers
-        graph_instance.on('node:click', (e: any) => {
-          const nodeModel = e.item.getModel();
-          const originalNode = nodeModel.originalNode;
-          if (originalNode) {
-            onNodeSelect(originalNode);
-          }
-        });
+        // Event handlers with error handling
+        try {
+          graph_instance.on('node:click', (e: any) => {
+            console.log('G6 Working: Node click event:', e);
+            if (e.item && e.item.getModel) {
+              const nodeModel = e.item.getModel();
+              const originalNode = nodeModel.originalNode;
+              if (originalNode) {
+                onNodeSelect(originalNode);
+              }
+            }
+          });
 
-        graph_instance.on('node:dblclick', (e: any) => {
-          const nodeModel = e.item.getModel();
-          const originalNode = nodeModel.originalNode;
-          if (originalNode) {
-            onNodeExpand(originalNode.id);
-          }
-        });
+          graph_instance.on('node:dblclick', (e: any) => {
+            console.log('G6 Working: Node double click event:', e);
+            if (e.item && e.item.getModel) {
+              const nodeModel = e.item.getModel();
+              const originalNode = nodeModel.originalNode;
+              if (originalNode) {
+                onNodeExpand(originalNode.id);
+              }
+            }
+          });
 
-        graph_instance.on('canvas:click', () => {
-          // Clear selection when clicking on canvas
-        });
+          graph_instance.on('canvas:click', () => {
+            console.log('G6 Working: Canvas clicked');
+          });
+        } catch (eventError) {
+          console.error('G6 Working: Event handler setup failed:', eventError);
+        }
 
         g6InstanceRef.current = graph_instance;
         setIsLoading(false);
