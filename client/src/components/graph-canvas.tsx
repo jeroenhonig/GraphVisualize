@@ -20,17 +20,9 @@ interface G6GraphInstance {
   getZoom: () => number;
   zoomTo: (ratio: number) => void;
   fitView: (padding?: number) => void;
-  getNodes: () => any[];
-  updateData: (type: string, data: any) => void;
-  stopLayout: () => void;
-  setAutoPaint: (auto: boolean) => void;
-  paint: () => void;
   changeSize: (width: number, height: number) => void;
   on: (event: string, handler: Function) => void;
   off: (event: string, handler?: Function) => void;
-  findById: (id: string) => any;
-  updateItem: (node: any, data: any) => void;
-  layout: () => void;
 }
 
 interface GraphCanvasProps {
@@ -64,7 +56,7 @@ export default function GraphCanvasOptimized({
   panelConstraints
 }: GraphCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const graphRef = useRef<G6GraphInstance | null>(null);
+  const graphRef = useRef<any>(null);
   const keyDownHandlerRef = useRef<((e: KeyboardEvent) => void) | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [renderError, setRenderError] = useState<string | null>(null);
@@ -434,15 +426,12 @@ export default function GraphCanvasOptimized({
                 
                 onNodeSelect(visualizationNode as any);
                 
-                // Update state for selected node with batch updates
+                // Update state for selected node
                 try {
-                  g6Graph.setAutoPaint(false);
                   nodes.forEach((node: any) => {
                     g6Graph.setElementState(node.id, 'selected', false);
                   });
                   g6Graph.setElementState(nodeId, 'selected', true);
-                  g6Graph.setAutoPaint(true);
-                  g6Graph.paint();
                 } catch (error) {
                   console.error('Selection state update failed:', error);
                 }
@@ -503,7 +492,7 @@ export default function GraphCanvasOptimized({
         document.addEventListener('keydown', keyDownHandlerRef.current);
 
         // Store graph reference
-        graphRef.current = g6Graph;
+        graphRef.current = g6Graph as any;
         setIsLoading(false);
         
         // Performance logging
