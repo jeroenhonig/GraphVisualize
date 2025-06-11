@@ -92,7 +92,7 @@ export default function GraphStatistics({ graphData }: GraphStatisticsProps) {
       {/* Node Types */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Knoop Types</CardTitle>
+          <CardTitle className="text-sm">Node Types</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {Object.entries(nodeTypes).length === 0 ? (
