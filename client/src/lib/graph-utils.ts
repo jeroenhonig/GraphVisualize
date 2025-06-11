@@ -454,7 +454,7 @@ export function renderGraph(
       rect.setAttribute('width', '40');
       rect.setAttribute('height', '40');
       rect.setAttribute('rx', '8');
-      rect.setAttribute('fill', nodeColor);
+      rect.setAttribute('fill', typeColors.primary);
       rect.setAttribute('stroke', strokeColor);
       rect.setAttribute('stroke-width', strokeWidth);
       nodeGroup.appendChild(rect);
@@ -462,7 +462,7 @@ export function renderGraph(
       // Diamond for teams
       const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
       polygon.setAttribute('points', '0,-20 20,0 0,20 -20,0');
-      polygon.setAttribute('fill', nodeColor);
+      polygon.setAttribute('fill', typeColors.primary);
       polygon.setAttribute('stroke', strokeColor);
       polygon.setAttribute('stroke-width', strokeWidth);
       nodeGroup.appendChild(polygon);
@@ -470,7 +470,7 @@ export function renderGraph(
       // Circle for default/users/managers
       const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       circle.setAttribute('r', node.type === 'manager' ? '18' : '20');
-      circle.setAttribute('fill', nodeColor);
+      circle.setAttribute('fill', typeColors.primary);
       circle.setAttribute('stroke', strokeColor);
       circle.setAttribute('stroke-width', strokeWidth);
       nodeGroup.appendChild(circle);
@@ -612,15 +612,4 @@ export function renderGraph(
   });
 }
 
-function getNodeColor(type: string): string {
-  const colors: Record<string, string> = {
-    'default': 'hsl(261, 83%, 69%)', // Purple
-    'user': 'hsl(261, 83%, 69%)',
-    'project': 'hsl(142, 76%, 56%)', // Green
-    'team': 'hsl(45, 93%, 58%)', // Yellow
-    'manager': 'hsl(261, 83%, 69%)',
-    'resource': 'hsl(215, 20%, 65%)', // Gray
-    'department': 'hsl(0, 84%, 60%)', // Red
-  };
-  return colors[type.toLowerCase()] || colors.default;
-}
+

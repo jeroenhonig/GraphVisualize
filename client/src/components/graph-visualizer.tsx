@@ -6,6 +6,7 @@ import GraphStatistics from "./graph-statistics";
 import FileUpload from "./file-upload";
 import GraphCreator from "./graph-creator";
 import SaveViewDialog from "./save-view-dialog";
+import ColorLegend from "./color-legend";
 import LayoutPanel from "./layout-panel";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -324,17 +325,8 @@ export default function GraphVisualizer() {
                 <Button 
                   size="sm" 
                   variant="outline"
-                  onClick={() => setImportModalOpen(true)}
-                  className="flex-1"
-                >
-                  <Upload className="h-3 w-3 mr-1" />
-                  Import
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline"
                   onClick={() => setCreateModalOpen(true)}
-                  className="flex-1"
+                  className="w-full"
                 >
                   <Network className="h-3 w-3 mr-1" />
                   Nieuw
