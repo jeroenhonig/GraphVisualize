@@ -104,7 +104,7 @@ export default function G6V5Working({
 
         console.log('Creating G6 v5.0.48 working graph:', { nodes: nodes.length, edges: edges.length });
 
-        // Use optimized G6 v5.0.48 API with performance improvements
+        // Create G6 graph with optimized styling and interactivity
         const g6Graph = new Graph({
           container,
           width,
@@ -112,37 +112,27 @@ export default function G6V5Working({
           data: { nodes, edges },
           node: {
             style: {
-              size: 20,
-              fill: (d: any) => {
-                return d.data?.colorData?.secondary || '#e6f3ff';
-              },
-              stroke: (d: any) => {
-                return d.data?.colorData?.primary || '#1890ff';
-              },
+              size: 25,
+              fill: (d: any) => d.data?.colorData?.secondary || '#e6f3ff',
+              stroke: (d: any) => d.data?.colorData?.primary || '#1890ff',
               lineWidth: 2,
               labelText: (d: any) => d.label || d.id,
               labelFill: '#333',
-              labelFontSize: 12,
-              labelPosition: 'bottom',
-              labelOffset: 8
+              labelFontSize: 11,
+              labelPosition: 'bottom'
             },
             state: {
               selected: {
                 fill: '#ffeb3b',
                 stroke: '#ff9800',
-                lineWidth: 4
+                lineWidth: 4,
+                size: 30
               },
               hover: {
                 fill: '#ffc107',
                 stroke: '#ff6f00',
-                lineWidth: 3
-              },
-              'relation-source': {
-                fill: '#4caf50',
-                stroke: '#2e7d32',
-                lineWidth: 4,
-                shadowColor: '#4caf50',
-                shadowBlur: 10
+                lineWidth: 3,
+                size: 28
               }
             }
           },
@@ -150,21 +140,27 @@ export default function G6V5Working({
             style: {
               stroke: '#999',
               lineWidth: 1.5,
-              endArrow: true
+              endArrow: true,
+              labelText: (d: any) => d.label || '',
+              labelFill: '#666',
+              labelFontSize: 10
             }
           },
           layout: {
             type: 'force',
             preventOverlap: true,
             nodeSize: 30,
-            linkDistance: 150,
-            nodeStrength: -300,
-            edgeStrength: 0.6,
-            maxIteration: 500,
-            collideStrength: 1
+            linkDistance: 120,
+            nodeStrength: -400,
+            edgeStrength: 0.5,
+            maxIteration: 300,
+            collideStrength: 1.5
           },
           behaviors: ['zoom-canvas', 'drag-canvas', 'drag-element']
         });
+
+        // Render the graph with enhanced visibility
+        g6Graph.render();
 
         // Store selected node for manual highlighting
         let selectedNodeId: string | null = null;
