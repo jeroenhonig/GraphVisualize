@@ -121,14 +121,28 @@ export function getNodeTypeColor(nodeType: string): NodeTypeColor {
     return TYPE_COLORS[normalizedType];
   }
   
-  // Try partial matches for complex types
+  // Try partial matches for complex types (check if the type contains any of our base types)
   for (const [type, colors] of Object.entries(TYPE_COLORS)) {
-    if (normalizedType.includes(type) || type.includes(normalizedType)) {
+    if (normalizedType.includes(type)) {
       return colors;
     }
   }
   
-  // Generate consistent color based on type string hash for unknown types
+  // Check for common prefixes/patterns in RDF/building data
+  if (normalizedType.startsWith('element:') || normalizedType.includes('element')) {
+    return TYPE_COLORS.element;
+  }
+  if (normalizedType.startsWith('material:') || normalizedType.includes('material')) {
+    return TYPE_COLORS.material;
+  }
+  if (normalizedType.startsWith('building:') || normalizedType.includes('building')) {
+    return TYPE_COLORS.building;
+  }
+  if (normalizedType.startsWith('doc:') || normalizedType.includes('document')) {
+    return TYPE_COLORS.doc;
+  }
+  
+  // Generate consistent color based on type string hash for completely unknown types
   return generateColorFromString(nodeType);
 }
 
@@ -136,7 +150,7 @@ export function getNodeTypeColor(nodeType: string): NodeTypeColor {
  * Generate a consistent color scheme based on string hash
  */
 function generateColorFromString(str: string): NodeTypeColor {
-  // Simple hash function
+  // Enhanced hash function for better distribution
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
@@ -144,20 +158,48 @@ function generateColorFromString(str: string): NodeTypeColor {
     hash = hash & hash; // Convert to 32-bit integer
   }
   
-  // Convert hash to HSL color
-  const hue = Math.abs(hash) % 360;
-  const saturation = 60 + (Math.abs(hash) % 20); // 60-80%
-  const lightness = 45 + (Math.abs(hash) % 10); // 45-55%
+  // Use a more diverse set of predefined colors for better distinction
+  const colorPalette = [
+    { h: 0, s: 70, l: 50 },    // Red
+    { h: 30, s: 70, l: 50 },   // Orange
+    { h: 60, s: 70, l: 50 },   // Yellow
+    { h: 120, s: 70, l: 45 },  // Green
+    { h: 180, s: 70, l: 45 },  // Cyan
+    { h: 240, s: 70, l: 50 },  // Blue
+    { h: 270, s: 70, l: 50 },  // Purple
+    { h: 300, s: 70, l: 50 },  // Magenta
+    { h: 15, s: 80, l: 45 },   // Red-Orange
+    { h: 45, s: 75, l: 48 },   // Amber
+    { h: 75, s: 65, l: 48 },   // Lime
+    { h: 165, s: 75, l: 42 },  // Teal
+    { h: 195, s: 70, l: 48 },  // Sky Blue
+    { h: 225, s: 75, l: 52 },  // Indigo
+    { h: 285, s: 70, l: 48 },  // Violet
+    { h: 330, s: 75, l: 48 },  // Pink
+  ];
   
-  const primary = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-  const secondary = `hsl(${hue}, ${saturation}%, 90%)`;
-  const hover = `hsl(${hue}, ${saturation}%, ${lightness - 10}%)`;
+  // Select color based on hash
+  const colorIndex = Math.abs(hash) % colorPalette.length;
+  const selectedColor = colorPalette[colorIndex];
+  
+  // Add some variation based on the hash
+  const hueVariation = (Math.abs(hash) % 20) - 10; // -10 to +10
+  const satVariation = (Math.abs(hash) % 10) - 5;  // -5 to +5
+  const lightVariation = (Math.abs(hash) % 8) - 4; // -4 to +4
+  
+  const finalHue = (selectedColor.h + hueVariation + 360) % 360;
+  const finalSat = Math.max(50, Math.min(85, selectedColor.s + satVariation));
+  const finalLight = Math.max(35, Math.min(60, selectedColor.l + lightVariation));
+  
+  const primary = `hsl(${finalHue}, ${finalSat}%, ${finalLight}%)`;
+  const secondary = `hsl(${finalHue}, ${Math.max(30, finalSat - 20)}%, 90%)`;
+  const hover = `hsl(${finalHue}, ${finalSat}%, ${Math.max(25, finalLight - 8)}%)`;
   
   return {
     primary,
     secondary,
     hover,
-    text: lightness < 50 ? '#ffffff' : '#000000'
+    text: finalLight < 50 ? '#ffffff' : '#000000'
   };
 }
 

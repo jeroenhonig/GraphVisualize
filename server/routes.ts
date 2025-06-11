@@ -380,6 +380,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all unique node types from all graphs (RDF-compliant)
+  app.get("/api/node-types", async (req, res) => {
+    try {
+      const graphs = await storage.getAllGraphs();
+      const allTypes = new Set<string>();
+      
+      for (const graph of graphs) {
+        const graphData = await storage.getVisualizationData(graph.graphId);
+        graphData.nodes.forEach(node => {
+          // Ensure RDF compliance - all types should be rdf:type
+          const rdfType = node.type.startsWith('rdf:type') ? node.type : `rdf:type/${node.type}`;
+          allTypes.add(rdfType);
+        });
+      }
+      
+      res.json(Array.from(allTypes).sort());
+    } catch (error) {
+      console.error("Failed to get node types:", error);
+      res.status(500).json({ error: "Failed to get node types" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

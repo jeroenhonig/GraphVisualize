@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Save, Plus, Trash2, Edit3 } from "lucide-react";
@@ -22,9 +22,17 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
   const [editedNode, setEditedNode] = useState(node);
   const [newPropertyKey, setNewPropertyKey] = useState("");
   const [newPropertyValue, setNewPropertyValue] = useState("");
+  const [customType, setCustomType] = useState("");
+  const [showCustomTypeInput, setShowCustomTypeInput] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch all existing node types from the dataset
+  const { data: existingTypes = [] } = useQuery({
+    queryKey: ["/api/node-types"],
+    enabled: isEditing,
+  });
 
   useEffect(() => {
     setEditedNode(node);
@@ -186,24 +194,86 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
           </div>
 
           <div>
-            <Label htmlFor="node-type">Type</Label>
+            <Label htmlFor="node-type">RDF Type</Label>
             {isEditing ? (
-              <Select
-                value={editedNode.type}
-                onValueChange={(value) => setEditedNode(prev => ({ ...prev, type: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Person">Persoon</SelectItem>
-                  <SelectItem value="Organization">Organisatie</SelectItem>
-                  <SelectItem value="Location">Locatie</SelectItem>
-                  <SelectItem value="Concept">Concept</SelectItem>
-                  <SelectItem value="Event">Gebeurtenis</SelectItem>
-                  <SelectItem value="Document">Document</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Select
+                  value={showCustomTypeInput ? "custom" : editedNode.type}
+                  onValueChange={(value) => {
+                    if (value === "custom") {
+                      setShowCustomTypeInput(true);
+                      setCustomType("");
+                    } else {
+                      setShowCustomTypeInput(false);
+                      setEditedNode(prev => ({ ...prev, type: value }));
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecteer een RDF type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* Existing types from dataset */}
+                    {existingTypes.map((type: string) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                    {/* Common RDF types */}
+                    <SelectItem value="rdf:type/building:Building">building:Building</SelectItem>
+                    <SelectItem value="rdf:type/element:Element">element:Element</SelectItem>
+                    <SelectItem value="rdf:type/material:Material">material:Material</SelectItem>
+                    <SelectItem value="rdf:type/doc:Document">doc:Document</SelectItem>
+                    <SelectItem value="rdf:type/schema:Person">schema:Person</SelectItem>
+                    <SelectItem value="rdf:type/schema:Organization">schema:Organization</SelectItem>
+                    <SelectItem value="rdf:type/schema:Place">schema:Place</SelectItem>
+                    <SelectItem value="rdf:type/owl:Class">owl:Class</SelectItem>
+                    <SelectItem value="rdf:type/rdfs:Resource">rdfs:Resource</SelectItem>
+                    <SelectItem value="custom">+ Nieuw type aanmaken</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                {showCustomTypeInput && (
+                  <div className="space-y-2 p-3 bg-blue-50 rounded border border-blue-200">
+                    <Label className="text-sm font-medium text-blue-800">Nieuw RDF Type</Label>
+                    <Input
+                      placeholder="rdf:type/mijn:NieuwType"
+                      value={customType}
+                      onChange={(e) => setCustomType(e.target.value)}
+                      className="text-sm"
+                    />
+                    <div className="flex space-x-2">
+                      <Button
+                        onClick={() => {
+                          if (customType.trim()) {
+                            const rdfType = customType.startsWith('rdf:type/') ? customType : `rdf:type/${customType}`;
+                            setEditedNode(prev => ({ ...prev, type: rdfType }));
+                            setShowCustomTypeInput(false);
+                            setCustomType("");
+                          }
+                        }}
+                        size="sm"
+                        disabled={!customType.trim()}
+                      >
+                        Toevoegen
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setShowCustomTypeInput(false);
+                          setCustomType("");
+                        }}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Annuleren
+                      </Button>
+                    </div>
+                    <p className="text-xs text-blue-600">
+                      Tip: Gebruik namespace prefixen zoals "building:", "element:", "schema:" etc.
+                    </p>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="flex items-center space-x-2">
                 <Input value={editedNode.type} disabled />
