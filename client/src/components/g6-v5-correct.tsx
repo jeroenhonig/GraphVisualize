@@ -51,8 +51,22 @@ export default function G6GraphCanvas({
 
         console.log('G6 v5 Correct: Initializing with dimensions:', { width, height });
 
-        // Prepare data in correct G6 v5 format
-        const visibleNodeIds = Array.from(visibleNodes);
+        // Debug data availability
+        console.log('G6 v5 Correct: Graph data check:', { 
+          hasGraph: !!graph, 
+          nodeCount: graph?.nodes?.length || 0, 
+          edgeCount: graph?.edges?.length || 0,
+          visibleNodesSize: visibleNodes.size,
+          visibleNodeIds: Array.from(visibleNodes)
+        });
+
+        // Prepare data in correct G6 v5 format - show all nodes if no visibility filter
+        const visibleNodeIds = visibleNodes.size > 0 ? Array.from(visibleNodes) : graph.nodes.map(n => n.id);
+        console.log('G6 v5 Correct: Visibility logic:', { 
+          visibleNodesSize: visibleNodes.size,
+          totalNodes: graph.nodes.length,
+          visibleNodeIds: visibleNodeIds.slice(0, 5) // Show first 5 for debugging
+        });
         const nodes = graph.nodes
           .filter(node => visibleNodeIds.includes(node.id))
           .map(node => {
@@ -114,7 +128,7 @@ export default function G6GraphCanvas({
 
         console.log('G6 v5 Correct: Data prepared:', { nodes: nodes.length, edges: edges.length });
 
-        // Create G6 v5 instance with correct API
+        // Create G6 v5 instance with data included at initialization
         const g6Instance = new Graph({
           container,
           width,
@@ -124,15 +138,11 @@ export default function G6GraphCanvas({
           // Correct G6 v5 layout configuration
           layout: {
             type: 'force',
-            preventOverlap: true,
             linkDistance: 150,
             nodeStrength: -300,
             edgeStrength: 0.2,
-            center: [width / 2, height / 2],
-            gravity: 0.1,
-            alpha: 0.9,
-            alphaDecay: 0.028,
-            velocityDecay: 0.6
+            preventOverlap: true,
+            center: [width / 2, height / 2]
           },
 
           // Correct G6 v5 behaviors
@@ -140,12 +150,10 @@ export default function G6GraphCanvas({
             'drag-canvas',
             'zoom-canvas',
             'drag-element'
-          ],
-
-          // Auto-fit configuration
-          autoFit: 'view',
-          padding: [20, 20, 20, 20]
+          ]
         });
+
+        console.log('G6 v5 Correct: Graph initialized with data successfully');
 
         // G6 v5 event handling
         g6Instance.on('node:click', (event: any) => {
