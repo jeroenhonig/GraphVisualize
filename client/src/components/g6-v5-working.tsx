@@ -163,7 +163,18 @@ export default function G6V5Working({
             const nodeData = nodes.find(n => n.id === itemId);
             if (nodeData?.data) {
               console.log('Selecting node:', nodeData.data.label || itemId);
-              onNodeSelect(nodeData.data);
+              
+              // Pass the complete visualization node data to parent component
+              const visualizationNode = {
+                id: nodeData.data.id,
+                label: nodeData.data.label,
+                type: nodeData.data.type,
+                data: nodeData.data.data || {},
+                x: nodeData.data.x || 0,
+                y: nodeData.data.y || 0
+              };
+              
+              onNodeSelect(visualizationNode);
               
               // Visual feedback using G6 v5.0.48 element state API
               try {
@@ -177,7 +188,7 @@ export default function G6V5Working({
                 
                 // Set current node as selected
                 g6Graph.setElementState(itemId, 'selected', true);
-                console.log(`Node "${nodeData.data.label || itemId}" selected with yellow highlight`);
+                console.log(`Node "${nodeData.data.label || itemId}" selected - details panel should update`);
               } catch (e) {
                 console.warn('Element state selection failed:', e);
               }
@@ -217,7 +228,7 @@ export default function G6V5Working({
           if (itemType === 'edge' && itemId) {
             const edgeData = edges.find(e => e.id === itemId);
             if (edgeData) {
-              console.log('Edge selected:', edgeData.label || itemId);
+              console.log('Edge selected:', edgeData.data?.data?.label || itemId);
             }
           }
         });
