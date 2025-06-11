@@ -237,21 +237,25 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {/* Existing types from dataset */}
-                    {existingTypes.map((type: string) => (
+                    {existingTypes.length > 0 && existingTypes.map((type: string) => (
                       <SelectItem key={type} value={type}>
-                        {type}
+                        {type.includes(':') ? type.split(':')[1] : type}
                       </SelectItem>
                     ))}
+                    {/* Separator if we have existing types */}
+                    {existingTypes.length > 0 && <div className="border-t my-1"></div>}
                     {/* Common RDF types */}
-                    <SelectItem value="rdf:type/building:Building">building:Building</SelectItem>
-                    <SelectItem value="rdf:type/element:Element">element:Element</SelectItem>
-                    <SelectItem value="rdf:type/material:Material">material:Material</SelectItem>
-                    <SelectItem value="rdf:type/doc:Document">doc:Document</SelectItem>
-                    <SelectItem value="rdf:type/schema:Person">schema:Person</SelectItem>
-                    <SelectItem value="rdf:type/schema:Organization">schema:Organization</SelectItem>
-                    <SelectItem value="rdf:type/schema:Place">schema:Place</SelectItem>
-                    <SelectItem value="rdf:type/owl:Class">owl:Class</SelectItem>
-                    <SelectItem value="rdf:type/rdfs:Resource">rdfs:Resource</SelectItem>
+                    <SelectItem value="building:Building">building:Building</SelectItem>
+                    <SelectItem value="building:Element">building:Element</SelectItem>
+                    <SelectItem value="building:Foundation">building:Foundation</SelectItem>
+                    <SelectItem value="building:Structure">building:Structure</SelectItem>
+                    <SelectItem value="building:Facade">building:Facade</SelectItem>
+                    <SelectItem value="material:Material">material:Material</SelectItem>
+                    <SelectItem value="doc:Document">doc:Document</SelectItem>
+                    <SelectItem value="schema:Person">schema:Person</SelectItem>
+                    <SelectItem value="schema:Organization">schema:Organization</SelectItem>
+                    <SelectItem value="schema:Place">schema:Place</SelectItem>
+                    <div className="border-t my-1"></div>
                     <SelectItem value="custom">+ Nieuw type aanmaken</SelectItem>
                   </SelectContent>
                 </Select>
@@ -259,8 +263,11 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
                 {showCustomTypeInput && (
                   <div className="space-y-2 p-3 bg-blue-50 rounded border border-blue-200">
                     <Label className="text-sm font-medium text-blue-800">Nieuw RDF Type</Label>
+                    <div className="text-xs text-blue-600 mb-2">
+                      Voer een RDF type in met namespace:prefix formaat (bijv. building:NewType)
+                    </div>
                     <Input
-                      placeholder="rdf:type/mijn:NieuwType"
+                      placeholder="namespace:TypeNaam (bijv. building:MyNewType)"
                       value={customType}
                       onChange={(e) => setCustomType(e.target.value)}
                       className="text-sm"
@@ -269,7 +276,11 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
                       <Button
                         onClick={() => {
                           if (customType.trim()) {
-                            const rdfType = customType.startsWith('rdf:type/') ? customType : `rdf:type/${customType}`;
+                            // Ensure proper namespace format
+                            let rdfType = customType.trim();
+                            if (!rdfType.includes(':')) {
+                              rdfType = `custom:${rdfType}`;
+                            }
                             setEditedNode(prev => ({ ...prev, type: rdfType }));
                             setShowCustomTypeInput(false);
                             setCustomType("");
