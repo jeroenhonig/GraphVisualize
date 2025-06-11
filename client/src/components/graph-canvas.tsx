@@ -533,6 +533,37 @@ export default function GraphCanvasOptimized({
     };
   }, [graph, visibleNodes, nodeCount, edgeCount, nodes, edges, currentLayout, editMode, onNodeSelect, relationMode, relationSourceNode]);
 
+  // Reageer op panel constraint changes
+  useEffect(() => {
+    if (graphRef.current && panelConstraints) {
+      const container = containerRef.current;
+      if (!container) return;
+      
+      const width = container.clientWidth || 800;
+      const height = container.clientHeight || 600;
+      
+      const leftOffset = panelConstraints?.leftPanel && !panelConstraints.leftPanel.collapsed 
+        ? panelConstraints.leftPanel.width 
+        : 0;
+      const rightOffset = panelConstraints?.rightPanel && !panelConstraints.rightPanel.collapsed 
+        ? panelConstraints.rightPanel.width 
+        : 0;
+      
+      const availableWidth = width - leftOffset - rightOffset;
+      const newCenterX = leftOffset + (availableWidth / 2);
+      const newCenterY = height / 2;
+      
+      // Update layout center
+      try {
+        graphRef.current.updateLayout({
+          center: [newCenterX, newCenterY]
+        });
+      } catch (error) {
+        console.warn('Failed to update layout center:', error);
+      }
+    }
+  }, [panelConstraints]);
+
   // Expose control functions for parent component
   useEffect(() => {
     if (graphRef.current) {
