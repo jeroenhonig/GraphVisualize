@@ -49,7 +49,7 @@ export default function GraphCanvas({
   
   // Node dragging state
   const [draggedNode, setDraggedNode] = useState<VisualizationNode | null>(null);
-  const [nodeDragStart, setNodeDragStart] = useState({ x: 0, y: 0, nodeStartX: 0, nodeStartY: 0 });
+  const [nodeDragStart, setNodeDragStart] = useState<{ x: number; y: number; nodeStartX?: number; nodeStartY?: number }>({ x: 0, y: 0 });
   const [isNodeDragging, setIsNodeDragging] = useState(false);
   const [activeDragNodeId, setActiveDragNodeId] = useState<string | null>(null);
   
@@ -637,8 +637,8 @@ export default function GraphCanvas({
         const deltaY = mouseY - nodeDragStart.y;
         
         // Apply the same delta to the node's starting position
-        const newX = nodeDragStart.nodeStartX + deltaX;
-        const newY = nodeDragStart.nodeStartY + deltaY;
+        const newX = (nodeDragStart.nodeStartX ?? 0) + deltaX;
+        const newY = (nodeDragStart.nodeStartY ?? 0) + deltaY;
         
         // Update local position for immediate visual feedback
         setLocalNodePositions(prev => ({
@@ -751,9 +751,13 @@ export default function GraphCanvas({
           const mouseX = (e.clientX - rect.left - transform.translateX) / transform.scale;
           const mouseY = (e.clientY - rect.top - transform.translateY) / transform.scale;
           
-          // Calculate new position maintaining the original offset from mouse to node center
-          const newX = mouseX - nodeDragStart.x;
-          const newY = mouseY - nodeDragStart.y;
+          // Calculate how much the mouse has moved since drag started
+          const deltaX = mouseX - nodeDragStart.x;
+          const deltaY = mouseY - nodeDragStart.y;
+          
+          // Apply the same delta to the node's starting position
+          const newX = (nodeDragStart.nodeStartX ?? 0) + deltaX;
+          const newY = (nodeDragStart.nodeStartY ?? 0) + deltaY;
           
           setLocalNodePositions(prev => ({
             ...prev,
