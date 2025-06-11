@@ -1,0 +1,38 @@
+[vite] connecting...
+[vite] connected.
+Container callback ref called with node: true
+Container mounting immediately: 
+Object {offsetWidth: 662, offsetHeight: 500, isConnected: true}
+Graph creation useEffect triggered: 
+Object {hasContainer: false, containerReady: false, hasGraph: false, nodeCount: 0, edgeCount: 0}
+Early return: missing requirements 
+Object {hasGraph: false, hasNodes: false, containerReady: false, hasContainer: false}
+Graph creation useEffect triggered: 
+Object {hasContainer: true, containerReady: true, hasGraph: false, nodeCount: 0, edgeCount: 0}
+Early return: missing requirements 
+Object {hasGraph: false, hasNodes: false, containerReady: true, hasContainer: true}
+Graph creation useEffect triggered: 
+Object {hasContainer: true, containerReady: true, hasGraph: false, nodeCount: 0, edgeCount: 0}
+Early return: missing requirements 
+Object {hasGraph: false, hasNodes: false, containerReady: true, hasContainer: true}
+Graph creation useEffect triggered: 
+Object {hasContainer: true, containerReady: true, hasGraph: false, nodeCount: 0, edgeCount: 0}
+Early return: missing requirements 
+Object {hasGraph: false, hasNodes: false, containerReady: true, hasContainer: true}
+Graph creation useEffect triggered: 
+Object {hasContainer: true, containerReady: true, hasGraph: false, nodeCount: 0, edgeCount: 0}
+Early return: missing requirements 
+Object {hasGraph: false, hasNodes: false, containerReady: true, hasContainer: true}
+Graph creation useEffect triggered: 
+Object {hasContainer: true, containerReady: true, hasGraph: true, nodeCount: 78, edgeCount: 120}
+All requirements met, creating graph
+Container validation passed: 
+Object {tagName: "DIV", offsetWidth: 662, offsetHeight: 500, isConnected: true}
+Creating G6 graph with: 
+Object {totalNodes: 78, renderingNodes: 78, edgeCount: 120, containerDimensions: {…}}
+Loading G6 data: 
+Object {nodes: 78, edges: 120}
+G6 API available methods: 
+(104) ["constructor", "getOptions", "setOptions", "_setOptions", "getSize", "setSize", "setZoomRange", "getZoomRange", "setNode", "setEdge", "setCombo", "getTheme", "setTheme", "setLayout", "getLayout", "setBehaviors", "updateBehavior", "getBehaviors", "setPlugins", "updatePlugin", "getPlugins", "getPluginInstance", "setTransforms", "updateTransform", "getTransforms", "getData", "getElementData", "getNodeData", "getEdgeData", "getComboData", "setData", "addData", "addNodeData", "addEdgeData", "addComboData", "addChildrenData", "updateData", "updateNodeData", "updateEdgeData", "updateComboData", "removeData", "removeNodeData", "removeEdgeData", "removeComboData", "getElementType", "getRelatedEdgesData", "getNeighborNodesData", "getAncestorsData", "getParentData", "getChildrenData", "getDescendantsData", "getElementDataByState", "initCanvas", "updateCanvas", "initRuntime", "prepare", "render", "draw", "layout", "stopLayout", "clear", "destroy", "getCanvas", "resize", "fitView", "fitCenter", "autoFit", "focusElement", "zoomBy", "zoomTo", "getZoom", "rotateBy", "rotateTo", "getRotation", "translateBy", "translateTo", "getPosition", "translateElementBy", "translateElementTo", "getElementPosition", "getElementRenderStyle", "setElementVisibility", "showElement", "hideElement", "getElementVisibility", "setElementZIndex", "frontElement", "getElementZIndex", "setElementState", "getElementState", "getElementRenderBounds", "collapseElement", "expandElement", "setElementCollapsibility", "toDataURL", "getCanvasByViewport", "getViewportByCanvas", "getClientByCanvas", "getCanvasByClient", "getViewportCenter", …]
+G6 version info: 5.0.48
+G6 graph instance created: true
