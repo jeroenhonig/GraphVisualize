@@ -82,7 +82,7 @@ export default function GraphStatistics({ graphData }: GraphStatisticsProps) {
           
           <div className="space-y-2">
             <div className="flex justify-between text-xs">
-              <span>Gemiddelde Verbindingen</span>
+              <span>Gemiddelde Aantal Relaties</span>
               <span className="font-mono">{avgConnectionsPerNode.toFixed(1)}</span>
             </div>
             <Progress value={Math.min((avgConnectionsPerNode / 10) * 100, 100)} className="h-2" />
