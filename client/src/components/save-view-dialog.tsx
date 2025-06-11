@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { GraphTransform } from "@/lib/graph-utils";
+import type { GraphTransform } from "@shared/schema";
 
 interface SaveViewDialogProps {
   open: boolean;

@@ -132,11 +132,29 @@ export default function LayoutPanel({
 
       {/* Content */}
       <div 
-        className={`h-full overflow-y-auto overflow-x-hidden ${collapsed ? 'opacity-0 pointer-events-none' : ''}`} 
-        style={{ height: 'calc(100% - 56px)' }}
+        className="h-full overflow-y-auto overflow-x-hidden" 
+        style={{ 
+          height: 'calc(100% - 56px)',
+          display: collapsed ? 'none' : 'block'
+        }}
       >
         {children}
       </div>
+      
+      {/* Always render children invisibly when collapsed to ensure DOM mounting */}
+      {collapsed && (
+        <div 
+          className="absolute -z-10 opacity-0 pointer-events-none"
+          style={{ 
+            height: 'calc(100% - 56px)',
+            width: '100%',
+            top: '56px',
+            left: 0
+          }}
+        >
+          {children}
+        </div>
+      )}
     </div>
   );
 }

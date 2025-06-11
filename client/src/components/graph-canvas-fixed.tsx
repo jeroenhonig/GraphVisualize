@@ -60,14 +60,21 @@ export default function GraphCanvas({
 
   // Callback ref to ensure proper container mounting
   const setContainerRef = useCallback((node: HTMLDivElement | null) => {
+    console.log('Container callback ref called with node:', !!node);
     if (node) {
       console.log('Container callback ref - DOM element ready:', {
         offsetWidth: node.offsetWidth,
         offsetHeight: node.offsetHeight,
-        isConnected: node.isConnected
+        isConnected: node.isConnected,
+        parentElement: !!node.parentElement,
+        style: node.style.cssText
       });
       setContainerElement(node);
       setContainerReady(true);
+    } else {
+      console.log('Container ref set to null');
+      setContainerElement(null);
+      setContainerReady(false);
     }
   }, []);
 
