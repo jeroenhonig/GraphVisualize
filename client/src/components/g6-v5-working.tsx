@@ -107,7 +107,7 @@ export default function G6V5Working({
 
         console.log('Creating G6 v5.0.48 working graph:', { nodes: nodes.length, edges: edges.length });
 
-        // Use actual G6 v5.0.48 API
+        // Use G6 v5.0.48 API
         const g6Graph = new Graph({
           container,
           width,
@@ -166,18 +166,18 @@ export default function G6V5Working({
           behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element']
         });
 
-        // Event handlers for G6 v5.0.48
+        // Node click handler with proper selection logic
         g6Graph.on('node:click', (event: any) => {
-          console.log('G6 v5 Node clicked:', event);
+          console.log('Node clicked:', event);
           const nodeId = event.itemId || event.target?.id;
           
           if (nodeId) {
             // Find the original node data from the nodes array
             const originalNode = nodes.find(n => n.id === nodeId);
             if (originalNode) {
-              console.log('Original node found:', originalNode);
+              console.log('Node selected:', originalNode.data.label);
               
-              // Use the original visualization node structure
+              // Pass node data to parent component
               const visualizationNode = {
                 id: originalNode.data.id,
                 label: originalNode.data.label,
@@ -187,33 +187,15 @@ export default function G6V5Working({
                 y: originalNode.data.y
               };
               
-              console.log('Calling onNodeSelect with:', visualizationNode);
               onNodeSelect(visualizationNode as any);
               
-              // Debug: Check current selection state
-              console.log('Current selected node states:');
+              // Clear all selections first, then set only this node as selected
               nodes.forEach((node: any) => {
-                try {
-                  const state = g6Graph.getElementState(node.id);
-                  console.log(`Node ${node.id}: selected=${state?.selected || false}`);
-                } catch (e) {
-                  // Ignore errors for debugging
-                }
+                g6Graph.setElementState(node.id, 'selected', false);
               });
+              g6Graph.setElementState(nodeId, 'selected', true);
               
-              // Visual feedback using G6 v5.0.48 element state
-              try {
-                // Clear all previous selections first
-                nodes.forEach((node: any) => {
-                  g6Graph.setElementState(node.id, 'selected', false);
-                });
-                
-                // Set only current node as selected
-                g6Graph.setElementState(nodeId, 'selected', true);
-                console.log(`Node "${visualizationNode.label}" selected - only this node should be yellow`);
-              } catch (e) {
-                console.warn('Selection visual feedback failed:', e);
-              }
+              console.log(`Only node "${originalNode.data.label}" should be highlighted`);
             }
           }
         });
