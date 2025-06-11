@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FileSpreadsheet, Upload, Plus, EyeOff } from "lucide-react";
+import { FileSpreadsheet, Upload, Plus, EyeOff, Edit } from "lucide-react";
 import { createGraphLayout, renderGraph, simulatePhysicsStep, type GraphTransform } from "@/lib/graph-utils";
 import type { GraphData, VisualizationNode, VisualizationEdge } from "@shared/schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -18,6 +18,7 @@ interface GraphCanvasProps {
   selectedNode?: VisualizationNode;
   onNodeSelect: (node: VisualizationNode) => void;
   onNodeExpand: (nodeId: string) => void;
+  onNodeEdit?: (node: VisualizationNode) => void;
   visibleNodes: Set<string>;
   onVisibleNodesChange: (nodes: Set<string>) => void;
   transform: GraphTransform;
@@ -34,6 +35,7 @@ export default function GraphCanvas({
   selectedNode,
   onNodeSelect,
   onNodeExpand,
+  onNodeEdit,
   visibleNodes,
   onVisibleNodesChange,
   transform,

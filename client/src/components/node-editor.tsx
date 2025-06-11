@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Plus, Trash2, Edit3 } from "lucide-react";
+import { Save, Plus, Trash2, Edit3, Edit, Check, X } from "lucide-react";
 import type { VisualizationNode } from "@shared/schema";
 
 interface NodeEditorProps {
@@ -24,6 +24,8 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
   const [newPropertyValue, setNewPropertyValue] = useState("");
   const [customType, setCustomType] = useState("");
   const [showCustomTypeInput, setShowCustomTypeInput] = useState(false);
+  const [editingProperties, setEditingProperties] = useState<Set<string>>(new Set());
+  const [newPropertyAdded, setNewPropertyAdded] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -37,6 +39,8 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
   useEffect(() => {
     setEditedNode(node);
     setIsEditing(false);
+    setEditingProperties(new Set());
+    setNewPropertyAdded(false);
   }, [node]);
 
   const updateNodeMutation = useMutation({
@@ -93,28 +97,47 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
   };
 
   const handleAddProperty = () => {
-    // If we have pending new property values, add them
+    // Add the new property and mark it as newly added
     if (newPropertyKey.trim() && newPropertyValue.trim()) {
       setEditedNode(prev => ({
         ...prev,
         data: {
-          ...prev.data,
-          [newPropertyKey]: newPropertyValue
+          [newPropertyKey]: newPropertyValue,
+          ...prev.data
         }
       }));
 
       setNewPropertyKey("");
       setNewPropertyValue("");
+      setNewPropertyAdded(true);
       return;
     }
+  };
 
-    // Otherwise add a default property to start editing
-    const defaultKey = `eigenschap${Object.keys(editedNode.data).length + 1}`;
+  const handleEditProperty = (key: string) => {
+    setEditingProperties(prev => new Set([...prev, key]));
+  };
+
+  const handleSaveProperty = (key: string) => {
+    setEditingProperties(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(key);
+      return newSet;
+    });
+  };
+
+  const handleCancelPropertyEdit = (key: string) => {
+    setEditingProperties(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(key);
+      return newSet;
+    });
+    // Reset to original value
     setEditedNode(prev => ({
       ...prev,
       data: {
         ...prev.data,
-        [defaultKey]: ""
+        [key]: node.data[key]
       }
     }));
   };
