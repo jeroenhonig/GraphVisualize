@@ -271,41 +271,67 @@ const GraphCanvas = React.memo(({
         version: G6.version
       });
 
-      // G6 v5 simplified configuration
+      // Transform data to G6 v5 format
+      const g6v5Data = {
+        nodes: processedGraphData.nodes.map(node => ({
+          id: node.id,
+          data: {
+            label: node.label,
+            type: node.originalNode?.type || 'default',
+            ...node.originalNode
+          }
+        })),
+        edges: processedGraphData.edges.map(edge => ({
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          data: {
+            label: edge.label || ''
+          }
+        }))
+      };
+
+      // G6 v5 proper configuration
       const graph = new G6.Graph({
         container,
         width,
         height,
-        fitView: true,
-        fitViewPadding: [20, 40, 50, 20],
+        data: g6v5Data, // Pass data directly to constructor
         layout: {
-          type: 'circular',
-          radius: 200,
+          type: 'force',
+          preventOverlap: true,
+          nodeSize: 25,
+          linkDistance: 150,
+          nodeStrength: -300,
+          edgeStrength: 0.6,
+          collideStrength: 0.8,
         },
-        defaultNode: {
-          size: 25,
+        node: {
           style: {
+            size: 25,
             fill: '#e6f7ff',
             stroke: '#1890ff',
             lineWidth: 2,
-          },
-          labelCfg: {
-            style: {
-              fill: '#333',
-              fontSize: 10,
-            },
+            labelText: (d: any) => d.data?.label || d.id,
+            labelFill: '#333',
+            labelFontSize: 10,
+            labelPosition: 'bottom',
+            labelOffsetY: 5,
           },
         },
-        defaultEdge: {
+        edge: {
           style: {
             stroke: '#91d5ff',
             lineWidth: 1,
             opacity: 0.8,
+            labelText: (d: any) => d.data?.label || '',
+            labelFill: '#333',
+            labelFontSize: 10,
           },
         },
-        modes: {
-          default: ['drag-canvas', 'zoom-canvas', 'drag-node'],
-        },
+        behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element'],
+        autoFit: 'view',
+        padding: [20, 40, 50, 20],
       });
 
       // Validate graph creation
@@ -315,40 +341,18 @@ const GraphCanvas = React.memo(({
 
       console.log('Loading G6 data:', { nodes: processedGraphData.nodes.length, edges: processedGraphData.edges.length });
       
-      // Load data using correct G6 v5 API
-      try {
-        // G6 v5 uses addData() method or direct data property
-        if (typeof graph.addData === 'function') {
-          graph.addData(processedGraphData);
-        } else if (typeof graph.data === 'function') {
-          graph.data(processedGraphData);
-          graph.render();
-        } else {
-          // Manual node and edge addition for G6 v5
-          processedGraphData.nodes.forEach(node => {
-            graph.addItem('node', node);
-          });
-          processedGraphData.edges.forEach(edge => {
-            graph.addItem('edge', edge);
-          });
-        }
-        
-        // Force layout refresh
-        if (typeof graph.refresh === 'function') {
-          graph.refresh();
-        }
-        
-        console.log('G6 graph rendered successfully');
+      // G6 v5 renders automatically with data in constructor
+      // No need for manual data loading - data is already passed in constructor
+      console.log('G6 v5 graph created and rendered automatically');
       } catch (dataError) {
         console.error('Error loading data into G6:', dataError);
         throw new Error(`Failed to load graph data: ${dataError?.message || 'Unknown data error'}`);
       }
 
-      // Bind events with proper error handling
+      // G6 v5 event handlers
       graph.on('node:click', (e: any) => {
         try {
-          const nodeModel = e.item?.getModel?.() || e.item;
-          const nodeId = nodeModel?.id || e.item?.id;
+          const nodeId = e.itemId || e.data?.id;
           const originalNode = processedGraphData.nodes.find(n => n.id === nodeId)?.originalNode;
           if (originalNode) {
             onNodeSelect(originalNode);
@@ -361,12 +365,11 @@ const GraphCanvas = React.memo(({
       graph.on('node:contextmenu', (e: any) => {
         try {
           e.preventDefault();
-          const nodeModel = e.item?.getModel?.() || e.item;
-          const nodeId = nodeModel?.id || e.item?.id;
+          const nodeId = e.itemId || e.data?.id;
           if (nodeId) {
             setContextMenu({
               isOpen: true,
-              position: { x: e.canvasX || e.x, y: e.canvasY || e.y },
+              position: { x: e.canvas?.x || e.x, y: e.canvas?.y || e.y },
               targetNodeId: nodeId as string,
             });
           }
@@ -443,11 +446,9 @@ const GraphCanvas = React.memo(({
           for (const entry of entries) {
             const { width, height } = entry.contentRect;
             if (width > 0 && height > 0) {
-              // Use G6 v5 compatible resize methods
-              if (typeof graphRef.current.resize === 'function') {
-                graphRef.current.resize(width, height);
-              } else if (typeof graphRef.current.updateLayout === 'function') {
-                graphRef.current.updateLayout({ width, height });
+              // Use G6 v5 setSize method
+              if (typeof graphRef.current.setSize === 'function') {
+                graphRef.current.setSize([width, height]);
               }
               // Delay fitView to prevent layout conflicts
               setTimeout(() => {
@@ -528,20 +529,21 @@ const GraphCanvas = React.memo(({
     };
   }, [processedGraphData, createGraph, cleanupGraph]);
 
-  // Update selected node highlight
+  // Update selected node highlight for G6 v5
   useEffect(() => {
     if (!graphRef.current || !selectedNode) return;
 
     try {
-      // Clear previous selections
-      graphRef.current.getNodes().forEach((node: any) => {
-        graphRef.current.clearItemStates(node, ['selected']);
-      });
+      // G6 v5 selection methods
+      if (typeof graphRef.current.setItemState === 'function') {
+        // Clear all selections first
+        const allNodes = graphRef.current.getAllNodesData() || [];
+        allNodes.forEach((node: any) => {
+          graphRef.current.setItemState(node.id, 'selected', false);
+        });
 
-      // Highlight selected node
-      const selectedG6Node = graphRef.current.findById(selectedNode.id);
-      if (selectedG6Node) {
-        graphRef.current.setItemState(selectedG6Node, 'selected', true);
+        // Set selected state for current node
+        graphRef.current.setItemState(selectedNode.id, 'selected', true);
       }
     } catch (error) {
       console.warn('Node selection error:', error);

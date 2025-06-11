@@ -43,14 +43,13 @@ export const getLayoutConfig = (type: G6LayoutConfig['type']): G6LayoutConfig =>
   const baseConfig = {
     preventOverlap: true,
     nodeSize: 25,
-    animate: true,
   };
 
   switch (type) {
     case 'force':
       return {
         ...baseConfig,
-        type: 'gForce',
+        type: 'force', // G6 v5 uses 'force' not 'gForce'
         gravity: 10,
         linkDistance: 150,
         nodeStrength: -300,
@@ -86,8 +85,8 @@ export const getLayoutConfig = (type: G6LayoutConfig['type']): G6LayoutConfig =>
         ranksep: 50,
       };
     default:
-      console.warn(`Unknown layout type: ${type}, falling back to gForce`);
-      return { ...baseConfig, type: 'gForce' };
+      console.warn(`Unknown layout type: ${type}, falling back to force`);
+      return { ...baseConfig, type: 'force' };
   }
 };
 
