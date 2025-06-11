@@ -66,37 +66,19 @@ export default function G6V5Working({
 
         const visibleNodeIds = visibleNodes.size > 0 ? Array.from(visibleNodes) : graph.nodes.map(n => n.id);
         
-        const filteredNodes = graph.nodes.filter(node => visibleNodeIds.includes(node.id)).slice(0, 100);
-        
-        const nodes = filteredNodes.map((node, index) => {
+        const nodes = graph.nodes
+          .filter(node => visibleNodeIds.includes(node.id))
+          .slice(0, 100)
+          .map(node => {
             const colorData = getNodeTypeColor(node.type);
-            
-            // Grid-based distribution to prevent overlapping during layout
-            const cols = Math.ceil(Math.sqrt(filteredNodes.length));
-            const rows = Math.ceil(filteredNodes.length / cols);
-            const col = index % cols;
-            const row = Math.floor(index / cols);
-            
-            // Calculate grid positions with proper spacing
-            const spacing = Math.min(width / (cols + 1), height / (rows + 1));
-            const gridX = (col + 1) * spacing;
-            const gridY = (row + 1) * spacing;
-            
-            // Small random offset to avoid perfect grid alignment
-            const offsetX = (Math.random() - 0.5) * 30;
-            const offsetY = (Math.random() - 0.5) * 30;
             
             return {
               id: node.id,
-              x: gridX + offsetX,
-              y: gridY + offsetY,
-              size: 20,
               data: {
                 ...node,
                 label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
                 fill: colorData.secondary,
-                stroke: colorData.primary,
-                size: 20
+                stroke: colorData.primary
               }
             };
           });
@@ -174,20 +156,10 @@ export default function G6V5Working({
           layout: {
             type: 'force',
             preventOverlap: true,
-            nodeSize: 40,
-            nodeSpacing: 25,
-            linkDistance: 120,
-            nodeStrength: -1200,
-            edgeStrength: 0.1,
-            alpha: 0.3,
-            alphaDecay: 0.02,
-            velocityDecay: 0.8,
-            collideStrength: 5,
-            gravity: 0.05,
-            center: [width / 2, height / 2],
-            // Optimize for minimal iterations to reduce overlap duration
-            iterations: 100,
-            tick: 100
+            nodeSize: 25,
+            linkDistance: 200,
+            nodeStrength: -500,
+            edgeStrength: 0.3
           },
           behaviors: ['zoom-canvas', 'drag-element']
         });
@@ -434,22 +406,9 @@ export default function G6V5Working({
           }
         });
 
-        // Enhanced drag behavior following G6 v3 pattern
-        let layoutCompleted = false;
+        // Simple layout completion tracking without stopping
         g6Graph.on('afterlayout', () => {
           console.log('Layout completed - nodes positioned');
-          if (!layoutCompleted) {
-            layoutCompleted = true;
-            // Stop continuous layout simulation after initial positioning
-            setTimeout(() => {
-              try {
-                g6Graph.stopLayout();
-                console.log('Force simulation stopped - nodes stabilized');
-              } catch (e) {
-                console.warn('Could not stop layout:', e);
-              }
-            }, 1000);
-          }
         });
 
         g6Graph.on('node:dragstart', (event: any) => {
