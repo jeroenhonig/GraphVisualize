@@ -757,6 +757,14 @@ export default function GraphCanvas({
     });
   }, [visibleNodes, onVisibleNodesChange, contextMenu, graph?.nodes, toast]);
 
+  const handleEditNode = useCallback((nodeId: string) => {
+    const node = graph?.nodes.find(n => n.id === nodeId);
+    if (node && onNodeEdit) {
+      onNodeEdit(node);
+    }
+    setContextMenu({ ...contextMenu, visible: false });
+  }, [graph?.nodes, onNodeEdit, contextMenu]);
+
   const handleStartRelation = useCallback((nodeId: string) => {
     setRelationSourceNode(nodeId);
     setContextMenu({ ...contextMenu, visible: false });
@@ -983,6 +991,14 @@ export default function GraphCanvas({
           
           {contextMenu.type === 'node' && contextMenu.nodeId && (
             <>
+              <button
+                onClick={() => handleEditNode(contextMenu.nodeId!)}
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <Edit className="h-4 w-4" />
+                Bewerk node
+              </button>
+              <div className="border-t border-gray-200 my-1"></div>
               <button
                 onClick={() => handleStartRelation(contextMenu.nodeId!)}
                 className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"

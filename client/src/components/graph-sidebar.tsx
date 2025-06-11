@@ -336,16 +336,15 @@ export default function GraphSidebar({
                         <h4 className="text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
                           Eigenschappen
                         </h4>
-                        <div className="space-y-1 text-xs">
+                        <div className="max-h-48 overflow-y-auto space-y-2 text-xs">
                           {Object.entries(selectedNode.data)
                             .filter(([key, value]) => value && key !== 'id' && key !== 'label' && key !== 'type')
-                            .slice(0, 5)
                             .map(([key, value]) => (
-                              <div key={key} className="flex justify-between">
-                                <span className="text-gray-600 truncate">{key}:</span>
-                                <span className="font-mono ml-2 truncate max-w-32" title={String(value)}>
+                              <div key={key} className="p-2 bg-gray-50 rounded border">
+                                <div className="font-medium text-gray-700 mb-1 break-words">{key}:</div>
+                                <div className="font-mono text-xs text-gray-600 break-all">
                                   {String(value)}
-                                </span>
+                                </div>
                               </div>
                             ))}
                         </div>
@@ -366,15 +365,6 @@ export default function GraphSidebar({
                 >
                   <ExpandIcon className="h-4 w-4 mr-2" />
                   Uitklappen
-                </Button>
-                <Button
-                  onClick={() => onNodeCollapse(selectedNode.id)}
-                  className="w-full"
-                  variant="outline"
-                  size="sm"
-                >
-                  <EyeOff className="h-4 w-4 mr-2" />
-                  Verbergen
                 </Button>
               </div>
             )}
