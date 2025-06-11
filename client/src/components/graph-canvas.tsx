@@ -755,7 +755,7 @@ export default function GraphCanvas({
             setIsNodeDragging(true);
             setActiveDragNodeId(draggedNode.id);
           } else {
-            console.log('Starting canvas panning');
+            console.log('Starting canvas panning - transform before:', transform);
             setIsDragging(true);
           }
         }
@@ -788,7 +788,9 @@ export default function GraphCanvas({
           translateY: deltaY
         };
         
+        console.log('Panning transform:', { deltaX, deltaY, newTransform });
         const constrainedTransform = constrainTransform(newTransform);
+        console.log('Constrained transform:', constrainedTransform);
         onTransformChange(constrainedTransform);
       }
     };
