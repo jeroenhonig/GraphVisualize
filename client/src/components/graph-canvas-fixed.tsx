@@ -212,20 +212,29 @@ export default function GraphCanvas({
           edges: g6Data.edges.length
         });
 
-        // G6 v5 correct API - data is set during instantiation
-        const graphInstance = new G6.Graph({
+        // G6 v5.0.48 uses new instantiation pattern with data
+        const graph = new G6.Graph({
           container: container,
           width: width,
           height: height,
           data: g6Data,
+          layout: {
+            type: 'force',
+            preventOverlap: true,
+            nodeSize: 30,
+            linkDistance: 150,
+            nodeStrength: -300,
+            edgeStrength: 0.6
+          },
           node: {
             style: {
-              size: 20,
+              size: 30,
               fill: '#e6f7ff',
               stroke: '#1890ff',
               lineWidth: 2
             },
-            labelText: (d: any) => d.label
+            labelText: (d: any) => d.label,
+            labelPosition: 'bottom'
           },
           edge: {
             style: {
@@ -244,72 +253,37 @@ export default function GraphCanvas({
           label: n.label
         })));
         
-        // G6 v5 requires explicit render call after data
-        setTimeout(() => {
-          try {
-            graphInstance.render();
-            graphInstance.fitView();
-            
-            // Check DOM creation
-            const canvasElements = container.querySelectorAll('canvas');
-            const svgElements = container.querySelectorAll('svg');
-            console.log('DOM elements after render:', {
-              canvas: canvasElements.length,
-              svg: svgElements.length,
-              containerHTML: container.innerHTML.length > 0 ? 'Content exists' : 'Empty'
-            });
-            
-            if (canvasElements.length === 0 && svgElements.length === 0) {
-              console.error('G6 failed to create rendering elements - trying alternative approach');
-              
-              // Fallback: Create simple canvas visualization
-              const fallbackCanvas = document.createElement('canvas');
-              fallbackCanvas.width = width;
-              fallbackCanvas.height = height;
-              fallbackCanvas.style.border = '1px solid #ccc';
-              container.appendChild(fallbackCanvas);
-              
-              const ctx = fallbackCanvas.getContext('2d');
-              if (ctx) {
-                // Draw simple node representation
-                g6Data.nodes.forEach(node => {
-                  ctx.beginPath();
-                  ctx.arc(node.x, node.y, 10, 0, 2 * Math.PI);
-                  ctx.fillStyle = '#1890ff';
-                  ctx.fill();
-                  ctx.strokeStyle = '#ffffff';
-                  ctx.lineWidth = 2;
-                  ctx.stroke();
-                });
-                
-                // Draw edges
-                ctx.strokeStyle = '#91d5ff';
-                ctx.lineWidth = 1;
-                g6Data.edges.forEach(edge => {
-                  const source = g6Data.nodes.find(n => n.id === edge.source);
-                  const target = g6Data.nodes.find(n => n.id === edge.target);
-                  if (source && target) {
-                    ctx.beginPath();
-                    ctx.moveTo(source.x, source.y);
-                    ctx.lineTo(target.x, target.y);
-                    ctx.stroke();
-                  }
-                });
-                
-                console.log('Fallback canvas visualization created');
-              }
-            }
-            
-            console.log('Graph render sequence completed');
-          } catch (error) {
-            console.error('Render error:', error);
+        // Store graph reference and bind events
+        graphRef.current = graph;
+        
+        // Bind G6 events
+        graph.on('node:click', (e: any) => {
+          const node = e.item.getModel();
+          const nodeData = nodes.find(n => n.id === node.id);
+          if (nodeData) {
+            onNodeSelect(nodeData);
           }
+        });
+
+        graph.on('canvas:click', () => {
+          onNodeSelect(undefined as any);
+        });
+
+        // Debug render completion
+        setTimeout(() => {
+          const canvasElements = container.querySelectorAll('canvas');
+          const svgElements = container.querySelectorAll('svg');
+          console.log('G6 rendering completed:', {
+            canvas: canvasElements.length,
+            svg: svgElements.length,
+            graphExists: !!graph
+          });
         }, 100);
         
         console.log('G6 v5 graph created, will render with delay');
 
-        // Bind events
-        graphInstance.on('node:click', (e: any) => {
+        // Bind events  
+        graph.on('node:click', (e: any) => {
           const nodeData = e.item?.getModel ? e.item.getModel() : e.item;
           if (nodeData && onNodeSelect) {
             const originalNode = nodes.find(n => n.id === nodeData.id);
@@ -319,7 +293,7 @@ export default function GraphCanvas({
           }
         });
 
-        graphInstance.on('node:contextmenu', (e: any) => {
+        graph.on('node:contextmenu', (e: any) => {
           e.preventDefault();
           const nodeData = e.item?.getModel ? e.item.getModel() : e.item;
           if (nodeData) {
@@ -331,12 +305,12 @@ export default function GraphCanvas({
           }
         });
 
-        graphInstance.on('canvas:click', () => {
+        graph.on('canvas:click', () => {
           setContextMenu(prev => ({ ...prev, isOpen: false }));
         });
 
         // Store graph reference
-        graphRef.current = graphInstance;
+        graphRef.current = graph;
 
         // Performance monitoring
         const endTime = performance.now();
