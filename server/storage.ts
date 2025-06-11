@@ -639,10 +639,10 @@ export class DatabaseStorage implements IStorage {
     const viewId = nanoid();
     const [view] = await db
       .insert(savedViews)
-      .values({
+      .values([{
         ...savedView,
         viewId,
-      })
+      }])
       .returning();
     return view;
   }
