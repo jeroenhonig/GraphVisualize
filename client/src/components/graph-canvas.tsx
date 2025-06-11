@@ -257,6 +257,17 @@ export default function GraphCanvasOptimized({
     setContextMenu(prev => ({ ...prev, isOpen: false }));
   }, [contextMenu.targetNodeId, nodes, onNodeEdit, onNodeExpand]);
 
+  // Container mounting effect
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      console.log('Container mounted successfully:', {
+        width: container.clientWidth,
+        height: container.clientHeight
+      });
+    }
+  }, []);
+
   // Main graph creation effect with comprehensive error handling
   useEffect(() => {
     console.log('Graph creation useEffect triggered:', { 
@@ -266,22 +277,10 @@ export default function GraphCanvasOptimized({
       edgeCount: edges.length
     });
     
-    if (!graph) {
-      console.log('Early return: missing graph');
+    if (!graph || nodes.length === 0) {
+      console.log('Early return: missing graph or no nodes');
       return;
     }
-
-    // Wait for container to be available
-    const waitForContainer = () => {
-      if (!containerRef.current) {
-        console.log('Container not ready, retrying in 100ms...');
-        setTimeout(waitForContainer, 100);
-        return;
-      }
-      
-      console.log('Container ready, proceeding with graph creation');
-      createOptimizedGraph();
-    };
 
     const createOptimizedGraph = () => {
       const startTime = performance.now();
@@ -582,8 +581,26 @@ export default function GraphCanvasOptimized({
       }
     };
 
-    console.log('Starting graph creation with nodes:', nodes.length, 'edges:', edges.length);
-    waitForContainer();
+    // Container check with immediate retry
+    const checkContainerAndCreate = () => {
+      if (!containerRef.current) {
+        console.log('Container not ready, retrying in 100ms...');
+        setTimeout(checkContainerAndCreate, 100);
+        return;
+      }
+      
+      const rect = containerRef.current.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        console.log('Container dimensions not ready, retrying...');
+        setTimeout(checkContainerAndCreate, 100);
+        return;
+      }
+      
+      console.log('Container ready with dimensions:', rect.width, 'x', rect.height);
+      createOptimizedGraph();
+    };
+
+    checkContainerAndCreate();
     
     // Return cleanup function
     return () => {
@@ -729,7 +746,12 @@ export default function GraphCanvasOptimized({
       <div
         ref={containerRef}
         className="w-full h-full bg-white dark:bg-gray-900 rounded-lg overflow-hidden relative"
-        style={{ minHeight: '400px' }}
+        style={{ 
+          minHeight: '400px',
+          width: '100%',
+          height: '100%',
+          position: 'relative'
+        }}
       />
       
       <GraphContextMenu
