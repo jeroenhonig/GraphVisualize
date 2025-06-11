@@ -212,37 +212,69 @@ export default function GraphCanvas({
           edges: g6Data.edges.length
         });
 
-        // G6 v5.0.48 uses new instantiation pattern with data
+        // G6 v5.0.48 - Element-based API (addItem method)
         const graph = new G6.Graph({
           container: container,
           width: width,
           height: height,
-          data: g6Data,
           layout: {
             type: 'force',
             preventOverlap: true,
             nodeSize: 30,
             linkDistance: 150,
             nodeStrength: -300,
-            edgeStrength: 0.6
+            edgeStrength: 0.6,
+            collideStrength: 0.8
           },
-          node: {
+          defaultNode: {
+            size: 30,
             style: {
-              size: 30,
               fill: '#e6f7ff',
               stroke: '#1890ff',
               lineWidth: 2
             },
-            labelText: (d: any) => d.label,
-            labelPosition: 'bottom'
-          },
-          edge: {
-            style: {
-              stroke: '#91d5ff',
-              lineWidth: 1
+            labelCfg: {
+              style: {
+                fill: '#333',
+                fontSize: 12
+              },
+              position: 'bottom',
+              offset: 5
             }
           },
-          behaviors: ['drag-canvas', 'zoom-canvas', 'drag-node']
+          defaultEdge: {
+            style: {
+              stroke: '#91d5ff',
+              lineWidth: 1,
+              opacity: 0.8
+            }
+          },
+          modes: {
+            default: ['drag-canvas', 'zoom-canvas', 'drag-node']
+          },
+          fitView: true,
+          fitViewPadding: [20, 40, 50, 20]
+        });
+
+        // G6 v5 uses addItem API instead of data()
+        g6Data.nodes.forEach(node => {
+          graph.addItem('node', {
+            id: node.id,
+            label: node.label,
+            x: node.x,
+            y: node.y,
+            style: node.style
+          });
+        });
+
+        g6Data.edges.forEach(edge => {
+          graph.addItem('edge', {
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+            label: edge.label,
+            style: edge.style
+          });
         });
         
         // Debug: Check if nodes have valid positions
