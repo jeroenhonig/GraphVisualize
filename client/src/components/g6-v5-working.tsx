@@ -77,12 +77,11 @@ export default function G6V5Working({
               label: node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label,
               x: node.x,
               y: node.y,
-              style: {
-                fill: colorData.secondary,
-                stroke: colorData.primary
-              },
-              data: node.data,
-              type: node.type
+              data: {
+                ...node,
+                colorData,
+                nodeData: node.data
+              }
             };
           });
 
@@ -115,12 +114,10 @@ export default function G6V5Working({
             style: {
               size: 20,
               fill: (d: any) => {
-                const colorData = getNodeTypeColor(d.type || 'unknown');
-                return colorData.secondary;
+                return d.data?.colorData?.secondary || '#e6f3ff';
               },
               stroke: (d: any) => {
-                const colorData = getNodeTypeColor(d.type || 'unknown');
-                return colorData.primary;
+                return d.data?.colorData?.primary || '#1890ff';
               },
               lineWidth: 2,
               labelText: (d: any) => d.label || d.id,
@@ -243,7 +240,7 @@ export default function G6V5Working({
                 id: originalNode.data.id,
                 label: originalNode.data.label,
                 type: originalNode.data.type,
-                data: originalNode.data.data,
+                data: originalNode.data.nodeData || {},
                 x: originalNode.data.x,
                 y: originalNode.data.y
               };
@@ -342,7 +339,7 @@ export default function G6V5Working({
             id: originalNode.data.id,
             label: originalNode.data.label,
             type: originalNode.data.type,
-            data: originalNode.data.data,
+            data: originalNode.data.nodeData || {},
             x: originalNode.data.x,
             y: originalNode.data.y
           };
