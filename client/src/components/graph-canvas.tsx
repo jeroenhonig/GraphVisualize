@@ -272,7 +272,7 @@ export default function GraphCanvasOptimized({
 
   // Container mounting effect
   useEffect(() => {
-    const container = containerRef.current;
+    const container = containerElement;
     if (container) {
       console.log('Container mounted successfully:', {
         width: container.clientWidth,
@@ -358,23 +358,131 @@ export default function GraphCanvasOptimized({
           return [centerX, centerY];
         };
 
+        // Progressive loading strategy
+        const targetNodeCount = Math.min(nodes.length, loadedNodeCount);
+        const nodesToRender = nodes.slice(0, targetNodeCount);
+        const edgesToRender = edges.filter(edge => 
+          nodesToRender.some(n => n.id === edge.source) && 
+          nodesToRender.some(n => n.id === edge.target)
+        );
+
         console.log('Creating G6 graph with:', { 
-          nodeCount: nodes.length, 
-          edgeCount: edges.length,
-          containerDimensions: { width, height },
-          firstNodeSample: nodes[0]
+          totalNodes: nodes.length,
+          renderingNodes: nodesToRender.length, 
+          edgeCount: edgesToRender.length,
+          containerDimensions: { width, height }
         });
 
-        // Create optimized G6 graph with performance configuration
-        const g6Graph = new Graph({
-          container,
-          width,
-          height,
-          data: { nodes, edges },
-          node: {
+        // Get G6 library
+        const G6 = (window as any).G6;
+        if (!G6) {
+          throw new Error('G6 library not available');
+        }
+
+        // Simple G6 configuration that works
+        const graphConfig = {
+          container: container,
+          width: width,
+          height: height,
+          modes: {
+            default: ['drag-canvas', 'zoom-canvas', 'drag-node', 'click-select']
+          },
+          defaultNode: {
+            size: 40,
+            color: '#1890ff',
             style: {
-              size: NODE_STYLES.default.size,
-              fill: (d: any) => d.data?.colorData?.secondary || '#e6f3ff',
+              fill: '#e6f7ff',
+              stroke: '#1890ff',
+              lineWidth: 2
+            },
+            labelCfg: {
+              position: 'bottom',
+              offset: 5,
+              style: {
+                fontSize: 12,
+                fill: '#333'
+              }
+            }
+          },
+          defaultEdge: {
+            style: {
+              stroke: '#91d5ff',
+              lineWidth: 1,
+              endArrow: {
+                path: 'M 0,0 L 8,4 L 8,-4 Z',
+                fill: '#91d5ff'
+              }
+            }
+          },
+          layout: {
+            type: currentLayout,
+            ...getLayoutConfig(currentLayout, nodesToRender.length)
+          }
+        };
+
+        // Create G6 graph instance
+        const g6Graph = new G6.Graph(graphConfig);
+
+        // Prepare data in correct G6 format
+        const g6Data = {
+          nodes: nodesToRender.map(node => ({
+            id: node.id,
+            label: node.label.length > 30 ? node.label.substring(0, 30) + '...' : node.label,
+            x: node.x,
+            y: node.y,
+            style: {
+              fill: node.colorData?.secondary || '#e6f7ff',
+              stroke: node.colorData?.primary || '#1890ff'
+            }
+          })),
+          edges: edgesToRender.map(edge => ({
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+            label: edge.label
+          }))
+        };
+
+        console.log('Loading G6 data:', {
+          nodes: g6Data.nodes.length,
+          edges: g6Data.edges.length
+        });
+
+        // Load data and render
+        g6Graph.data(g6Data);
+        
+        console.log('Rendering G6 graph...');
+        g6Graph.render();
+
+        // Bind events
+        g6Graph.on('node:click', (e) => {
+          const nodeData = e.item.getModel();
+          if (nodeData && onNodeSelect) {
+            const originalNode = nodes.find(n => n.id === nodeData.id);
+            if (originalNode) {
+              onNodeSelect(originalNode);
+            }
+          }
+        });
+
+        g6Graph.on('node:contextmenu', (e) => {
+          e.preventDefault();
+          const nodeData = e.item.getModel();
+          if (nodeData) {
+            setContextMenu({
+              isOpen: true,
+              position: { x: e.canvasX, y: e.canvasY },
+              targetNodeId: nodeData.id as string,
+            });
+          }
+        });
+
+        g6Graph.on('canvas:click', () => {
+          setContextMenu(prev => ({ ...prev, isOpen: false }));
+        });
+
+        // Store graph reference
+        graphRef.current = g6Graph;
               stroke: (d: any) => d.data?.colorData?.primary || '#1890ff',
               lineWidth: NODE_STYLES.default.lineWidth,
               labelText: (d: any) => d.label || d.id,
