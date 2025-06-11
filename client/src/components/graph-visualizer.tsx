@@ -47,8 +47,6 @@ export default function GraphVisualizer() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [behaviorMode, setBehaviorMode] = useState<'default' | 'connect' | 'select' | 'edit' | 'readonly'>('default');
-  const [selectedNodes, setSelectedNodes] = useState<any[]>([]);
   const [expandedTreeItems, setExpandedTreeItems] = useState<Set<string>>(new Set(['nodes', 'relations', 'saved-views']));
   const [saveViewDialogOpen, setSaveViewDialogOpen] = useState(false);
   const [nodeDetailsModalOpen, setNodeDetailsModalOpen] = useState(false);
@@ -160,29 +158,6 @@ export default function GraphVisualizer() {
     setNodeDetailsModalOpen(true);
   };
 
-  // G6 Behavior handlers
-  const handleNodesSelected = (nodes: any[]) => {
-    setSelectedNodes(nodes);
-    console.log('Multiple nodes selected:', nodes.length);
-  };
-
-  const handleEdgeCreated = (source: string, target: string) => {
-    console.log('Edge created:', { source, target });
-    toast({
-      title: "Connectie gemaakt",
-      description: `Nieuwe verbinding tussen ${source} en ${target}`,
-    });
-  };
-
-  const changeBehaviorMode = (mode: 'default' | 'connect' | 'select' | 'edit' | 'readonly') => {
-    setBehaviorMode(mode);
-    setSelectedNodes([]); // Clear selection when changing modes
-    toast({
-      title: "Interactie modus gewijzigd",
-      description: `Modus: ${mode}`,
-    });
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -288,34 +263,13 @@ export default function GraphVisualizer() {
           <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
             <div className="flex items-center space-x-2">
               <div className="text-sm font-medium text-gray-900 dark:text-white">
-                Graph Weergave
+                Graph Weergave (Direct Mount)
               </div>
               {currentGraph && (
                 <div className="text-xs text-gray-500">
                   {visibleNodes.size} van {currentGraph.nodeCount} nodes
                 </div>
               )}
-              {selectedNodes.length > 0 && (
-                <div className="text-xs text-blue-600 dark:text-blue-400">
-                  {selectedNodes.length} geselecteerd
-                </div>
-              )}
-            </div>
-            
-            {/* Behavior Mode Selector */}
-            <div className="flex items-center space-x-2">
-              <Select value={behaviorMode} onValueChange={(value: any) => changeBehaviorMode(value)}>
-                <SelectTrigger className="w-32 h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default">Standaard</SelectItem>
-                  <SelectItem value="select">Selecteren</SelectItem>
-                  <SelectItem value="connect">Verbinden</SelectItem>
-                  <SelectItem value="edit">Bewerken</SelectItem>
-                  <SelectItem value="readonly">Alleen lezen</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
@@ -336,9 +290,6 @@ export default function GraphVisualizer() {
                 transform={transform}
                 onTransformChange={setTransform}
                 editMode={editMode}
-                behaviorMode={behaviorMode}
-                onNodesSelected={handleNodesSelected}
-                onEdgeCreated={handleEdgeCreated}
                 panelConstraints={{
                   leftPanel: {
                     x: 20,
@@ -349,55 +300,6 @@ export default function GraphVisualizer() {
                 }}
               />
             </ErrorBoundary>
-          </div>
-        </div>
-
-        {/* Behavior Mode Help Panel */}
-        <div className="fixed bottom-6 left-6 bg-white dark:bg-gray-800 shadow-lg rounded-lg border border-gray-200 dark:border-gray-700 p-4 max-w-sm z-50">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-            Interactie Modus: {behaviorMode}
-          </h3>
-          <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-            {behaviorMode === 'default' && (
-              <>
-                <p>• Sleep canvas om te pannen</p>
-                <p>• Scroll om te zoomen</p>
-                <p>• Sleep nodes om te verplaatsen</p>
-                <p>• Klik nodes om te selecteren</p>
-              </>
-            )}
-            {behaviorMode === 'select' && (
-              <>
-                <p>• Shift+Sleep voor selectie rechthoek</p>
-                <p>• Ctrl/Cmd+klik voor meerdere selectie</p>
-                <p>• Ctrl/Cmd+A voor alles selecteren</p>
-                <p>• Delete om geselecteerde te verwijderen</p>
-              </>
-            )}
-            {behaviorMode === 'connect' && (
-              <>
-                <p>• Klik eerste node</p>
-                <p>• Klik tweede node om te verbinden</p>
-                <p>• ESC om te annuleren</p>
-              </>
-            )}
-            {behaviorMode === 'edit' && (
-              <>
-                <p>• Sleep nodes om te verplaatsen</p>
-                <p>• Dubbel-klik om eigenschappen te bewerken</p>
-                <p>• Rechter-klik voor context menu</p>
-              </>
-            )}
-            {behaviorMode === 'readonly' && (
-              <>
-                <p>• Alleen bekijken toegestaan</p>
-                <p>• Zoomen en pannen mogelijk</p>
-                <p>• Geen bewerking mogelijk</p>
-              </>
-            )}
-          </div>
-          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            Sneltoetsen: Ctrl/Cmd + (0=reset, +=zoom in, -=zoom uit)
           </div>
         </div>
 
