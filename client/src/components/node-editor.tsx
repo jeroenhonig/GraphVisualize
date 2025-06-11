@@ -117,7 +117,7 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
   };
 
   const handleEditProperty = (key: string) => {
-    setEditingProperties(prev => new Set([...prev, key]));
+    setEditingProperties(prev => new Set(Array.from(prev).concat([key])));
   };
 
   const handleSaveProperty = (key: string) => {

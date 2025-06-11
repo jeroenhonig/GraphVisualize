@@ -632,8 +632,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update node position
   app.patch("/api/nodes/:nodeId/position", async (req, res) => {
     try {
-      const { nodeId } = req.params;
+      // Decode the URL-encoded nodeId
+      const nodeId = decodeURIComponent(req.params.nodeId);
       const { x, y } = req.body;
+
+      console.log('Updating position for node:', nodeId, 'to coordinates:', { x, y });
 
       if (typeof x !== 'number' || typeof y !== 'number') {
         return res.status(400).json({ message: "Invalid coordinates" });
@@ -645,9 +648,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Return the exact coordinates that were saved
         res.json({ success: true, x: Math.round(x), y: Math.round(y) });
       } else {
+        console.error('Node not found for position update:', nodeId);
         res.status(404).json({ message: "Node not found" });
       }
     } catch (error) {
+      console.error('Position update error:', error);
       res.status(500).json({ message: "Failed to update node position" });
     }
   });
@@ -655,18 +660,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update node properties (label, type, data)
   app.patch("/api/nodes/:nodeId", async (req, res) => {
     try {
-      const { nodeId } = req.params;
+      // Decode the URL-encoded nodeId
+      const nodeId = decodeURIComponent(req.params.nodeId);
       const { label, type, data } = req.body;
+
+      console.log('Updating properties for node:', nodeId);
 
       const success = await storage.updateNodeProperties(nodeId, { label, type, data });
       
       if (!success) {
+        console.error('Node not found for property update:', nodeId);
         return res.status(404).json({ message: "Node not found" });
       }
 
       res.json({ success: true });
     } catch (error) {
-      console.error('Node update error:', error);
+      console.error('Node property update error:', error);
       res.status(500).json({ message: "Failed to update node" });
     }
   });
@@ -674,15 +683,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete node
   app.delete("/api/nodes/:nodeId", async (req, res) => {
     try {
-      const { nodeId } = req.params;
+      // Decode the URL-encoded nodeId
+      const nodeId = decodeURIComponent(req.params.nodeId);
+      
+      console.log('Deleting node:', nodeId);
+      
       const deleted = await storage.deleteNodeFromTriples(nodeId);
       
       if (!deleted) {
+        console.error('Node not found for deletion:', nodeId);
         return res.status(404).json({ message: "Node not found" });
       }
 
       res.json({ success: true });
     } catch (error) {
+      console.error('Node deletion error:', error);
       res.status(500).json({ message: "Failed to delete node" });
     }
   });

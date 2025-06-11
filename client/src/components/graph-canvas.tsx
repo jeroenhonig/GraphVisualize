@@ -253,7 +253,8 @@ export default function GraphCanvas({
   // Update node position mutation
   const updateNodePositionMutation = useMutation({
     mutationFn: async ({ nodeId, x, y }: { nodeId: string; x: number; y: number }) => {
-      const response = await apiRequest("PATCH", `/api/nodes/${nodeId}/position`, { x, y });
+      const encodedNodeId = encodeURIComponent(nodeId);
+      const response = await apiRequest("PATCH", `/api/nodes/${encodedNodeId}/position`, { x, y });
       return response.json();
     },
     onMutate: async (variables) => {
