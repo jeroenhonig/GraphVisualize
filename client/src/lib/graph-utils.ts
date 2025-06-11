@@ -15,7 +15,7 @@ export interface RenderOptions {
   transform: GraphTransform;
 }
 
-// Enhanced force-directed layout with collision detection
+// Enhanced force-directed layout with edge crossing minimization
 export function createGraphLayout(nodes: VisualizationNode[], edges: VisualizationEdge[]): VisualizationNode[] {
   const layoutNodes = nodes.map(node => ({
     ...node,
@@ -25,29 +25,120 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
     vy: 0,
   }));
 
+  // Function to check if two line segments intersect
+  function linesIntersect(x1: number, y1: number, x2: number, y2: number, 
+                         x3: number, y3: number, x4: number, y4: number): boolean {
+    const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+    if (Math.abs(denom) < 1e-10) return false; // Lines are parallel
+    
+    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+    const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+    
+    return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+  }
+
+  // Count edge crossings in current layout
+  function countEdgeCrossings(): number {
+    let crossings = 0;
+    for (let i = 0; i < edges.length; i++) {
+      for (let j = i + 1; j < edges.length; j++) {
+        const edge1 = edges[i];
+        const edge2 = edges[j];
+        
+        const node1_1 = layoutNodes.find(n => n.id === edge1.source);
+        const node1_2 = layoutNodes.find(n => n.id === edge1.target);
+        const node2_1 = layoutNodes.find(n => n.id === edge2.source);
+        const node2_2 = layoutNodes.find(n => n.id === edge2.target);
+        
+        if (node1_1 && node1_2 && node2_1 && node2_2) {
+          // Skip if edges share a node
+          if (edge1.source === edge2.source || edge1.source === edge2.target ||
+              edge1.target === edge2.source || edge1.target === edge2.target) {
+            continue;
+          }
+          
+          if (linesIntersect(node1_1.x, node1_1.y, node1_2.x, node1_2.y,
+                           node2_1.x, node2_1.y, node2_2.x, node2_2.y)) {
+            crossings++;
+          }
+        }
+      }
+    }
+    return crossings;
+  }
+
+  // Calculate force to reduce edge crossings
+  function calculateCrossingReductionForce(node: any): { fx: number, fy: number } {
+    let fx = 0, fy = 0;
+    
+    // Find edges connected to this node
+    const connectedEdges = edges.filter(edge => 
+      edge.source === node.id || edge.target === node.id
+    );
+    
+    for (const edge of connectedEdges) {
+      const otherNodeId = edge.source === node.id ? edge.target : edge.source;
+      const otherNode = layoutNodes.find(n => n.id === otherNodeId);
+      
+      if (!otherNode) continue;
+      
+      // Check crossings with other edges
+      for (const otherEdge of edges) {
+        if (otherEdge.id === edge.id) continue;
+        if (otherEdge.source === edge.source || otherEdge.source === edge.target ||
+            otherEdge.target === edge.source || otherEdge.target === edge.target) {
+          continue; // Skip edges that share nodes
+        }
+        
+        const otherNode1 = layoutNodes.find(n => n.id === otherEdge.source);
+        const otherNode2 = layoutNodes.find(n => n.id === otherEdge.target);
+        
+        if (!otherNode1 || !otherNode2) continue;
+        
+        // Check if current edge crosses with other edge
+        if (linesIntersect(node.x, node.y, otherNode.x, otherNode.y,
+                          otherNode1.x, otherNode1.y, otherNode2.x, otherNode2.y)) {
+          
+          // Calculate force to move node away from crossing
+          const edgeVecX = otherNode.x - node.x;
+          const edgeVecY = otherNode.y - node.y;
+          const crossingVecX = (otherNode1.x + otherNode2.x) / 2 - (node.x + otherNode.x) / 2;
+          const crossingVecY = (otherNode1.y + otherNode2.y) / 2 - (node.y + otherNode.y) / 2;
+          
+          // Perpendicular force to avoid crossing
+          const perpX = -edgeVecY;
+          const perpY = edgeVecX;
+          const perpLen = Math.sqrt(perpX * perpX + perpY * perpY) || 1;
+          
+          const forceStrength = 2.0;
+          fx += (perpX / perpLen) * forceStrength * Math.sign(crossingVecX * perpX + crossingVecY * perpY);
+          fy += (perpY / perpLen) * forceStrength * Math.sign(crossingVecX * perpX + crossingVecY * perpY);
+        }
+      }
+    }
+    
+    return { fx, fy };
+  }
+
   // Calculate label dimensions for collision detection
   function getNodeBounds(node: any) {
     const labelLength = node.label?.length || 10;
-    const width = Math.max(80, labelLength * 8 + 20); // Minimum 80px, scale with text
-    const height = 60; // Fixed height for nodes + label space
+    const width = Math.max(80, labelLength * 8 + 20);
+    const height = 60;
     return { width, height };
   }
 
-  // Check if two nodes overlap (including label space)
-  function nodesOverlap(node1: any, node2: any) {
-    const bounds1 = getNodeBounds(node1);
-    const bounds2 = getNodeBounds(node2);
-    
-    const dx = Math.abs(node1.x - node2.x);
-    const dy = Math.abs(node1.y - node2.y);
-    
-    return dx < (bounds1.width + bounds2.width) / 2 + 20 && 
-           dy < (bounds1.height + bounds2.height) / 2 + 20;
-  }
+  // Enhanced force simulation with crossing reduction
+  for (let iteration = 0; iteration < 500; iteration++) {
+    // Apply forces to all nodes
+    layoutNodes.forEach(node => {
+      // Add crossing reduction force
+      const crossingForce = calculateCrossingReductionForce(node);
+      node.vx += crossingForce.fx * 0.1;
+      node.vy += crossingForce.fy * 0.1;
+    });
 
-  // Enhanced force simulation with better spacing and edge consideration
-  for (let i = 0; i < 400; i++) {
-    // Stronger repulsion between nodes to prevent overlap
+    // Node repulsion and attraction forces
     for (let j = 0; j < layoutNodes.length; j++) {
       for (let k = j + 1; k < layoutNodes.length; k++) {
         const node1 = layoutNodes[j];
@@ -57,12 +148,12 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
         const dy = node2.y - node1.y;
         const distance = Math.sqrt(dx * dx + dy * dy) || 1;
         
-        // Calculate minimum distance based on label sizes and edge space
+        // Calculate minimum distance based on label sizes
         const bounds1 = getNodeBounds(node1);
         const bounds2 = getNodeBounds(node2);
         const baseDistance = Math.max(bounds1.width, bounds1.height, bounds2.width, bounds2.height);
         
-        // Add extra space if nodes are connected (for edge labels)
+        // Check if nodes are connected
         const areConnected = edges.some(edge => 
           (edge.source === node1.id && edge.target === node2.id) ||
           (edge.source === node2.id && edge.target === node1.id)
@@ -71,18 +162,19 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
         // Check if nodes should be grouped by type
         const shouldGroup = shouldGroupNodeTypes(node1.type, node2.type);
         
-        const minDistance = baseDistance + (areConnected ? 80 : 50);
+        const minDistance = baseDistance + (areConnected ? 120 : 80);
         
         if (distance < minDistance) {
-          const force = (minDistance - distance) * (areConnected ? 5 : 4);
+          // Strong repulsion to prevent overlap
+          const force = (minDistance - distance) * (areConnected ? 6 : 5);
           const fx = (dx / distance) * force;
           const fy = (dy / distance) * force;
           
-          node1.vx -= fx * 0.18;
-          node1.vy -= fy * 0.18;
-          node2.vx += fx * 0.18;
-          node2.vy += fy * 0.18;
-        } else if (shouldGroup && distance < 350 && !areConnected) {
+          node1.vx -= fx * 0.15;
+          node1.vy -= fy * 0.15;
+          node2.vx += fx * 0.15;
+          node2.vy += fy * 0.15;
+        } else if (shouldGroup && distance < 400 && !areConnected) {
           // Weak attraction for same type nodes (grouping)
           const attractionForce = 0.8;
           const fx = (dx / distance) * attractionForce;
@@ -92,7 +184,7 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
           node1.vy += fy * 0.02;
           node2.vx -= fx * 0.02;
           node2.vy -= fy * 0.02;
-        } else if (!shouldGroup && distance < 250 && !areConnected) {
+        } else if (!shouldGroup && distance < 300 && !areConnected) {
           // Weak repulsion for different type nodes
           const repulsionForce = 1.2;
           const fx = (dx / distance) * repulsionForce;
@@ -150,6 +242,12 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
       node.x = Math.max(100, Math.min(1100, node.x));
       node.y = Math.max(100, Math.min(700, node.y));
     });
+
+    // Log crossing reduction progress occasionally
+    if (iteration % 100 === 0) {
+      const crossings = countEdgeCrossings();
+      console.log(`Layout iteration ${iteration}: ${crossings} edge crossings detected`);
+    }
   }
 
   return layoutNodes;
