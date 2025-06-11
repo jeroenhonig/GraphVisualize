@@ -115,7 +115,7 @@ export default function G6V5Working({
           data: { nodes, edges },
           node: {
             style: {
-              size: 30,
+              size: 20,
               fill: (d: any) => {
                 const colorData = getNodeTypeColor(d.data?.type || 'unknown');
                 return colorData.secondary;
@@ -127,7 +127,9 @@ export default function G6V5Working({
               lineWidth: 2,
               labelText: (d: any) => d.data?.label || d.id,
               labelFill: '#333',
-              labelFontSize: 10
+              labelFontSize: 12,
+              labelPosition: 'bottom',
+              labelOffset: 8
             },
             state: {
               selected: {
@@ -159,20 +161,16 @@ export default function G6V5Working({
           layout: {
             type: 'force',
             center: [width / 2, height / 2],
-            linkDistance: 250,
-            nodeStrength: -2000,
-            edgeStrength: 0.2,
+            linkDistance: 200,
+            nodeStrength: -1000,
+            edgeStrength: 0.8,
             preventOverlap: true,
-            nodeSize: 50,
-            alpha: 0.8,
-            alphaDecay: 0.015,
-            velocityDecay: 0.2,
-            collideStrength: 2.5,
-            clustering: false,
-            tick: 500,
-            // Add more spacing parameters
-            nodeSpacing: 100,
-            chargeStrength: -3000
+            nodeSize: 30,
+            alpha: 0.3,
+            alphaDecay: 0.028,
+            velocityDecay: 0.4,
+            collideStrength: 1.0,
+            clustering: false
           },
           behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element']
         });
@@ -418,6 +416,56 @@ export default function G6V5Working({
             hideContextMenu();
           }
         });
+
+        // Enhanced drag behavior for better node positioning
+        g6Graph.on('node:dragstart', (event: any) => {
+          const nodeId = event.itemId || event.target?.id;
+          if (nodeId) {
+            console.log('Node drag started:', nodeId);
+            // Start layout calculation during drag
+            g6Graph.layout();
+            refreshDraggedNodePosition(event);
+          }
+        });
+
+        g6Graph.on('node:drag', (event: any) => {
+          refreshDraggedNodePosition(event);
+        });
+
+        g6Graph.on('node:dragend', (event: any) => {
+          const nodeId = event.itemId || event.target?.id;
+          if (nodeId) {
+            console.log('Node drag ended:', nodeId);
+            // Release fixed position to allow natural layout
+            try {
+              const nodeData = g6Graph.getNodeData(nodeId);
+              if (nodeData) {
+                // Remove fixed positioning
+                delete nodeData.fx;
+                delete nodeData.fy;
+              }
+            } catch (e) {
+              console.warn('Failed to release drag position:', e);
+            }
+          }
+        });
+
+        // Function to handle dragged node position (from G6 v3 docs)
+        const refreshDraggedNodePosition = (event: any) => {
+          const nodeId = event.itemId || event.target?.id;
+          if (nodeId && event.x !== undefined && event.y !== undefined) {
+            try {
+              const nodeData = g6Graph.getNodeData(nodeId);
+              if (nodeData) {
+                // Fix position during drag to prevent layout interference
+                nodeData.fx = event.x;
+                nodeData.fy = event.y;
+              }
+            } catch (e) {
+              console.warn('Failed to update drag position:', e);
+            }
+          }
+        };
 
         // Hover effects
         g6Graph.on('node:mouseenter', (event: any) => {
