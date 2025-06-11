@@ -789,9 +789,10 @@ export default function GraphCanvas({
         };
         
         console.log('Panning transform:', { deltaX, deltaY, newTransform });
-        const constrainedTransform = constrainTransform(newTransform);
-        console.log('Constrained transform:', constrainedTransform);
-        onTransformChange(constrainedTransform);
+        // Temporarily disable constraints to test panning
+        // const constrainedTransform = constrainTransform(newTransform);
+        // console.log('Constrained transform:', constrainedTransform);
+        onTransformChange(newTransform);
       }
     };
 
