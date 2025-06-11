@@ -190,18 +190,27 @@ export default function G6V5Working({
               console.log('Calling onNodeSelect with:', visualizationNode);
               onNodeSelect(visualizationNode as any);
               
+              // Debug: Check current selection state
+              console.log('Current selected node states:');
+              nodes.forEach((node: any) => {
+                try {
+                  const state = g6Graph.getElementState(node.id);
+                  console.log(`Node ${node.id}: selected=${state?.selected || false}`);
+                } catch (e) {
+                  // Ignore errors for debugging
+                }
+              });
+              
               // Visual feedback using G6 v5.0.48 element state
               try {
-                // Clear all selections using the original nodes array
+                // Clear all previous selections first
                 nodes.forEach((node: any) => {
-                  if (node.id !== nodeId) {
-                    g6Graph.setElementState(node.id, 'selected', false);
-                  }
+                  g6Graph.setElementState(node.id, 'selected', false);
                 });
                 
-                // Set current node as selected
+                // Set only current node as selected
                 g6Graph.setElementState(nodeId, 'selected', true);
-                console.log(`Node "${visualizationNode.label}" selected successfully`);
+                console.log(`Node "${visualizationNode.label}" selected - only this node should be yellow`);
               } catch (e) {
                 console.warn('Selection visual feedback failed:', e);
               }
