@@ -222,21 +222,136 @@ export default function G6V5Working({
           }
         });
 
+        // Context menu implementation
+        let contextMenu: HTMLDivElement | null = null;
+        let contextMenuTargetNode: string | null = null;
+
+        // Create context menu element
+        const createContextMenu = () => {
+          if (contextMenu) return contextMenu;
+          
+          contextMenu = document.createElement('div');
+          contextMenu.className = 'g6-context-menu';
+          contextMenu.style.cssText = `
+            position: fixed;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 1000;
+            padding: 4px 0;
+            min-width: 150px;
+            display: none;
+          `;
+          
+          const menuItems = [
+            { label: 'Bewerk Node', action: 'edit' },
+            { label: 'Maak Relatie', action: 'relation' },
+            { label: 'Uitklappen', action: 'expand' },
+            { label: 'Verwijder Node', action: 'delete' }
+          ];
+          
+          menuItems.forEach(item => {
+            const menuItem = document.createElement('div');
+            menuItem.textContent = item.label;
+            menuItem.style.cssText = `
+              padding: 8px 16px;
+              cursor: pointer;
+              font-size: 14px;
+              color: #333;
+            `;
+            menuItem.addEventListener('mouseenter', () => {
+              menuItem.style.backgroundColor = '#f5f5f5';
+            });
+            menuItem.addEventListener('mouseleave', () => {
+              menuItem.style.backgroundColor = 'transparent';
+            });
+            menuItem.addEventListener('click', () => {
+              handleContextMenuAction(item.action);
+            });
+            contextMenu!.appendChild(menuItem);
+          });
+          
+          document.body.appendChild(contextMenu);
+          return contextMenu;
+        };
+
+        // Handle context menu actions
+        const handleContextMenuAction = (action: string) => {
+          if (!contextMenuTargetNode) return;
+          
+          const originalNode = nodes.find(n => n.id === contextMenuTargetNode);
+          if (!originalNode) return;
+          
+          const visualizationNode = {
+            id: originalNode.data.id,
+            label: originalNode.data.label,
+            type: originalNode.data.type,
+            data: originalNode.data.data,
+            x: originalNode.data.x,
+            y: originalNode.data.y
+          };
+          
+          switch (action) {
+            case 'edit':
+              if (onNodeEdit) {
+                console.log('Opening node editor:', originalNode.data.label);
+                onNodeEdit(visualizationNode as any);
+              }
+              break;
+            case 'expand':
+              console.log('Expanding node:', originalNode.data.label);
+              onNodeExpand(contextMenuTargetNode);
+              break;
+            case 'relation':
+              console.log('Creating relation from:', originalNode.data.label);
+              // TODO: Implement relation creation UI
+              break;
+            case 'delete':
+              console.log('Delete node requested:', originalNode.data.label);
+              // TODO: Implement node deletion
+              break;
+          }
+          
+          hideContextMenu();
+        };
+
+        // Show context menu
+        const showContextMenu = (x: number, y: number, nodeId: string) => {
+          const menu = createContextMenu();
+          contextMenuTargetNode = nodeId;
+          
+          menu.style.left = x + 'px';
+          menu.style.top = y + 'px';
+          menu.style.display = 'block';
+        };
+
+        // Hide context menu
+        const hideContextMenu = () => {
+          if (contextMenu) {
+            contextMenu.style.display = 'none';
+            contextMenuTargetNode = null;
+          }
+        };
+
         // Right-click context menu for node editing
         g6Graph.on('node:contextmenu', (event: any) => {
+          event.preventDefault?.();
           console.log('Node right-clicked:', event);
           const nodeId = event.itemId || event.target?.id;
           
-          if (nodeId && onNodeEdit) {
-            // Prevent default browser context menu
-            event.preventDefault?.();
-            
-            // Find the original node from the nodes array for editing
-            const originalNode = nodes.find(n => n.id === nodeId);
-            if (originalNode) {
-              console.log('Opening edit for node:', originalNode.data.label);
-              onNodeEdit(originalNode.data as any);
-            }
+          if (nodeId) {
+            const originalEvent = event.originalEvent || event;
+            showContextMenu(originalEvent.clientX, originalEvent.clientY, nodeId);
+          }
+        });
+
+
+
+        // Hide context menu on outside click
+        document.addEventListener('click', (e) => {
+          if (contextMenu && !contextMenu.contains(e.target as Node)) {
+            hideContextMenu();
           }
         });
 
@@ -268,10 +383,11 @@ export default function G6V5Working({
           }
         });
 
-        // Canvas click to clear selection
+        // Canvas click to clear selection and hide context menu
         g6Graph.on('canvas:click', () => {
           console.log('Canvas clicked - clearing selection');
           selectedNodeId = null;
+          hideContextMenu();
           
           // Reset all nodes to normal state
           try {
