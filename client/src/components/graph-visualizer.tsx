@@ -8,6 +8,7 @@ import GraphCreator from "./graph-creator";
 import SaveViewDialog from "./save-view-dialog";
 import ColorLegend from "./color-legend";
 import LayoutPanel from "./layout-panel";
+import NodeEditor from "./node-editor";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -49,6 +50,7 @@ export default function GraphVisualizer() {
   const [saveViewDialogOpen, setSaveViewDialogOpen] = useState(false);
   const [nodeDetailsModalOpen, setNodeDetailsModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [editingNode, setEditingNode] = useState<any>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -155,6 +157,11 @@ export default function GraphVisualizer() {
     setVisibleNodes(new Set(visibleNodeIds));
   };
 
+  const handleNodeEdit = (node: any) => {
+    setEditingNode(node);
+    setNodeDetailsModalOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -255,6 +262,7 @@ export default function GraphVisualizer() {
             selectedNode={selectedNode}
             onNodeSelect={setSelectedNode}
             onNodeExpand={expandNode}
+            onNodeEdit={handleNodeEdit}
             visibleNodes={visibleNodes}
             onVisibleNodesChange={setVisibleNodes}
             transform={transform}

@@ -1017,6 +1017,13 @@ export default function GraphCanvas({
               )}
               <div className="border-t border-gray-200 my-1"></div>
               <button
+                onClick={() => handleEditNode(contextMenu.nodeId!)}
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <Edit className="h-4 w-4" />
+                Bewerk node
+              </button>
+              <button
                 onClick={() => handleHideNode(contextMenu.nodeId!)}
                 className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
               >
