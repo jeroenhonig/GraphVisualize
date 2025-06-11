@@ -41,10 +41,8 @@ export function validateLayoutType(type: string): type is G6LayoutConfig['type']
 
 export const getLayoutConfig = (type: G6LayoutConfig['type']): G6LayoutConfig => {
   const baseConfig = {
-    workerEnabled: true,
     preventOverlap: true,
     nodeSize: 25,
-    maxIteration: G6_PERFORMANCE_CONFIG.LAYOUT_ITERATIONS,
   };
 
   switch (type) {
@@ -52,19 +50,21 @@ export const getLayoutConfig = (type: G6LayoutConfig['type']): G6LayoutConfig =>
       return {
         ...baseConfig,
         type: 'force',
+        center: [400, 300],
         gravity: 10,
         linkDistance: 150,
-        nodeStrength: -30,
-        edgeStrength: 0.8,
-        alphaDecay: 0.01,
-        alphaMin: 0.001,
+        nodeStrength: -300,
+        edgeStrength: 0.6,
+        alphaDecay: 0.028,
+        alphaMin: 0.01,
         collideStrength: 0.8,
       };
     case 'circular':
       return {
         ...baseConfig,
         type: 'circular',
-        radius: 200,
+        center: [400, 300],
+        radius: null,
         startRadius: 10,
         endRadius: 300,
         clockwise: true,
@@ -73,9 +73,10 @@ export const getLayoutConfig = (type: G6LayoutConfig['type']): G6LayoutConfig =>
       return {
         ...baseConfig,
         type: 'radial',
+        center: [400, 300],
         unitRadius: 100,
         linkDistance: 100,
-        nodeStrength: -30,
+        nodeStrength: -300,
       };
     case 'dagre':
       return {

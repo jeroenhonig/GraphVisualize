@@ -231,31 +231,27 @@ const GraphCanvas = React.memo(({
         container,
         width,
         height,
-        data: processedGraphData,
         layout: layoutConfig,
-        behaviors: [
-          'drag-canvas',
-          'zoom-canvas', 
-          'drag-element', 
-          'click-select',
-          'hover-activate'
-        ],
-        node: {
+        modes: {
+          default: ['drag-canvas', 'zoom-canvas', 'drag-node', 'click-select'],
+        },
+        defaultNode: {
+          size: 25,
           style: {
-            size: 25,
-            fill: (d: any) => getNodeTypeColor(d.type),
+            fill: '#e6f7ff',
             stroke: '#1890ff',
             lineWidth: 2,
           },
-          labelText: (d: any) => d.label || d.id,
-          labelPosition: 'bottom',
-          state: {
-            selected: G6_STATES.node.selected,
-            hover: G6_STATES.node.hover,
-            inactive: G6_STATES.node.inactive,
+          labelCfg: {
+            style: {
+              fill: '#333',
+              fontSize: 10,
+            },
+            position: 'bottom',
+            offset: 5,
           },
         },
-        edge: {
+        defaultEdge: {
           style: {
             stroke: '#91d5ff',
             lineWidth: 1,
@@ -265,25 +261,25 @@ const GraphCanvas = React.memo(({
               fill: '#91d5ff',
             },
           },
-          state: {
-            selected: G6_STATES.edge.selected,
-            hover: G6_STATES.edge.hover,
-            inactive: G6_STATES.edge.inactive,
-          },
         },
-        autoFit: 'view',
+        nodeStateStyles: G6_STATES.node,
+        edgeStateStyles: G6_STATES.edge,
+        fitView: true,
+        fitViewPadding: [20, 40, 50, 20],
       });
 
       console.log('Loading G6 data:', { nodes: processedGraphData.nodes.length, edges: processedGraphData.edges.length });
       
-      // Render the graph
+      // Load data using G6 v5 API
+      graph.data(processedGraphData);
       graph.render();
 
       // Bind events with proper error handling
       graph.on('node:click', (e: any) => {
         try {
           const nodeModel = e.item?.getModel?.() || e.item;
-          const originalNode = processedGraphData.nodes.find(n => n.id === nodeModel.id)?.originalNode;
+          const nodeId = nodeModel?.id || e.item?.id;
+          const originalNode = processedGraphData.nodes.find(n => n.id === nodeId)?.originalNode;
           if (originalNode) {
             onNodeSelect(originalNode);
           }
@@ -296,44 +292,16 @@ const GraphCanvas = React.memo(({
         try {
           e.preventDefault();
           const nodeModel = e.item?.getModel?.() || e.item;
-          if (nodeModel) {
+          const nodeId = nodeModel?.id || e.item?.id;
+          if (nodeId) {
             setContextMenu({
               isOpen: true,
               position: { x: e.canvasX || e.x, y: e.canvasY || e.y },
-              targetNodeId: nodeModel.id as string,
+              targetNodeId: nodeId as string,
             });
           }
         } catch (error) {
           console.warn('Context menu error:', error);
-        }
-      });
-
-      // Node selection events for multi-select behavior
-      graph.on('node:selected', (e: any) => {
-        try {
-          const selectedItems = graph.getSelectedNodes();
-          const selectedNodes = selectedItems.map((item: any) => {
-            const nodeModel = item.getModel();
-            return processedGraphData.nodes.find(n => n.id === nodeModel.id)?.originalNode;
-          }).filter(Boolean);
-          
-          if (onNodesSelected && selectedNodes.length > 0) {
-            onNodesSelected(selectedNodes);
-          }
-        } catch (error) {
-          console.warn('Node selection error:', error);
-        }
-      });
-
-      // Edge creation events
-      graph.on('edge:created', (e: any) => {
-        try {
-          const { source, target } = e.edge;
-          if (onEdgeCreated && source && target) {
-            onEdgeCreated(source, target);
-          }
-        } catch (error) {
-          console.warn('Edge creation error:', error);
         }
       });
 
@@ -399,19 +367,25 @@ const GraphCanvas = React.memo(({
 
       // Setup resize observer with G6 v5 compatible methods
       resizeObserverRef.current = new ResizeObserver((entries) => {
+        if (!graphRef.current) return;
+        
         try {
           for (const entry of entries) {
             const { width, height } = entry.contentRect;
-            if (width > 0 && height > 0 && graphRef.current && typeof graphRef.current.setSize === 'function') {
-              // Use G6 v5 compatible resize method with proper validation
-              graphRef.current.setSize(width, height);
-              if (typeof graphRef.current.fitView === 'function') {
-                graphRef.current.fitView();
-              }
+            if (width > 0 && height > 0) {
+              // Use G6 v5 compatible resize method
+              graphRef.current.changeSize(width, height);
+              // Delay fitView to prevent layout conflicts
+              setTimeout(() => {
+                if (graphRef.current && typeof graphRef.current.fitView === 'function') {
+                  graphRef.current.fitView();
+                }
+              }, 100);
             }
           }
         } catch (error) {
-          // Completely suppress resize errors as they're not critical for functionality
+          // Suppress resize errors to prevent unhandled promise rejections
+          console.debug('Resize observer warning (non-critical):', error.message);
         }
       });
 
