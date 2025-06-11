@@ -26,6 +26,13 @@ export default function FileUpload({ onGraphCreated }: FileUploadProps) {
       const isRDFFile = file.name.toLowerCase().match(/\.(ttl|rdf|n3|nt)$/);
       const endpoint = isRDFFile ? '/api/upload-rdf' : '/api/upload';
       
+      // For RDF files, add required name parameter
+      if (isRDFFile) {
+        const graphName = file.name.replace(/\.(ttl|rdf|n3|nt)$/i, '');
+        formData.append('name', graphName);
+        formData.append('description', `Imported from ${file.name}`);
+      }
+      
       const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
@@ -126,7 +133,7 @@ export default function FileUpload({ onGraphCreated }: FileUploadProps) {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".xlsx,.xls"
+          accept=".xlsx,.xls,.ttl,.rdf,.n3,.nt"
           onChange={handleFileInputChange}
           className="hidden"
         />

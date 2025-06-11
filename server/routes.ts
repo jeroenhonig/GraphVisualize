@@ -5,6 +5,46 @@ import { insertGraphSchema, insertRdfTripleSchema, insertVisibilitySetSchema, in
 import { nanoid } from "nanoid";
 import multer from "multer";
 
+// Configure multer for file uploads
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
+// Simple RDF/TTL parser function
+async function parseRdfAndCreateTriples(content: string, format: string, graphId: string) {
+  const lines = content.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#'));
+  
+  // Simple TTL/N3 parser - handles basic triples
+  for (const line of lines) {
+    if (line.endsWith('.')) {
+      const cleanLine = line.slice(0, -1).trim();
+      const parts = cleanLine.split(/\s+/);
+      
+      if (parts.length >= 3) {
+        const subject = parts[0].replace(/[<>]/g, '');
+        const predicate = parts[1].replace(/[<>]/g, '');
+        const object = parts.slice(2).join(' ').replace(/[<>"]/g, '');
+        
+        // Determine object type
+        let objectType = 'literal';
+        if (parts[2].startsWith('<') && parts[2].endsWith('>')) {
+          objectType = 'uri';
+        }
+        
+        // Create RDF triple
+        await storage.createRdfTriple({
+          graphId,
+          subject,
+          predicate,
+          object,
+          objectType
+        });
+      }
+    }
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Create empty graph
   app.post("/api/graphs", async (req, res) => {
@@ -207,6 +247,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete graph" });
+    }
+  });
+
+  // Upload RDF/TTL file
+  app.post("/api/upload-rdf", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const { name, description } = req.body;
+      if (!name) {
+        return res.status(400).json({ message: "Graph name is required" });
+      }
+
+      const fileContent = req.file.buffer.toString('utf8');
+      const fileExtension = req.file.originalname.split('.').pop()?.toLowerCase();
+
+      // Validate file type
+      if (!['ttl', 'rdf', 'n3', 'nt'].includes(fileExtension || '')) {
+        return res.status(400).json({ message: "Unsupported file format. Only TTL, RDF, N3, and NT files are supported." });
+      }
+
+      // Create new graph
+      const graphId = nanoid();
+      const graph = await storage.createGraph({
+        name,
+        description: description || `Imported from ${req.file.originalname}`,
+        graphId,
+      });
+
+      // Parse RDF content and create triples
+      await parseRdfAndCreateTriples(fileContent, fileExtension || 'ttl', graphId);
+
+      res.json({ 
+        success: true, 
+        message: "RDF file uploaded successfully",
+        graphId: graph.graphId,
+        graph 
+      });
+    } catch (error) {
+      console.error('RDF upload error:', error);
+      res.status(500).json({ 
+        message: "Failed to upload RDF file", 
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
     }
   });
 
