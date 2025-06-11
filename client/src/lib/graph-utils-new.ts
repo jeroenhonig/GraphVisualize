@@ -129,7 +129,7 @@ export function createGraphLayout(nodes: VisualizationNode[], edges: Visualizati
     }
   }
 
-}
+  return layoutNodes;
 }
 
 // Extended node type with physics properties
@@ -146,144 +146,83 @@ export function simulatePhysicsStep(
 ): VisualizationNode[] {
   const updatedNodes: PhysicsNode[] = nodes.map(node => ({ 
     ...node, 
-    vx: (node as PhysicsNode).vx || 0, 
-    vy: (node as PhysicsNode).vy || 0 
+    vx: node.vx || 0, 
+    vy: node.vy || 0 
   }));
-  const dt = 0.032; // Faster simulation timestep
-  
-  // Apply forces to each node
-  updatedNodes.forEach((node, i) => {
-    let fx = 0, fy = 0;
-    
-    // Repulsion from other nodes (particle physics)
-    updatedNodes.forEach((other, j) => {
-      if (i === j) return;
+
+  // Apply forces between nodes
+  for (let i = 0; i < updatedNodes.length; i++) {
+    for (let j = i + 1; j < updatedNodes.length; j++) {
+      const nodeA = updatedNodes[i];
+      const nodeB = updatedNodes[j];
       
-      const dx = node.x - other.x;
-      const dy = node.y - other.y;
+      const dx = nodeB.x - nodeA.x;
+      const dy = nodeB.y - nodeA.y;
       const distance = Math.sqrt(dx * dx + dy * dy) || 1;
       
-      // Strong repulsion force (inverse square law)
-      const repulsionStrength = 25000;
-      const minDistance = 120;
-      const force = distance < minDistance ? 
-        repulsionStrength / (distance * distance) + (minDistance - distance) * 10 :
-        repulsionStrength / (distance * distance);
-      const normalizedFx = (dx / distance) * force;
-      const normalizedFy = (dy / distance) * force;
+      // Repulsion force
+      const repulsionForce = 500 / (distance * distance);
+      const fx = (dx / distance) * repulsionForce;
+      const fy = (dy / distance) * repulsionForce;
       
-      fx += normalizedFx;
-      fy += normalizedFy;
-    });
-    
-    // Attraction along edges (spring forces)
-    edges.forEach(edge => {
-      let isConnected = false;
-      let connectedNode = null;
-      
-      if (edge.source === node.id) {
-        connectedNode = updatedNodes.find(n => n.id === edge.target);
-        isConnected = true;
-      } else if (edge.target === node.id) {
-        connectedNode = updatedNodes.find(n => n.id === edge.source);
-        isConnected = true;
-      }
-      
-      if (isConnected && connectedNode) {
-        const dx = connectedNode.x - node.x;
-        const dy = connectedNode.y - node.y;
-        const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-        
-        // Spring force with optimal length
-        const springLength = 200;
-        const springStrength = 0.12;
-        const displacement = distance - springLength;
-        const force = displacement * springStrength;
-        
-        fx += (dx / distance) * force;
-        fy += (dy / distance) * force;
-      }
-    });
-    
-    // Center attraction (weak gravity)
-    const centerX = bounds.width / 2;
-    const centerY = bounds.height / 2;
-    const centerDx = centerX - node.x;
-    const centerDy = centerY - node.y;
-    fx += centerDx * 0.0001;
-    fy += centerDy * 0.0001;
-    
-    // Boundary forces (keep nodes on screen)
-    const margin = 150;
-    if (node.x < margin) fx += (margin - node.x) * 0.02;
-    if (node.x > bounds.width - margin) fx -= (node.x - (bounds.width - margin)) * 0.02;
-    if (node.y < margin) fy += (margin - node.y) * 0.02;
-    if (node.y > bounds.height - margin) fy -= (node.y - (bounds.height - margin)) * 0.02;
-    
-    // Update velocity and position
-    node.vx = (node.vx || 0) + fx * dt;
-    node.vy = (node.vy || 0) + fy * dt;
-    
-    // Apply damping (less damping = faster movement)
-    node.vx *= 0.92;
-    node.vy *= 0.92;
-    
-    // Limit maximum velocity
-    const maxVelocity = 150;
-    const velocity = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
-    if (velocity > maxVelocity) {
-      node.vx = (node.vx / velocity) * maxVelocity;
-      node.vy = (node.vy / velocity) * maxVelocity;
+      nodeA.vx! -= fx;
+      nodeA.vy! -= fy;
+      nodeB.vx! += fx;
+      nodeB.vy! += fy;
     }
+  }
+
+  // Apply spring forces along edges
+  edges.forEach(edge => {
+    const source = updatedNodes.find(n => n.id === edge.source);
+    const target = updatedNodes.find(n => n.id === edge.target);
     
-    // Update position
-    node.x += node.vx * dt;
-    node.y += node.vy * dt;
+    if (source && target) {
+      const dx = target.x - source.x;
+      const dy = target.y - source.y;
+      const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+      
+      const idealLength = 150;
+      const springForce = (distance - idealLength) * 0.1;
+      const fx = (dx / distance) * springForce;
+      const fy = (dy / distance) * springForce;
+      
+      source.vx! += fx;
+      source.vy! += fy;
+      target.vx! -= fx;
+      target.vy! -= fy;
+    }
+  });
+
+  // Update positions and apply damping
+  updatedNodes.forEach(node => {
+    node.vx! *= 0.8; // Damping
+    node.vy! *= 0.8;
+    
+    node.x += node.vx!;
+    node.y += node.vy!;
     
     // Keep within bounds
-    node.x = Math.max(margin, Math.min(bounds.width - margin, node.x));
-    node.y = Math.max(margin, Math.min(bounds.height - margin, node.y));
+    node.x = Math.max(50, Math.min(bounds.width - 50, node.x));
+    node.y = Math.max(50, Math.min(bounds.height - 50, node.y));
   });
-  
-  return updatedNodes;
+
+  return updatedNodes as VisualizationNode[];
 }
 
-export function renderGraph(
-  svg: SVGSVGElement,
-  nodes: VisualizationNode[],
-  edges: VisualizationEdge[],
-  options: RenderOptions
-) {
-  // Clear existing content
-  svg.innerHTML = '';
-
-  const { transform, selectedNodeId, onNodeClick, onNodeDoubleClick, onNodeContextMenu } = options;
-
-  // Create main group with transform
-  const mainGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-  mainGroup.setAttribute(
-    'transform',
-    `translate(${transform.translateX}, ${transform.translateY}) scale(${transform.scale})`
-  );
-  svg.appendChild(mainGroup);
-
-  // Create edges group
-  const edgesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-  mainGroup.appendChild(edgesGroup);
-
-  // Create nodes group
-  const nodesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-  mainGroup.appendChild(nodesGroup);
-
-  // Calculate optimal edge label positions to avoid conflicts
-  const edgeLabelPositions = new Map<string, {x: number, y: number}>();
+// Optimized edge label positioning to minimize crossings
+function calculateOptimalEdgeLabelPositions(
+  edges: VisualizationEdge[], 
+  nodes: VisualizationNode[]
+): Map<string, { x: number, y: number }> {
+  const labelPositions = new Map<string, { x: number, y: number }>();
   
   edges.forEach(edge => {
     const sourceNode = nodes.find(n => n.id === edge.source);
     const targetNode = nodes.find(n => n.id === edge.target);
     
-    if (!sourceNode || !targetNode) return;
-
+    if (!sourceNode || !targetNode || !edge.label) return;
+    
     const dx = targetNode.x - sourceNode.x;
     const dy = targetNode.y - sourceNode.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -303,52 +242,74 @@ export function renderGraph(
     let bestCurvature = distance * 0.25;
     let minConflicts = Infinity;
     
-    if (edge.label) {
-      for (const curvature of curvatureOptions) {
-        const perpAngle = angle + Math.PI / 2;
-        const midX = (sourceNode.x + targetNode.x) / 2;
-        const midY = (sourceNode.y + targetNode.y) / 2;
-        const testX = midX + Math.cos(perpAngle) * curvature;
-        const testY = midY + Math.sin(perpAngle) * curvature;
-        
-        let conflicts = 0;
-        
-        // Check conflicts with nodes
-        for (const node of nodes) {
-          const nodeDx = Math.abs(testX - node.x);
-          const nodeDy = Math.abs(testY - node.y);
-          if (nodeDx < 50 && nodeDy < 30) conflicts++;
-        }
-        
-        // Check conflicts with other edge labels
-        const labelPositionsArray = Array.from(edgeLabelPositions.values());
-        for (const otherPos of labelPositionsArray) {
-          const edgeDx = Math.abs(testX - otherPos.x);
-          const edgeDy = Math.abs(testY - otherPos.y);
-          if (edgeDx < 80 && edgeDy < 35) conflicts += 2;
-        }
-        
-        if (conflicts < minConflicts) {
-          minConflicts = conflicts;
-          bestCurvature = curvature;
-        }
+    for (const curvature of curvatureOptions) {
+      const perpAngle = angle + Math.PI / 2;
+      const midX = (sourceNode.x + targetNode.x) / 2;
+      const midY = (sourceNode.y + targetNode.y) / 2;
+      const testX = midX + Math.cos(perpAngle) * curvature;
+      const testY = midY + Math.sin(perpAngle) * curvature;
+      
+      let conflicts = 0;
+      
+      // Check conflicts with nodes
+      for (const node of nodes) {
+        const nodeDx = Math.abs(testX - node.x);
+        const nodeDy = Math.abs(testY - node.y);
+        if (nodeDx < 50 && nodeDy < 30) conflicts++;
+      }
+      
+      // Check conflicts with other edge labels
+      const labelPositionsArray = Array.from(labelPositions.values());
+      for (const otherPos of labelPositionsArray) {
+        const labelDx = Math.abs(testX - otherPos.x);
+        const labelDy = Math.abs(testY - otherPos.y);
+        if (labelDx < 60 && labelDy < 25) conflicts++;
+      }
+      
+      if (conflicts < minConflicts) {
+        minConflicts = conflicts;
+        bestCurvature = curvature;
       }
     }
     
-    // Calculate final positions
-    const curvature = Math.max(Math.min(bestCurvature, 80), -80); // Limit curvature
+    // Calculate final position
     const perpAngle = angle + Math.PI / 2;
     const midX = (sourceNode.x + targetNode.x) / 2;
     const midY = (sourceNode.y + targetNode.y) / 2;
-    const controlX = midX + Math.cos(perpAngle) * curvature;
-    const controlY = midY + Math.sin(perpAngle) * curvature;
+    const finalX = midX + Math.cos(perpAngle) * bestCurvature;
+    const finalY = midY + Math.sin(perpAngle) * bestCurvature;
     
-    // Store edge label position
-    if (edge.label) {
-      edgeLabelPositions.set(edge.id, {x: controlX, y: controlY});
-    }
+    labelPositions.set(edge.id, { x: finalX, y: finalY });
   });
+  
+  return labelPositions;
+}
 
+// Main rendering function with neutron-repellent layout
+export function renderGraph(
+  svg: SVGSVGElement,
+  nodes: VisualizationNode[],
+  edges: VisualizationEdge[],
+  options: RenderOptions
+): void {
+  // Clear previous content
+  svg.innerHTML = '';
+  
+  // Apply transformation
+  const transformedSvg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  transformedSvg.setAttribute('transform', 
+    `translate(${options.transform.translateX}, ${options.transform.translateY}) scale(${options.transform.scale})`);
+  svg.appendChild(transformedSvg);
+  
+  // Create groups for edges and nodes
+  const edgesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  const nodesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  transformedSvg.appendChild(edgesGroup);
+  transformedSvg.appendChild(nodesGroup);
+  
+  // Calculate optimal edge label positions
+  const edgeLabelPositions = calculateOptimalEdgeLabelPositions(edges, nodes);
+  
   // Render edges with optimized curves
   edges.forEach(edge => {
     const sourceNode = nodes.find(n => n.id === edge.source);
@@ -418,48 +379,30 @@ export function renderGraph(
     edgesGroup.appendChild(path);
   });
 
-  // Render nodes
+  // Render nodes with optimized positioning
   nodes.forEach(node => {
+    const isSelected = node.id === options.selectedNodeId;
+    const { color, bgColor } = getNodeTypeColor(node.type);
+    
+    // Create node group
     const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     nodeGroup.setAttribute('transform', `translate(${node.x}, ${node.y})`);
-    nodeGroup.setAttribute('data-node-id', node.id);
-    nodeGroup.classList.add('cursor-pointer', 'transition-all', 'duration-200');
+    nodeGroup.style.cursor = 'pointer';
     
-    // Node shape based on type with color coding
-    const isSelected = node.id === selectedNodeId;
-    const typeColors = getNodeTypeColor(node.type);
-    const strokeWidth = isSelected ? '4' : '3';
-    const strokeColor = isSelected ? 'hsl(210, 100%, 50%)' : '#FFFFFF';
-
-    if (node.type === 'project') {
-      // Rectangle for projects
-      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      rect.setAttribute('x', '-20');
-      rect.setAttribute('y', '-20');
-      rect.setAttribute('width', '40');
-      rect.setAttribute('height', '40');
-      rect.setAttribute('rx', '8');
-      rect.setAttribute('fill', typeColors.primary);
-      rect.setAttribute('stroke', strokeColor);
-      rect.setAttribute('stroke-width', strokeWidth);
-      nodeGroup.appendChild(rect);
-    } else if (node.type === 'team') {
-      // Diamond for teams
-      const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-      polygon.setAttribute('points', '0,-20 20,0 0,20 -20,0');
-      polygon.setAttribute('fill', typeColors.primary);
-      polygon.setAttribute('stroke', strokeColor);
-      polygon.setAttribute('stroke-width', strokeWidth);
-      nodeGroup.appendChild(polygon);
-    } else {
-      // Circle for default/users/managers
-      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      circle.setAttribute('r', node.type === 'manager' ? '18' : '20');
-      circle.setAttribute('fill', typeColors.primary);
-      circle.setAttribute('stroke', strokeColor);
-      circle.setAttribute('stroke-width', strokeWidth);
-      nodeGroup.appendChild(circle);
+    // Main node circle with enhanced styling
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('r', isSelected ? '18' : '15');
+    circle.setAttribute('fill', bgColor);
+    circle.setAttribute('stroke', color);
+    circle.setAttribute('stroke-width', isSelected ? '4' : '2');
+    circle.setAttribute('opacity', '0.9');
+    circle.classList.add('transition-all', 'duration-200');
+    
+    if (isSelected) {
+      circle.setAttribute('filter', 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))');
     }
+    
+    nodeGroup.appendChild(circle);
 
     // Calculate optimal label position to avoid overlap
     const labelPositions = [
@@ -562,33 +505,33 @@ export function renderGraph(
     // Simple event handlers - prioritize double-click
     let clickCount = 0;
     let clickTimer: NodeJS.Timeout | null = null;
-    
+
     nodeGroup.addEventListener('click', (e) => {
+      e.preventDefault();
       e.stopPropagation();
+      
       clickCount++;
       
       if (clickCount === 1) {
         clickTimer = setTimeout(() => {
-          // Single click after delay
-          onNodeClick?.(node);
+          if (clickCount === 1) {
+            options.onNodeClick?.(node);
+          }
           clickCount = 0;
-        }, 300);
+        }, 250);
       } else if (clickCount === 2) {
-        // Double click detected
         if (clickTimer) {
           clearTimeout(clickTimer);
-          clickTimer = null;
         }
+        options.onNodeDoubleClick?.(node.id);
         clickCount = 0;
-        console.log('Double click detected on node:', node.id);
-        onNodeDoubleClick?.(node.id);
       }
     });
 
     nodeGroup.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      onNodeContextMenu?.(e as MouseEvent, node.id);
+      options.onNodeContextMenu?.(e as MouseEvent, node.id);
     });
 
     // Hover effects
@@ -605,5 +548,3 @@ export function renderGraph(
     nodesGroup.appendChild(nodeGroup);
   });
 }
-
-
