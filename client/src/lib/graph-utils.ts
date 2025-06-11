@@ -406,7 +406,8 @@ export function renderGraph(
     // Add edge label if exists with optimized position
     if (edge.label && labelPos) {
       // Create label background for better readability
-      const labelText = edge.label.length > 20 ? edge.label.substring(0, 17) + '...' : edge.label;
+      const maxEdgeLabelLength = 18;
+      const labelText = edge.label.length > maxEdgeLabelLength ? edge.label.substring(0, maxEdgeLabelLength) + '...' : edge.label;
       const labelWidth = labelText.length * 6 + 12;
       
       const labelBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -423,8 +424,15 @@ export function renderGraph(
       labelTextEl.setAttribute('x', labelPos.x.toString());
       labelTextEl.setAttribute('y', (labelPos.y + 3).toString());
       labelTextEl.setAttribute('text-anchor', 'middle');
-      labelTextEl.setAttribute('class', 'text-xs fill-gray-700 font-medium pointer-events-none');
+      labelTextEl.setAttribute('class', 'text-xs fill-gray-700 font-medium pointer-events-auto cursor-pointer');
       labelTextEl.textContent = labelText;
+      
+      // Add tooltip functionality if text is truncated
+      if (edge.label.length > maxEdgeLabelLength) {
+        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        title.textContent = edge.label;
+        labelTextEl.appendChild(title);
+      }
       
       edgesGroup.appendChild(labelBg);
       edgesGroup.appendChild(labelTextEl);
@@ -543,7 +551,8 @@ export function renderGraph(
 
     // Create label background for better readability
     const textBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    const labelText = node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label;
+    const maxLabelLength = 20;
+    const labelText = node.label.length > maxLabelLength ? node.label.substring(0, maxLabelLength) + '...' : node.label;
     const textWidth = labelText.length * 7 + 8;
     
     textBg.setAttribute('x', (bestPosition.x - textWidth/2).toString());
@@ -556,13 +565,21 @@ export function renderGraph(
     textBg.setAttribute('stroke-width', '0.5');
     nodeGroup.appendChild(textBg);
 
-    // Node label with optimized position
+    // Node label with optimized position and tooltip
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     text.setAttribute('x', bestPosition.x.toString());
     text.setAttribute('y', (bestPosition.y - 2).toString());
     text.setAttribute('text-anchor', bestPosition.anchor);
-    text.setAttribute('class', 'text-xs font-medium fill-gray-800 pointer-events-none');
+    text.setAttribute('class', 'text-xs font-medium fill-gray-800 pointer-events-auto cursor-pointer');
     text.textContent = labelText;
+    
+    // Add tooltip functionality if text is truncated
+    if (node.label.length > maxLabelLength) {
+      const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+      title.textContent = node.label;
+      text.appendChild(title);
+    }
+    
     nodeGroup.appendChild(text);
 
     // Simple event handlers - prioritize double-click
