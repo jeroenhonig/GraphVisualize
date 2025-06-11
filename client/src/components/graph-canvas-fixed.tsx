@@ -58,21 +58,19 @@ export default function GraphCanvas({
   const nodes = graph?.nodes || [];
   const edges = graph?.edges || [];
 
-  // Callback ref to ensure proper container mounting
+  // Simple container ref callback that always works
   const setContainerRef = useCallback((node: HTMLDivElement | null) => {
     console.log('Container callback ref called with node:', !!node);
     if (node) {
-      console.log('Container callback ref - DOM element ready:', {
+      console.log('Container DOM element ready:', {
         offsetWidth: node.offsetWidth,
         offsetHeight: node.offsetHeight,
         isConnected: node.isConnected,
-        parentElement: !!node.parentElement,
-        style: node.style.cssText
+        parentElement: !!node.parentElement
       });
       setContainerElement(node);
       setContainerReady(true);
     } else {
-      console.log('Container ref set to null');
       setContainerElement(null);
       setContainerReady(false);
     }
@@ -394,7 +392,13 @@ export default function GraphCanvas({
           display: 'block'
         }}
         data-testid="graph-container"
-      />
+      >
+        <div className="absolute top-4 left-4 text-sm text-gray-500">
+          Container Status: {containerReady ? 'Ready' : 'Not Ready'} | 
+          Graph: {graph ? `${nodes.length} nodes` : 'No graph'} |
+          G6: {typeof window !== 'undefined' && (window as any).G6 ? 'Loaded' : 'Missing'}
+        </div>
+      </div>
       
       <GraphContextMenu
         isOpen={contextMenu.isOpen}

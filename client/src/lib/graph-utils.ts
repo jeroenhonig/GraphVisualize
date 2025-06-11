@@ -1,11 +1,9 @@
 import type { VisualizationNode, VisualizationEdge } from "@shared/schema";
 import { getNodeTypeColor, shouldGroupNodeTypes } from "./color-utils";
 
-export interface GraphTransform {
-  scale: number;
-  translateX: number;
-  translateY: number;
-}
+// Use shared GraphTransform interface
+import type { GraphTransform } from "@shared/schema";
+export type { GraphTransform };
 
 export interface RenderOptions {
   selectedNodeId?: string;

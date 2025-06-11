@@ -195,6 +195,6 @@ export interface GraphTransform {
   x: number;
   y: number;
   scale: number;
-  translateX?: number;
-  translateY?: number;
+  translateX: number;
+  translateY: number;
 }
