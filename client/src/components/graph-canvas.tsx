@@ -56,8 +56,8 @@ export default function GraphCanvasOptimized({
   editMode = false,
   panelConstraints
 }: GraphCanvasProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<any>(null);
+  const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null);
   
   // Callback ref to ensure proper container mounting
   const setContainerRef = useCallback((node: HTMLDivElement | null) => {
@@ -67,7 +67,7 @@ export default function GraphCanvasOptimized({
         offsetHeight: node.offsetHeight,
         isConnected: node.isConnected
       });
-      containerRef.current = node;
+      setContainerElement(node);
       setContainerReady(true);
     }
   }, []);
@@ -284,38 +284,13 @@ export default function GraphCanvasOptimized({
   // Container ready state
   const [containerReady, setContainerReady] = useState(false);
 
-  // Container mounting effect with immediate availability check
-  useLayoutEffect(() => {
-    // Force immediate check since we've fixed the panel visibility
-    if (containerRef.current) {
-      console.log('Container immediately available:', {
-        offsetWidth: containerRef.current.offsetWidth,
-        offsetHeight: containerRef.current.offsetHeight,
-        parentElement: containerRef.current.parentElement?.tagName
-      });
-      setContainerReady(true);
-    } else {
-      // Fallback check with minimal delay
-      setTimeout(() => {
-        if (containerRef.current) {
-          console.log('Container available after delay:', {
-            offsetWidth: containerRef.current.offsetWidth,
-            offsetHeight: containerRef.current.offsetHeight
-          });
-          setContainerReady(true);
-        } else {
-          console.error('Container still not available - DOM structure issue');
-          // Force proceed to see what happens
-          setContainerReady(true);
-        }
-      }, 100);
-    }
-  }, []);
+  // Container mounting is now handled by the callback ref
+  // No need for a separate useLayoutEffect
 
   // Main graph creation effect with comprehensive error handling
   useEffect(() => {
     console.log('Graph creation useEffect triggered:', { 
-      hasContainer: !!containerRef.current, 
+      hasContainer: !!containerElement, 
       containerReady,
       hasGraph: !!graph,
       nodeCount: nodes.length,
@@ -339,7 +314,7 @@ export default function GraphCanvasOptimized({
         setRenderError(null);
 
         // Critical container check
-        const container = containerRef.current;
+        const container = containerElement;
         if (!container) {
           throw new Error('Container reference is null - DOM mounting failed');
         }
@@ -671,7 +646,7 @@ export default function GraphCanvasOptimized({
   // Reageer op panel constraint changes
   useEffect(() => {
     if (graphRef.current && panelConstraints) {
-      const container = containerRef.current;
+      const container = containerElement;
       if (!container) return;
       
       const width = container.clientWidth || 800;
@@ -701,7 +676,7 @@ export default function GraphCanvasOptimized({
 
   // Auto-resize handler with ResizeObserver
   useEffect(() => {
-    if (!containerRef.current || !graphRef.current) return;
+    if (!containerElement || !graphRef.current) return;
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -732,7 +707,7 @@ export default function GraphCanvasOptimized({
       }
     });
 
-    resizeObserver.observe(containerRef.current);
+    resizeObserver.observe(containerElement);
 
     return () => {
       resizeObserver.disconnect();
@@ -786,7 +761,7 @@ export default function GraphCanvasOptimized({
   return (
     <>
       <div
-        ref={containerRef}
+        ref={setContainerRef}
         className="w-full h-full bg-white dark:bg-gray-900 rounded-lg overflow-hidden relative"
         style={{ 
           minHeight: '500px',
