@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Graph } from "@antv/g6";
 import type { GraphData, VisualizationNode, GraphTransform } from "@shared/schema";
 import { getNodeTypeColor } from "@/lib/color-utils";
@@ -269,7 +269,7 @@ export default function GraphCanvasOptimized({
   }, []);
 
   // Main graph creation effect with comprehensive error handling
-  useEffect(() => {
+  useLayoutEffect(() => {
     console.log('Graph creation useEffect triggered:', { 
       hasContainer: !!containerRef.current, 
       hasGraph: !!graph,
@@ -581,26 +581,20 @@ export default function GraphCanvasOptimized({
       }
     };
 
-    // Container check with immediate retry
-    const checkContainerAndCreate = () => {
-      if (!containerRef.current) {
-        console.log('Container not ready, retrying in 100ms...');
-        setTimeout(checkContainerAndCreate, 100);
-        return;
-      }
-      
-      const rect = containerRef.current.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) {
-        console.log('Container dimensions not ready, retrying...');
-        setTimeout(checkContainerAndCreate, 100);
-        return;
-      }
-      
-      console.log('Container ready with dimensions:', rect.width, 'x', rect.height);
-      createOptimizedGraph();
-    };
+    // Direct container check - useLayoutEffect ensures DOM is ready
+    if (!containerRef.current) {
+      console.log('Container not mounted in useLayoutEffect - DOM issue');
+      return;
+    }
 
-    checkContainerAndCreate();
+    const rect = containerRef.current.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      console.log('Container has zero dimensions, waiting for next render cycle');
+      return;
+    }
+
+    console.log('Container ready with dimensions:', rect.width, 'x', rect.height);
+    createOptimizedGraph();
     
     // Return cleanup function
     return () => {
