@@ -233,7 +233,7 @@ const RDFGraphCanvas = React.memo(({
         )
         // Charge force - repulsion between nodes
         .force("charge", d3.forceManyBody()
-          .strength(d => {
+          .strength((d: any) => {
             // Stronger repulsion for nodes with more connections
             const connections = links.filter(l => 
               (l.source as D3Node).id === d.id || (l.target as D3Node).id === d.id
@@ -246,7 +246,7 @@ const RDFGraphCanvas = React.memo(({
         .force("center", d3.forceCenter(width / 2, height / 2).strength(0.1))
         // Collision detection - prevents node overlap
         .force("collision", d3.forceCollide()
-          .radius(d => {
+          .radius((d: any) => {
             // Larger collision radius for important nodes
             const connections = links.filter(l => 
               (l.source as D3Node).id === d.id || (l.target as D3Node).id === d.id
@@ -257,9 +257,9 @@ const RDFGraphCanvas = React.memo(({
         )
         // X-axis positioning force for type clustering
         .force("x", d3.forceX()
-          .x(d => {
+          .x((d: any) => {
             // Group nodes by type along x-axis
-            const typeHash = d.type.split('').reduce((hash, char) => 
+            const typeHash = d.type.split('').reduce((hash: any, char: any) => 
               ((hash << 5) - hash + char.charCodeAt(0)) & 0xffffffff, 0
             );
             return (width / 4) + (Math.abs(typeHash) % (width / 2));
@@ -268,7 +268,7 @@ const RDFGraphCanvas = React.memo(({
         )
         // Y-axis positioning force for hierarchical layout
         .force("y", d3.forceY()
-          .y(d => {
+          .y((d: any) => {
             // Arrange by node importance (connection count)
             const connections = links.filter(l => 
               (l.source as D3Node).id === d.id || (l.target as D3Node).id === d.id
@@ -639,15 +639,15 @@ const RDFGraphCanvas = React.memo(({
     simulation.on("tick", () => {
       // Update all link positions including new ones
       linkContainer.selectAll('.link-group').select("line")
-        .attr("x1", d => (d.source as D3Node).x!)
-        .attr("y1", d => (d.source as D3Node).y!)
-        .attr("x2", d => (d.target as D3Node).x!)
-        .attr("y2", d => (d.target as D3Node).y!);
+        .attr("x1", (d: any) => (d.source as D3Node).x!)
+        .attr("y1", (d: any) => (d.source as D3Node).y!)
+        .attr("x2", (d: any) => (d.target as D3Node).x!)
+        .attr("y2", (d: any) => (d.target as D3Node).y!);
 
       // Update all link label positions
       linkContainer.selectAll('.link-group').select("text")
-        .attr("x", d => ((d.source as D3Node).x! + (d.target as D3Node).x!) / 2)
-        .attr("y", d => ((d.source as D3Node).y! + (d.target as D3Node).y!) / 2);
+        .attr("x", (d: any) => ((d.source as D3Node).x! + (d.target as D3Node).x!) / 2)
+        .attr("y", (d: any) => ((d.source as D3Node).y! + (d.target as D3Node).y!) / 2);
 
       // Update node positions (existing code)
       g.selectAll('.nodes circle')
@@ -665,13 +665,16 @@ const RDFGraphCanvas = React.memo(({
 
   }, []);
 
-  // Expose the addEdgeDynamically function via callback
+  // Expose the addEdgeDynamically function globally when component mounts
   React.useEffect(() => {
-    if (onEdgeCreatedCallback) {
-      // Replace the callback with our dynamic edge adding function
-      (window as any).addEdgeDynamically = addEdgeDynamically;
-    }
-  }, [addEdgeDynamically, onEdgeCreatedCallback]);
+    // Always expose the function for dynamic edge creation
+    (window as any).addEdgeDynamically = addEdgeDynamically;
+    
+    // Cleanup on unmount
+    return () => {
+      delete (window as any).addEdgeDynamically;
+    };
+  }, [addEdgeDynamically]);
 
   const getNodeColor = (type: string): string => {
     const colorMap: Record<string, string> = {
