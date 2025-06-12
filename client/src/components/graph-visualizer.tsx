@@ -173,8 +173,8 @@ export default function GraphVisualizer() {
       console.log('Creating edge between:', { source, target });
       
       // Find source and target nodes to get their labels
-      const sourceNode = currentGraph.nodes.find(n => n.id === source);
-      const targetNode = currentGraph.nodes.find(n => n.id === target);
+      const sourceNode = currentGraph.nodes.find((n: any) => n.id === source);
+      const targetNode = currentGraph.nodes.find((n: any) => n.id === target);
       
       // Create a simple relationship predicate
       const edgeId = `edge-${Date.now()}`;
