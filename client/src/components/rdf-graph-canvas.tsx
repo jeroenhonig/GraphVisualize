@@ -153,6 +153,10 @@ const RDFGraphCanvas = React.memo(({
     edge: any;
   } | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<any>(null);
+  const [preservedViewport, setPreservedViewport] = useState<{
+    transform?: d3.ZoomTransform;
+    nodePositions?: Map<string, { x: number; y: number }>;
+  }>({});
   const connectionModeRef = useRef<{
     active: boolean;
     sourceNode?: VisualizationNode;
@@ -227,9 +231,11 @@ const RDFGraphCanvas = React.memo(({
       const nodes: D3Node[] = graph.nodes
         .filter(node => visibleNodes.has(node.id))
         .map((node, index) => {
-          // Use stored position if available, otherwise create a grid layout
-          let x = node.x || 0;
-          let y = node.y || 0;
+          // Check if we have preserved positions from a previous viewport state
+          const preservedPos = preservedViewport.nodePositions?.get(node.id);
+          
+          let x = preservedPos?.x || node.x || 0;
+          let y = preservedPos?.y || node.y || 0;
           
           // If no position is stored (0,0), arrange in a circular grid
           if (x === 0 && y === 0) {
@@ -913,8 +919,31 @@ const RDFGraphCanvas = React.memo(({
               });
               
               if (response.ok) {
-                // Refresh the graph data
-                window.location.reload();
+                // Preserve current viewport and node positions before refresh
+                if (svgRef.current && simulationRef.current) {
+                  const svg = d3.select(svgRef.current);
+                  const currentTransform = d3.zoomTransform(svg.node()!);
+                  
+                  // Save current node positions
+                  const nodePositions = new Map<string, { x: number; y: number }>();
+                  nodesDataRef.current.forEach(node => {
+                    if (node.x !== undefined && node.y !== undefined) {
+                      nodePositions.set(node.id, { x: node.x, y: node.y });
+                    }
+                  });
+                  
+                  setPreservedViewport({
+                    transform: currentTransform,
+                    nodePositions: nodePositions
+                  });
+                }
+                
+                // Force a complete graph refresh to ensure edge is properly removed
+                setTimeout(() => {
+                  createVisualization();
+                }, 100);
+                
+                console.log('Edge removed successfully, refreshing visualization');
               } else {
                 console.error('Failed to delete edge');
               }

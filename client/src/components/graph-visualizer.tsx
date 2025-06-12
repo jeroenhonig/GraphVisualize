@@ -191,8 +191,16 @@ export default function GraphVisualizer() {
       if (response.ok) {
         const edgeData = await response.json();
         
-        // Refresh the current graph data to show the new edge
-        queryClient.invalidateQueries({ queryKey: ['/api/graphs', currentGraph.graphId] });
+        // Use the global addEdgeDynamically function to add the edge without full refresh
+        if ((window as any).addEdgeDynamically) {
+          (window as any).addEdgeDynamically(source, target, {
+            edgeId: `${source}-connectsTo-${target}`,
+            label: "relatedTo"
+          });
+        } else {
+          // Fallback to refresh if dynamic function not available
+          queryClient.invalidateQueries({ queryKey: ['/api/graphs', currentGraph.graphId] });
+        }
         
         toast({
           title: "Relatie aangemaakt",
