@@ -434,14 +434,24 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
                     <SelectItem value="property:materialType">Material Type</SelectItem>
                     <SelectItem value="property:modelNumber">Model Number</SelectItem>
                     <SelectItem value="property:numberOfPiles">Number of Piles</SelectItem>
+                    <SelectItem value="property:objectCode">Object Code</SelectItem>
+                    <SelectItem value="property:objectName">Object Name</SelectItem>
                     <SelectItem value="property:pileType">Pile Type</SelectItem>
                     <SelectItem value="property:structuralSystem">Structural System</SelectItem>
                     <SelectItem value="property:supplier">Supplier</SelectItem>
                     <SelectItem value="property:thermalResistance">Thermal Resistance</SelectItem>
+                    <SelectItem value="property:typeCode">Type Code</SelectItem>
+                    <SelectItem value="property:typeName">Type Name</SelectItem>
                     <SelectItem value="property:volume">Volume</SelectItem>
                     <SelectItem value="property:warranty">Warranty</SelectItem>
                     <SelectItem value="property:weight">Weight</SelectItem>
                     <SelectItem value="property:width">Width</SelectItem>
+                    {/* Infrastructure Ontology Properties - Full URIs */}
+                    <SelectItem value="https://example.org/infrastructure/property/typeName">Infrastructure Type Name</SelectItem>
+                    <SelectItem value="https://example.org/infrastructure/property/typeCode">Infrastructure Type Code</SelectItem>
+                    <SelectItem value="https://example.org/infrastructure/property/objectCode">Infrastructure Object Code</SelectItem>
+                    <SelectItem value="https://example.org/infrastructure/property/objectName">Infrastructure Object Name</SelectItem>
+                    <SelectItem value="https://example.org/infrastructure/property/omschrijving">Omschrijving</SelectItem>
                     {/* Generic Properties - alphabetically sorted */}
                     <SelectItem value="rdfs:comment">Comment</SelectItem>
                     <SelectItem value="schema:description">Description</SelectItem>
