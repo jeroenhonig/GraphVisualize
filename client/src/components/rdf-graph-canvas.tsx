@@ -62,6 +62,7 @@ interface RDFGraphCanvasProps {
   behaviorMode?: 'default' | 'connect' | 'select' | 'edit' | 'readonly';
   onNodesSelected?: (nodes: VisualizationNode[]) => void;
   onEdgeCreated?: (source: string, target: string) => void;
+  onEdgeCreatedCallback?: (sourceId: string, targetId: string, edgeData: any) => void;
 }
 
 interface D3Node extends VisualizationNode {
@@ -89,7 +90,8 @@ const RDFGraphCanvas = React.memo(({
   editMode = false,
   behaviorMode = 'default',
   onNodesSelected,
-  onEdgeCreated
+  onEdgeCreated,
+  onEdgeCreatedCallback
 }: RDFGraphCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -113,6 +115,8 @@ const RDFGraphCanvas = React.memo(({
   // D3 selections
   const simulationRef = useRef<d3.Simulation<D3Node, D3Link>>();
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown>>();
+  const linksDataRef = useRef<D3Link[]>([]);
+  const nodesDataRef = useRef<D3Node[]>([]);
 
   const createVisualization = useCallback(() => {
     if (!containerRef.current || !svgRef.current || !graph?.nodes?.length) return;
@@ -203,6 +207,10 @@ const RDFGraphCanvas = React.memo(({
           target: edge.target,
           label: edge.label
         }));
+
+      // Store data in refs for dynamic updates
+      nodesDataRef.current = nodes;
+      linksDataRef.current = links;
 
       // Create advanced force simulation with multiple force types
       const simulation = d3.forceSimulation<D3Node, D3Link>(nodes)
@@ -369,11 +377,9 @@ const RDFGraphCanvas = React.memo(({
             
             // Handle connection mode
             const currentConnectionMode = connectionModeRef.current;
-            console.log('Click detected. Connection mode active:', currentConnectionMode.active, 'Source node:', currentConnectionMode.sourceNode?.id);
             if (currentConnectionMode.active && currentConnectionMode.sourceNode) {
               if (d.id !== currentConnectionMode.sourceNode.id) {
                 // Create new connection
-                console.log('Creating connection from', currentConnectionMode.sourceNode.id, 'to', d.id);
                 if (onEdgeCreated) {
                   onEdgeCreated(currentConnectionMode.sourceNode.id, d.id);
                 }
@@ -382,7 +388,6 @@ const RDFGraphCanvas = React.memo(({
                 return;
               } else {
                 // Clicked on same node, cancel connection mode
-                console.log('Canceling connection mode - same node clicked');
                 connectionModeRef.current = { active: false };
                 setConnectionMode({ active: false });
                 return;
@@ -456,10 +461,8 @@ const RDFGraphCanvas = React.memo(({
         // Right-click context menu
         nodeSelection.on("contextmenu", (event, d) => {
           event.preventDefault();
-          console.log('Right-click context menu opened for node:', d.id);
           
           // Get mouse position relative to the page
-          const rect = (event.target as Element).getBoundingClientRect();
           setContextMenu({
             x: event.pageX,
             y: event.pageY,
@@ -687,7 +690,6 @@ const RDFGraphCanvas = React.memo(({
             setContextMenu(null);
           }}
           onCreateRelation={() => {
-            console.log('Context menu: Starting connection mode with source node:', contextMenu.node.id);
             const newConnectionMode = { 
               active: true, 
               sourceNode: contextMenu.node 
