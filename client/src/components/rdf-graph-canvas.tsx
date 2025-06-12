@@ -363,6 +363,7 @@ const RDFGraphCanvas = React.memo(({
             event.stopPropagation();
             
             // Handle connection mode
+            console.log('Click detected. Connection mode active:', connectionMode.active, 'Source node:', connectionMode.sourceNode?.id);
             if (connectionMode.active && connectionMode.sourceNode) {
               if (d.id !== connectionMode.sourceNode.id) {
                 // Create new connection
