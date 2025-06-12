@@ -512,13 +512,6 @@ const RDFGraphCanvas = React.memo(({
         }
       });
 
-      // Highlight selected node
-      if (selectedNode) {
-        nodeSelection
-          .attr("stroke", d => d.id === selectedNode.id ? "#ff6b35" : "#fff")
-          .attr("stroke-width", d => d.id === selectedNode.id ? 4 : 2);
-      }
-
       console.log(`RDF Graph rendered with ${nodes.length} nodes and ${links.length} edges`);
       setIsLoading(false);
 
@@ -528,7 +521,21 @@ const RDFGraphCanvas = React.memo(({
       setRenderError(errorMessage);
       setIsLoading(false);
     }
-  }, [graph, visibleNodes, selectedNode, behaviorMode, onNodeSelect, onTransformChange]);
+  }, [graph, visibleNodes, behaviorMode, onNodeSelect, onTransformChange]);
+
+  // Separate effect for selected node highlighting (without re-rendering the entire graph)
+  useEffect(() => {
+    if (!svgRef.current) return;
+    
+    const svg = d3.select(svgRef.current);
+    const nodeSelection = svg.selectAll<SVGCircleElement, D3Node>('.node-circle');
+    
+    // Update node highlighting
+    nodeSelection
+      .attr("stroke", d => d.id === selectedNode?.id ? "#ff6b35" : "#fff")
+      .attr("stroke-width", d => d.id === selectedNode?.id ? 4 : 2);
+      
+  }, [selectedNode]);
 
   const getNodeColor = (type: string): string => {
     const colorMap: Record<string, string> = {
