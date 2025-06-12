@@ -689,6 +689,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { label, type, data } = req.body;
 
       console.log('Updating properties for node:', nodeId);
+      console.log('Request body:', { label, type, data });
+
+      // Validate input
+      if (!nodeId) {
+        return res.status(400).json({ message: "Node ID is required" });
+      }
+
+      // Ensure we have at least one field to update
+      if (label === undefined && type === undefined && data === undefined) {
+        return res.status(400).json({ message: "At least one field (label, type, or data) must be provided" });
+      }
 
       const success = await storage.updateNodeProperties(nodeId, { label, type, data });
 
@@ -697,10 +708,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Node not found" });
       }
 
+      console.log('Node properties updated successfully');
       res.json({ success: true });
     } catch (error) {
       console.error('Node property update error:', error);
-      res.status(500).json({ message: "Failed to update node" });
+      res.status(500).json({ message: "Failed to update node", error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 

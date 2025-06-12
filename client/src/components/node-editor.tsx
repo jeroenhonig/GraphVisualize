@@ -48,7 +48,23 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
   const updateNodeMutation = useMutation({
     mutationFn: async (updates: { label?: string; type?: string; data?: Record<string, any> }) => {
       try {
-        const response = await apiRequest("PATCH", `/api/nodes/${node.id}`, updates);
+        const response = await apiRequest("PATCH", `/api/nodes/${encodeURIComponent(node.id)}`, updates);
+        
+        // Check if response is ok
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Server error response:', errorText);
+          throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
+
+        // Check content type
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          const responseText = await response.text();
+          console.error('Non-JSON response:', responseText);
+          throw new Error('Server returned non-JSON response');
+        }
+
         return await response.json();
       } catch (error) {
         console.error('Node update mutation error:', error);

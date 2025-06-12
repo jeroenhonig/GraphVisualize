@@ -277,9 +277,29 @@ export class DatabaseStorage implements IStorage {
 
   async updateNodeProperties(nodeId: string, properties: { label?: string; type?: string; data?: Record<string, any> }): Promise<boolean> {
     try {
+      console.log(`Updating node properties for: ${nodeId}`, properties);
+
+      // Get the graphId for this node first
+      const nodeTriples = await db
+        .select({ graphId: rdfTriples.graphId })
+        .from(rdfTriples)
+        .where(eq(rdfTriples.subject, nodeId))
+        .limit(1);
+      
+      if (nodeTriples.length === 0) {
+        console.error(`No triples found for node: ${nodeId}`);
+        return false;
+      }
+
+      const graphId = nodeTriples[0].graphId;
+      console.log(`Found graphId: ${graphId} for node: ${nodeId}`);
+
+      let updated = false;
+
       // Update label if provided
       if (properties.label !== undefined) {
-        await db
+        console.log(`Updating label to: ${properties.label}`);
+        const labelResult = await db
           .update(rdfTriples)
           .set({ object: properties.label })
           .where(
@@ -288,11 +308,24 @@ export class DatabaseStorage implements IStorage {
               eq(rdfTriples.predicate, RDF_PREDICATES.LABEL)
             )
           );
+        
+        // If no label triple exists, create one
+        if ((labelResult.rowCount ?? 0) === 0) {
+          await db.insert(rdfTriples).values({
+            subject: nodeId,
+            predicate: RDF_PREDICATES.LABEL,
+            object: properties.label,
+            graphId: graphId,
+            objectType: 'literal'
+          });
+        }
+        updated = true;
       }
 
       // Update type if provided
       if (properties.type !== undefined) {
-        await db
+        console.log(`Updating type to: ${properties.type}`);
+        const typeResult = await db
           .update(rdfTriples)
           .set({ object: properties.type })
           .where(
@@ -301,18 +334,23 @@ export class DatabaseStorage implements IStorage {
               eq(rdfTriples.predicate, RDF_PREDICATES.TYPE)
             )
           );
+
+        // If no type triple exists, create one
+        if ((typeResult.rowCount ?? 0) === 0) {
+          await db.insert(rdfTriples).values({
+            subject: nodeId,
+            predicate: RDF_PREDICATES.TYPE,
+            object: properties.type,
+            graphId: graphId,
+            objectType: 'uri'
+          });
+        }
+        updated = true;
       }
 
       // Update data properties if provided
       if (properties.data !== undefined) {
-        // Get the graphId for this node
-        const nodeTriples = await db
-          .select({ graphId: rdfTriples.graphId })
-          .from(rdfTriples)
-          .where(eq(rdfTriples.subject, nodeId))
-          .limit(1);
-        
-        const graphId = nodeTriples[0]?.graphId || '';
+        console.log(`Updating data properties:`, properties.data);
 
         // Delete existing custom data properties (keep system properties)
         const systemPredicates = [
@@ -329,10 +367,11 @@ export class DatabaseStorage implements IStorage {
           .where(eq(rdfTriples.subject, nodeId));
 
         // Delete non-system properties
+        let deletedCount = 0;
         for (const triple of existingTriples) {
           const isSystemProperty = systemPredicates.some(sysPred => sysPred === triple.predicate);
           if (!isSystemProperty) {
-            await db
+            const deleteResult = await db
               .delete(rdfTriples)
               .where(
                 and(
@@ -340,24 +379,32 @@ export class DatabaseStorage implements IStorage {
                   eq(rdfTriples.predicate, triple.predicate)
                 )
               );
+            deletedCount += (deleteResult.rowCount ?? 0);
           }
         }
+        console.log(`Deleted ${deletedCount} existing data properties`);
 
         // Insert new data properties
+        let insertedCount = 0;
         for (const [key, value] of Object.entries(properties.data)) {
           await db.insert(rdfTriples).values({
             subject: nodeId,
             predicate: key,
             object: String(value),
             graphId: graphId,
+            objectType: 'literal'
           });
+          insertedCount++;
         }
+        console.log(`Inserted ${insertedCount} new data properties`);
+        updated = true;
       }
 
-      return true;
+      console.log(`Node properties update completed. Updated: ${updated}`);
+      return updated;
     } catch (error) {
       console.error('Error updating node properties:', error);
-      return false;
+      throw error; // Re-throw to let the caller handle it properly
     }
   }
 
