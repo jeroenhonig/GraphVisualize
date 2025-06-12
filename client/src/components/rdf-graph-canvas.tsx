@@ -447,6 +447,7 @@ const RDFGraphCanvas = React.memo(({
         // Right-click context menu
         nodeSelection.on("contextmenu", (event, d) => {
           event.preventDefault();
+          console.log('Right-click context menu opened for node:', d.id);
           
           // Get mouse position relative to the page
           const rect = (event.target as Element).getBoundingClientRect();
@@ -677,6 +678,7 @@ const RDFGraphCanvas = React.memo(({
             setContextMenu(null);
           }}
           onCreateRelation={() => {
+            console.log('Context menu: Starting connection mode with source node:', contextMenu.node.id);
             setConnectionMode({ 
               active: true, 
               sourceNode: contextMenu.node 
