@@ -189,8 +189,12 @@ export default function GraphVisualizer() {
       });
       
       if (response.ok) {
-        // Refresh the current graph data to show the new edge
-        queryClient.invalidateQueries({ queryKey: ['/api/graphs', currentGraph.graphId] });
+        const edgeData = await response.json();
+        
+        // Use dynamic edge addition instead of full graph refresh
+        if ((window as any).addEdgeDynamically) {
+          (window as any).addEdgeDynamically(source, target, edgeData);
+        }
         
         toast({
           title: "Relatie aangemaakt",
@@ -351,6 +355,7 @@ export default function GraphVisualizer() {
                 behaviorMode={behaviorMode}
                 onNodesSelected={handleNodesSelected}
                 onEdgeCreated={handleEdgeCreated}
+                onEdgeCreatedCallback={true}
               />
             </ErrorBoundary>
           </div>

@@ -552,6 +552,68 @@ const RDFGraphCanvas = React.memo(({
       
   }, [selectedNode]);
 
+  // Function to add a new edge dynamically without re-rendering the entire graph
+  const addEdgeDynamically = useCallback((sourceId: string, targetId: string, edgeData: any) => {
+    if (!svgRef.current || !simulationRef.current) return;
+
+    const svg = d3.select(svgRef.current);
+    const g = svg.select('.main-group');
+    
+    // Create new edge data
+    const newEdge: D3Link = {
+      id: edgeData.edgeId || `edge-${Date.now()}`,
+      source: sourceId,
+      target: targetId,
+      label: edgeData.label || "relatedTo"
+    };
+
+    // Add to links data
+    linksDataRef.current.push(newEdge);
+
+    // Update simulation with new links
+    const simulation = simulationRef.current;
+    const linkForce = simulation.force("link") as d3.ForceLink<D3Node, D3Link>;
+    if (linkForce) {
+      linkForce.links(linksDataRef.current);
+    }
+
+    // Add new edge to SVG
+    const linkSelection = g.select('.links');
+    const newLinkGroup = linkSelection.selectAll('.link-group')
+      .data(linksDataRef.current, (d: any) => d.id);
+
+    const newLinkEnter = newLinkGroup.enter()
+      .append('g')
+      .attr('class', 'link-group');
+
+    newLinkEnter.append('line')
+      .attr('class', 'link')
+      .attr('stroke', '#999')
+      .attr('stroke-opacity', 0.6)
+      .attr('stroke-width', 2)
+      .attr('marker-end', 'url(#arrow)');
+
+    newLinkEnter.append('text')
+      .attr('class', 'link-label')
+      .attr('text-anchor', 'middle')
+      .attr('dy', '-5px')
+      .attr('font-size', '10px')
+      .attr('fill', '#666')
+      .text(d => d.label || '');
+
+    // Restart simulation with alpha to animate the new edge
+    simulation.alpha(0.3).restart();
+
+  }, []);
+
+  // Expose the addEdgeDynamically function via callback
+  React.useEffect(() => {
+    if (onEdgeCreatedCallback) {
+      // Replace the callback with our dynamic edge adding function
+      (window as any).addEdgeDynamically = addEdgeDynamically;
+    }
+  }, [addEdgeDynamically, onEdgeCreatedCallback]);
+
   const getNodeColor = (type: string): string => {
     const colorMap: Record<string, string> = {
       'Person': '#ff7f0e',
