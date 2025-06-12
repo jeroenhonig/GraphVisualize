@@ -99,6 +99,11 @@ const RDFGraphCanvas = React.memo(({
     y: number;
     node: VisualizationNode;
   } | null>(null);
+  const connectionModeRef = useRef<{
+    active: boolean;
+    sourceNode?: VisualizationNode;
+  }>({ active: false });
+  
   const [connectionMode, setConnectionMode] = useState<{
     active: boolean;
     sourceNode?: VisualizationNode;
@@ -363,19 +368,22 @@ const RDFGraphCanvas = React.memo(({
             event.stopPropagation();
             
             // Handle connection mode
-            console.log('Click detected. Connection mode active:', connectionMode.active, 'Source node:', connectionMode.sourceNode?.id);
-            if (connectionMode.active && connectionMode.sourceNode) {
-              if (d.id !== connectionMode.sourceNode.id) {
+            const currentConnectionMode = connectionModeRef.current;
+            console.log('Click detected. Connection mode active:', currentConnectionMode.active, 'Source node:', currentConnectionMode.sourceNode?.id);
+            if (currentConnectionMode.active && currentConnectionMode.sourceNode) {
+              if (d.id !== currentConnectionMode.sourceNode.id) {
                 // Create new connection
-                console.log('Creating connection from', connectionMode.sourceNode.id, 'to', d.id);
+                console.log('Creating connection from', currentConnectionMode.sourceNode.id, 'to', d.id);
                 if (onEdgeCreated) {
-                  onEdgeCreated(connectionMode.sourceNode.id, d.id);
+                  onEdgeCreated(currentConnectionMode.sourceNode.id, d.id);
                 }
+                connectionModeRef.current = { active: false };
                 setConnectionMode({ active: false });
                 return;
               } else {
                 // Clicked on same node, cancel connection mode
                 console.log('Canceling connection mode - same node clicked');
+                connectionModeRef.current = { active: false };
                 setConnectionMode({ active: false });
                 return;
               }
@@ -680,10 +688,12 @@ const RDFGraphCanvas = React.memo(({
           }}
           onCreateRelation={() => {
             console.log('Context menu: Starting connection mode with source node:', contextMenu.node.id);
-            setConnectionMode({ 
+            const newConnectionMode = { 
               active: true, 
               sourceNode: contextMenu.node 
-            });
+            };
+            connectionModeRef.current = newConnectionMode;
+            setConnectionMode(newConnectionMode);
             setContextMenu(null);
           }}
           onClose={() => setContextMenu(null)}
@@ -703,7 +713,10 @@ const RDFGraphCanvas = React.memo(({
             Klik op een andere node om relatie aan te maken
           </div>
           <button
-            onClick={() => setConnectionMode({ active: false })}
+            onClick={() => {
+              connectionModeRef.current = { active: false };
+              setConnectionMode({ active: false });
+            }}
             className="mt-2 text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
           >
             Annuleren
