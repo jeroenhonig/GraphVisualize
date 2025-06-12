@@ -57,6 +57,14 @@ export default function GraphVisualizer() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Make queryClient globally available for cache invalidation
+  useEffect(() => {
+    (window as any).queryClient = queryClient;
+    return () => {
+      delete (window as any).queryClient;
+    };
+  }, [queryClient]);
 
   // Layout preferences for 3-position system
   const {

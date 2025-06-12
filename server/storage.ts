@@ -419,8 +419,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteEdgeFromTriples(edgeId: string): Promise<boolean> {
-    const result = await db.delete(rdfTriples).where(eq(rdfTriples.subject, edgeId));
-    return (result.rowCount ?? 0) > 0;
+    console.log(`Attempting to delete edge: ${edgeId}`);
+    
+    // Parse the edge ID to get source and target
+    // Edge ID format: "sourceId-connectsTo-targetId"
+    const parts = edgeId.split('-connectsTo-');
+    if (parts.length !== 2) {
+      console.log(`Invalid edge ID format: ${edgeId}`);
+      return false;
+    }
+    
+    const [sourceId, targetId] = parts;
+    console.log(`Parsed edge: source=${sourceId}, target=${targetId}`);
+    
+    // Delete the connection triple
+    const result = await db.delete(rdfTriples).where(
+      and(
+        eq(rdfTriples.subject, sourceId),
+        eq(rdfTriples.predicate, RDF_PREDICATES.CONNECTS_TO),
+        eq(rdfTriples.object, targetId)
+      )
+    );
+    
+    const deleted = (result.rowCount ?? 0) > 0;
+    console.log(`Deleted ${result.rowCount ?? 0} connection triples for edge ${edgeId}`);
+    return deleted;
   }
 
   async getVisualizationData(graphId: string): Promise<GraphData> {

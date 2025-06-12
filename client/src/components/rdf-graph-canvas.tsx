@@ -1003,10 +1003,22 @@ const RDFGraphCanvas = React.memo(({
                   });
                 }
                 
+                // Invalidate the graph data cache to force refresh
+                if ((window as any).queryClient && graph) {
+                  (window as any).queryClient.invalidateQueries({ 
+                    queryKey: ['/api/graphs', graph.graphId] 
+                  });
+                  
+                  // Also invalidate the general graphs list to update edge counts
+                  (window as any).queryClient.invalidateQueries({ 
+                    queryKey: ['/api/graphs'] 
+                  });
+                }
+                
                 // Force a complete graph refresh to ensure edge is properly removed
                 setTimeout(() => {
                   createVisualization();
-                }, 100);
+                }, 200);
                 
                 console.log('Edge removed successfully, refreshing visualization');
               } else {
