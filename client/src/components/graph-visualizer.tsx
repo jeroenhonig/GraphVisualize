@@ -10,7 +10,7 @@ import ColorLegend from "./color-legend";
 import LayoutPanel from "./layout-panel";
 import NodeEditor from "./node-editor";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -663,6 +663,9 @@ export default function GraphVisualizer() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Nieuwe Graph Maken</DialogTitle>
+            <DialogDescription>
+              Maak een nieuwe graph aan met nodes en edges.
+            </DialogDescription>
           </DialogHeader>
           <GraphCreator onGraphCreated={() => setCreateModalOpen(false)} />
         </DialogContent>
@@ -683,6 +686,9 @@ export default function GraphVisualizer() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Graph Exporteren</DialogTitle>
+            <DialogDescription>
+              Exporteer de graph data in verschillende formaten.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>

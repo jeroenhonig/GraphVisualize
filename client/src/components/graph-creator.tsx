@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -295,6 +295,9 @@ export default function GraphCreator({ onGraphCreated }: GraphCreatorProps) {
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nieuwe Graaf Maken</DialogTitle>
+          <DialogDescription>
+            Creëer een nieuwe graph met aangepaste nodes en relaties.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-6">

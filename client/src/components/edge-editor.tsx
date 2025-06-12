@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -71,6 +71,9 @@ export default function EdgeEditor({
             <Edit3 className="h-5 w-5" />
             Relatie Bewerken
           </DialogTitle>
+          <DialogDescription>
+            Bewerk de eigenschappen van deze relatie tussen nodes.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
