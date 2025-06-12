@@ -192,8 +192,14 @@ export default function GraphVisualizer() {
         const edgeData = await response.json();
         
         // Use dynamic edge addition instead of full graph refresh
+        console.log('Attempting to add edge dynamically:', edgeData);
         if ((window as any).addEdgeDynamically) {
+          console.log('addEdgeDynamically function found, calling it');
           (window as any).addEdgeDynamically(source, target, edgeData);
+        } else {
+          console.log('addEdgeDynamically function not found, falling back to refresh');
+          // Fallback to refresh if dynamic addition fails
+          queryClient.invalidateQueries({ queryKey: ['/api/graphs', currentGraph.graphId] });
         }
         
         toast({
@@ -355,7 +361,11 @@ export default function GraphVisualizer() {
                 behaviorMode={behaviorMode}
                 onNodesSelected={handleNodesSelected}
                 onEdgeCreated={handleEdgeCreated}
-                onEdgeCreatedCallback={true}
+                onEdgeCreatedCallback={(sourceId: string, targetId: string, edgeData: any) => {
+                  console.log('Dynamic edge callback called:', { sourceId, targetId, edgeData });
+                  // For now, fall back to refresh until we fix the dynamic implementation
+                  queryClient.invalidateQueries({ queryKey: ['/api/graphs', currentGraph.graphId] });
+                }}
               />
             </ErrorBoundary>
           </div>

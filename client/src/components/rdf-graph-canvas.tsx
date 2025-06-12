@@ -280,15 +280,27 @@ const RDFGraphCanvas = React.memo(({
 
       simulationRef.current = simulation;
 
-      // Create links
+      // Create links with groups for better management
       const linkGroup = g.append("g").attr("class", "links");
-      const linkSelection = linkGroup.selectAll("line")
-        .data(links)
-        .enter().append("line")
+      const linkSelection = linkGroup.selectAll(".link-group")
+        .data(links, (d: any) => d.id)
+        .enter().append("g")
+        .attr("class", "link-group");
+
+      linkSelection.append("line")
+        .attr("class", "link")
         .attr("stroke", "#999")
         .attr("stroke-opacity", 0.6)
         .attr("stroke-width", 2)
         .attr("marker-end", "url(#arrow)");
+
+      linkSelection.append("text")
+        .attr("class", "link-label")
+        .attr("text-anchor", "middle")
+        .attr("dy", "-5px")
+        .attr("font-size", "10px")
+        .attr("fill", "#666")
+        .text(d => d.label || "");
 
       // Create nodes
       const nodeGroup = g.append("g").attr("class", "nodes");
@@ -473,11 +485,17 @@ const RDFGraphCanvas = React.memo(({
 
       // Update positions on simulation tick
       simulation.on("tick", () => {
-        linkSelection
+        // Update link positions using the new group structure
+        linkSelection.select("line")
           .attr("x1", d => (d.source as D3Node).x!)
           .attr("y1", d => (d.source as D3Node).y!)
           .attr("x2", d => (d.target as D3Node).x!)
           .attr("y2", d => (d.target as D3Node).y!);
+
+        // Update link label positions
+        linkSelection.select("text")
+          .attr("x", d => ((d.source as D3Node).x! + (d.target as D3Node).x!) / 2)
+          .attr("y", d => ((d.source as D3Node).y! + (d.target as D3Node).y!) / 2);
 
         nodeSelection
           .attr("cx", d => d.x!)
@@ -554,21 +572,36 @@ const RDFGraphCanvas = React.memo(({
 
   // Function to add a new edge dynamically without re-rendering the entire graph
   const addEdgeDynamically = useCallback((sourceId: string, targetId: string, edgeData: any) => {
-    if (!svgRef.current || !simulationRef.current) return;
+    console.log('addEdgeDynamically called with:', { sourceId, targetId, edgeData });
+    
+    if (!svgRef.current || !simulationRef.current || !nodesDataRef.current || !linksDataRef.current) {
+      console.log('Required refs not available');
+      return;
+    }
 
     const svg = d3.select(svgRef.current);
     const g = svg.select('.main-group');
     
-    // Create new edge data
+    // Find source and target nodes from current data
+    const sourceNode = nodesDataRef.current.find(n => n.id === sourceId);
+    const targetNode = nodesDataRef.current.find(n => n.id === targetId);
+    
+    if (!sourceNode || !targetNode) {
+      console.log('Source or target node not found:', { sourceId, targetId });
+      return;
+    }
+    
+    // Create new edge data with proper D3 node references
     const newEdge: D3Link = {
       id: edgeData.edgeId || `edge-${Date.now()}`,
-      source: sourceId,
-      target: targetId,
+      source: sourceNode,
+      target: targetNode,
       label: edgeData.label || "relatedTo"
     };
 
     // Add to links data
     linksDataRef.current.push(newEdge);
+    console.log('Added new edge to links data, total links:', linksDataRef.current.length);
 
     // Update simulation with new links
     const simulation = simulationRef.current;
@@ -577,12 +610,13 @@ const RDFGraphCanvas = React.memo(({
       linkForce.links(linksDataRef.current);
     }
 
-    // Add new edge to SVG
-    const linkSelection = g.select('.links');
-    const newLinkGroup = linkSelection.selectAll('.link-group')
+    // Update SVG with new edge using D3 data join pattern
+    const linkContainer = g.select('.links');
+    const linkSelection = linkContainer.selectAll('.link-group')
       .data(linksDataRef.current, (d: any) => d.id);
 
-    const newLinkEnter = newLinkGroup.enter()
+    // Add new link groups
+    const newLinkEnter = linkSelection.enter()
       .append('g')
       .attr('class', 'link-group');
 
@@ -601,8 +635,33 @@ const RDFGraphCanvas = React.memo(({
       .attr('fill', '#666')
       .text(d => d.label || '');
 
-    // Restart simulation with alpha to animate the new edge
-    simulation.alpha(0.3).restart();
+    // Update tick function to include new links
+    simulation.on("tick", () => {
+      // Update all link positions including new ones
+      linkContainer.selectAll('.link-group').select("line")
+        .attr("x1", d => (d.source as D3Node).x!)
+        .attr("y1", d => (d.source as D3Node).y!)
+        .attr("x2", d => (d.target as D3Node).x!)
+        .attr("y2", d => (d.target as D3Node).y!);
+
+      // Update all link label positions
+      linkContainer.selectAll('.link-group').select("text")
+        .attr("x", d => ((d.source as D3Node).x! + (d.target as D3Node).x!) / 2)
+        .attr("y", d => ((d.source as D3Node).y! + (d.target as D3Node).y!) / 2);
+
+      // Update node positions (existing code)
+      g.selectAll('.nodes circle')
+        .attr("cx", d => (d as D3Node).x!)
+        .attr("cy", d => (d as D3Node).y!);
+
+      g.selectAll('.node-labels text')
+        .attr("x", d => (d as D3Node).x!)
+        .attr("y", d => (d as D3Node).y!);
+    });
+
+    // Restart simulation with moderate alpha to animate the new edge
+    simulation.alpha(0.1).restart();
+    console.log('Simulation restarted with new edge');
 
   }, []);
 
