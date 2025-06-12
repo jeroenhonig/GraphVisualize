@@ -366,6 +366,7 @@ const RDFGraphCanvas = React.memo(({
             if (connectionMode.active && connectionMode.sourceNode) {
               if (d.id !== connectionMode.sourceNode.id) {
                 // Create new connection
+                console.log('Creating connection from', connectionMode.sourceNode.id, 'to', d.id);
                 if (onEdgeCreated) {
                   onEdgeCreated(connectionMode.sourceNode.id, d.id);
                 }
@@ -373,6 +374,7 @@ const RDFGraphCanvas = React.memo(({
                 return;
               } else {
                 // Clicked on same node, cancel connection mode
+                console.log('Canceling connection mode - same node clicked');
                 setConnectionMode({ active: false });
                 return;
               }

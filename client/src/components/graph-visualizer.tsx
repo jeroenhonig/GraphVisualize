@@ -166,12 +166,47 @@ export default function GraphVisualizer() {
     console.log('Multiple nodes selected:', nodes.length);
   };
 
-  const handleEdgeCreated = (source: string, target: string) => {
-    console.log('Edge created:', { source, target });
-    toast({
-      title: "Connectie gemaakt",
-      description: `Nieuwe verbinding tussen ${source} en ${target}`,
-    });
+  const handleEdgeCreated = async (source: string, target: string) => {
+    if (!currentGraph) return;
+    
+    try {
+      console.log('Creating edge between:', { source, target });
+      
+      // Find source and target nodes to get their labels
+      const sourceNode = currentGraph.nodes.find(n => n.id === source);
+      const targetNode = currentGraph.nodes.find(n => n.id === target);
+      
+      // Create a simple relationship predicate
+      const edgeId = `edge-${Date.now()}`;
+      const predicate = "http://example.org/relatedTo";
+      
+      // Create edge using the existing API endpoint
+      const response = await apiRequest("POST", `/api/graphs/${currentGraph.graphId}/edges`, {
+        sourceId: source,
+        targetId: target,
+        label: "relatedTo",
+        type: "relationship"
+      });
+      
+      if (response.ok) {
+        // Refresh the current graph data to show the new edge
+        queryClient.invalidateQueries({ queryKey: ['/api/graphs', currentGraph.graphId] });
+        
+        toast({
+          title: "Relatie aangemaakt",
+          description: `Nieuwe verbinding tussen ${sourceNode?.label || source} en ${targetNode?.label || target}`,
+        });
+      } else {
+        throw new Error('Failed to create relationship');
+      }
+    } catch (error) {
+      console.error('Error creating edge:', error);
+      toast({
+        variant: "destructive",
+        title: "Fout bij aanmaken relatie",
+        description: "Kon de nieuwe verbinding niet opslaan.",
+      });
+    }
   };
 
   const changeBehaviorMode = (mode: 'default' | 'connect' | 'select' | 'edit' | 'readonly') => {
