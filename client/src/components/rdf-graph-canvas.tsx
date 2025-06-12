@@ -48,6 +48,52 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, node, onEdit, onCreateR
   );
 };
 
+interface EdgeContextMenuProps {
+  x: number;
+  y: number;
+  edge: any;
+  onEdit: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+}
+
+const EdgeContextMenu: React.FC<EdgeContextMenuProps> = ({ x, y, edge, onEdit, onDelete, onClose }) => {
+  useEffect(() => {
+    const handleClick = () => onClose();
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed bg-white border border-gray-300 rounded-md shadow-lg z-50 min-w-[150px]"
+      style={{ left: x, top: y }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="py-1">
+        <button
+          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+          onClick={onEdit}
+        >
+          <span>✏️</span>
+          Bewerk relatie
+        </button>
+        <button
+          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2 text-red-600"
+          onClick={onDelete}
+        >
+          <span>🗑️</span>
+          Verwijder relatie
+        </button>
+        <div className="border-t border-gray-200 my-1"></div>
+        <div className="px-3 py-1 text-xs text-gray-500">
+          {edge.label || edge.type}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface RDFGraphCanvasProps {
   graph?: GraphData;
   selectedNode?: VisualizationNode;
@@ -101,6 +147,12 @@ const RDFGraphCanvas = React.memo(({
     y: number;
     node: VisualizationNode;
   } | null>(null);
+  const [edgeContextMenu, setEdgeContextMenu] = useState<{
+    x: number;
+    y: number;
+    edge: any;
+  } | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<any>(null);
   const connectionModeRef = useRef<{
     active: boolean;
     sourceNode?: VisualizationNode;
@@ -292,7 +344,21 @@ const RDFGraphCanvas = React.memo(({
         .attr("stroke", "#999")
         .attr("stroke-opacity", 0.6)
         .attr("stroke-width", 2)
-        .attr("marker-end", "url(#arrow)");
+        .attr("marker-end", "url(#arrow)")
+        .style("cursor", "pointer")
+        .on("contextmenu", (event, d) => {
+          event.preventDefault();
+          const rect = svgRef.current!.getBoundingClientRect();
+          setEdgeContextMenu({
+            x: event.clientX - rect.left,
+            y: event.clientY - rect.top,
+            edge: d
+          });
+          setSelectedEdge(d);
+        })
+        .on("click", (event, d) => {
+          setSelectedEdge(selectedEdge?.id === d.id ? null : d);
+        });
 
       linkSelection.append("text")
         .attr("class", "link-label")
@@ -490,7 +556,9 @@ const RDFGraphCanvas = React.memo(({
           .attr("x1", d => (d.source as D3Node).x!)
           .attr("y1", d => (d.source as D3Node).y!)
           .attr("x2", d => (d.target as D3Node).x!)
-          .attr("y2", d => (d.target as D3Node).y!);
+          .attr("y2", d => (d.target as D3Node).y!)
+          .attr("stroke", d => selectedEdge?.id === d.id ? "#ff6b35" : "#999")
+          .attr("stroke-width", d => selectedEdge?.id === d.id ? 4 : 2);
 
         // Update link label positions
         linkSelection.select("text")
@@ -823,6 +891,40 @@ const RDFGraphCanvas = React.memo(({
             setContextMenu(null);
           }}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* Edge Context Menu */}
+      {edgeContextMenu && (
+        <EdgeContextMenu
+          x={edgeContextMenu.x}
+          y={edgeContextMenu.y}
+          edge={edgeContextMenu.edge}
+          onEdit={() => {
+            // TODO: Implement edge editing dialog
+            console.log('Edit edge:', edgeContextMenu.edge);
+            setEdgeContextMenu(null);
+          }}
+          onDelete={async () => {
+            try {
+              // Delete the edge from the database using the correct endpoint
+              const response = await fetch(`/api/edges/${edgeContextMenu.edge.id}`, {
+                method: 'DELETE',
+              });
+              
+              if (response.ok) {
+                // Refresh the graph data
+                window.location.reload();
+              } else {
+                console.error('Failed to delete edge');
+              }
+            } catch (error) {
+              console.error('Error deleting edge:', error);
+            }
+            setEdgeContextMenu(null);
+            setSelectedEdge(null);
+          }}
+          onClose={() => setEdgeContextMenu(null)}
         />
       )}
 
