@@ -445,8 +445,27 @@ export class DatabaseStorage implements IStorage {
     const edges: VisualizationEdge[] = [];
     const processedEdges = new Set<string>();
 
-    // Process each subject (potential node or edge) - handle both custom and standard RDF predicates
+    // First pass: identify edge entities to exclude from nodes
+    const edgeEntities = new Set<string>();
     for (const [subject, subjectTripleList] of Array.from(subjectTriples.entries())) {
+      const typeTriple = subjectTripleList.find((t: any) => 
+        t.predicate === RDF_PREDICATES.TYPE || 
+        t.predicate === 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
+      );
+      
+      // If this is an edge entity, add to exclusion set
+      if (typeTriple?.object === RDF_TYPES.EDGE || typeTriple?.object === 'graph:Edge') {
+        edgeEntities.add(subject);
+      }
+    }
+
+    // Process each subject (potential node) - handle both custom and standard RDF predicates
+    for (const [subject, subjectTripleList] of Array.from(subjectTriples.entries())) {
+      // Skip edge entities - they shouldn't be rendered as nodes
+      if (edgeEntities.has(subject)) {
+        continue;
+      }
+
       // Check for both custom and standard RDF type predicates
       const typeTriple = subjectTripleList.find((t: any) => 
         t.predicate === RDF_PREDICATES.TYPE || 
@@ -476,6 +495,7 @@ export class DatabaseStorage implements IStorage {
         RDF_PREDICATES.POSITION_X,
         RDF_PREDICATES.POSITION_Y,
         RDF_PREDICATES.CONNECTS_TO,
+        RDF_PREDICATES.EDGE_TYPE,
         // Standard RDF/RDFS/OWL predicates
         'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
         'http://www.w3.org/2000/01/rdf-schema#label',
@@ -484,7 +504,9 @@ export class DatabaseStorage implements IStorage {
         'http://purl.org/dc/terms/creator',
         'http://www.w3.org/2002/07/owl#versionInfo',
         'graph:positionX',
-        'graph:positionY'
+        'graph:positionY',
+        'graph:connectsTo',
+        'graph:edgeType'
       ];
       
       const data: Record<string, any> = {};
@@ -550,11 +572,31 @@ export class DatabaseStorage implements IStorage {
 
       // Find relationships to other nodes (edges)
       for (const triple of subjectTripleList) {
+        // Check for connection relationships (like graph:connectsTo)
+        if (triple.predicate === RDF_PREDICATES.CONNECTS_TO || triple.predicate === 'graph:connectsTo') {
+          // Only create edge if target exists as a node (not an edge entity)
+          if (subjectTriples.has(triple.object) && !edgeEntities.has(triple.object)) {
+            const edgeId = `${subject}-connectsTo-${triple.object}`;
+            if (!processedEdges.has(edgeId)) {
+              edges.push({
+                id: edgeId,
+                source: subject,
+                target: triple.object,
+                label: "relatedTo",
+                type: "relationship",
+                data: {}
+              });
+              processedEdges.add(edgeId);
+            }
+          }
+          continue;
+        }
+        
         // Skip system predicates and literal values
         if (systemPredicates.includes(triple.predicate)) continue;
         
-        // Check if this is a relationship to another node
-        if (subjectTriples.has(triple.object)) {
+        // Check if this is a relationship to another node (but not edge entities)
+        if (subjectTriples.has(triple.object) && !edgeEntities.has(triple.object)) {
           const edgeId = `${subject}-${triple.predicate}-${triple.object}`;
           if (!processedEdges.has(edgeId)) {
             edges.push({
