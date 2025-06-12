@@ -291,21 +291,86 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
                     </SelectTrigger>
                     <SelectContent>
                       {/* Infrastructure Ontology Properties - Full URIs */}
-                      <SelectItem value="https://example.org/infrastructure/property/typeName">Infrastructure Type Name</SelectItem>
-                      <SelectItem value="https://example.org/infrastructure/property/typeCode">Infrastructure Type Code</SelectItem>
-                      <SelectItem value="https://example.org/infrastructure/property/objectCode">Infrastructure Object Code</SelectItem>
-                      <SelectItem value="https://example.org/infrastructure/property/objectName">Infrastructure Object Name</SelectItem>
-                      <SelectItem value="https://example.org/infrastructure/property/omschrijving">Omschrijving</SelectItem>
+                      <SelectItem value="https://example.org/infrastructure/property/typeName">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Infrastructure Type Name</span>
+                          <span className="text-xs text-gray-500 font-mono">https://example.org/infrastructure/property/typeName</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="https://example.org/infrastructure/property/typeCode">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Infrastructure Type Code</span>
+                          <span className="text-xs text-gray-500 font-mono">https://example.org/infrastructure/property/typeCode</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="https://example.org/infrastructure/property/objectCode">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Infrastructure Object Code</span>
+                          <span className="text-xs text-gray-500 font-mono">https://example.org/infrastructure/property/objectCode</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="https://example.org/infrastructure/property/objectName">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Infrastructure Object Name</span>
+                          <span className="text-xs text-gray-500 font-mono">https://example.org/infrastructure/property/objectName</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="https://example.org/infrastructure/property/omschrijving">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Omschrijving</span>
+                          <span className="text-xs text-gray-500 font-mono">https://example.org/infrastructure/property/omschrijving</span>
+                        </div>
+                      </SelectItem>
                       {/* Building/Construction Properties */}
-                      <SelectItem value="property:area">Area</SelectItem>
-                      <SelectItem value="property:height">Height</SelectItem>
-                      <SelectItem value="property:materialType">Material Type</SelectItem>
-                      <SelectItem value="property:cost">Cost</SelectItem>
-                      {/* Generic Properties */}
-                      <SelectItem value="rdfs:comment">Comment</SelectItem>
-                      <SelectItem value="schema:description">Description</SelectItem>
-                      <SelectItem value="rdfs:label">Label</SelectItem>
-                      <SelectItem value="schema:name">Name</SelectItem>
+                      <SelectItem value="https://example.org/building/property/area">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Area</span>
+                          <span className="text-xs text-gray-500 font-mono">https://example.org/building/property/area</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="https://example.org/building/property/height">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Height</span>
+                          <span className="text-xs text-gray-500 font-mono">https://example.org/building/property/height</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="https://example.org/building/property/materialType">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Material Type</span>
+                          <span className="text-xs text-gray-500 font-mono">https://example.org/building/property/materialType</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="https://example.org/building/property/cost">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Cost</span>
+                          <span className="text-xs text-gray-500 font-mono">https://example.org/building/property/cost</span>
+                        </div>
+                      </SelectItem>
+                      {/* Standard RDF Properties */}
+                      <SelectItem value="http://www.w3.org/2000/01/rdf-schema#comment">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Comment</span>
+                          <span className="text-xs text-gray-500 font-mono">rdfs:comment</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="http://schema.org/description">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Description</span>
+                          <span className="text-xs text-gray-500 font-mono">schema:description</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="http://www.w3.org/2000/01/rdf-schema#label">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Label</span>
+                          <span className="text-xs text-gray-500 font-mono">rdfs:label</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="http://schema.org/name">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Name</span>
+                          <span className="text-xs text-gray-500 font-mono">schema:name</span>
+                        </div>
+                      </SelectItem>
                       <div className="border-t my-1"></div>
                       <SelectItem value="custom">+ Aangepaste eigenschap</SelectItem>
                     </SelectContent>
@@ -315,18 +380,51 @@ export default function NodeEditor({ node, onNodeUpdate }: NodeEditorProps) {
                     <div className="space-y-2 p-2 bg-gray-50 rounded border mt-2">
                       <Label className="text-xs text-gray-700">Aangepaste Eigenschap</Label>
                       <Input
-                        placeholder="namespace:propertyName (bijv. property:customField)"
+                        placeholder="Volledige URI (bijv. https://example.org/custom/property/myProperty)"
                         value={customPropertyKey}
                         onChange={(e) => setCustomPropertyKey(e.target.value)}
                         className="text-sm"
                       />
+                      <div className="text-xs text-gray-600 mb-2">
+                        <p>Voorbeelden:</p>
+                        <ul className="list-disc list-inside font-mono text-xs">
+                          <li>https://example.org/infrastructure/property/customField</li>
+                          <li>https://example.org/building/property/newAttribute</li>
+                          <li>http://purl.org/dc/terms/identifier</li>
+                        </ul>
+                      </div>
                       <div className="flex space-x-2">
                         <Button
                           onClick={() => {
                             if (customPropertyKey.trim()) {
                               let propertyKey = customPropertyKey.trim();
-                              if (!propertyKey.includes(':') && !propertyKey.includes('/')) {
-                                propertyKey = `property:${propertyKey}`;
+                              // Validate URI format
+                              if (!propertyKey.startsWith('http://') && !propertyKey.startsWith('https://')) {
+                                // Auto-expand common prefixes to full URIs
+                                if (propertyKey.includes(':')) {
+                                  const [prefix, localName] = propertyKey.split(':', 2);
+                                  switch (prefix) {
+                                    case 'rdfs':
+                                      propertyKey = `http://www.w3.org/2000/01/rdf-schema#${localName}`;
+                                      break;
+                                    case 'schema':
+                                      propertyKey = `http://schema.org/${localName}`;
+                                      break;
+                                    case 'dc':
+                                      propertyKey = `http://purl.org/dc/terms/${localName}`;
+                                      break;
+                                    case 'property':
+                                      propertyKey = `https://example.org/infrastructure/property/${localName}`;
+                                      break;
+                                    case 'building':
+                                      propertyKey = `https://example.org/building/property/${localName}`;
+                                      break;
+                                    default:
+                                      propertyKey = `https://example.org/custom/property/${localName}`;
+                                  }
+                                } else {
+                                  propertyKey = `https://example.org/custom/property/${propertyKey}`;
+                                }
                               }
                               setNewPropertyKey(propertyKey);
                               setShowCustomPropertyInput(false);

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import * as d3 from 'd3';
+import EdgeEditor from "./edge-editor";
 import type { GraphData, VisualizationNode, GraphTransform } from "@shared/schema";
 
 interface ContextMenuProps {
@@ -153,6 +154,8 @@ const RDFGraphCanvas = React.memo(({
     edge: any;
   } | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<any>(null);
+  const [edgeEditorOpen, setEdgeEditorOpen] = useState(false);
+  const [edgeToEdit, setEdgeToEdit] = useState<any>(null);
   const [preservedViewport, setPreservedViewport] = useState<{
     transform?: d3.ZoomTransform;
     nodePositions?: Map<string, { x: number; y: number }>;
@@ -972,8 +975,8 @@ const RDFGraphCanvas = React.memo(({
           y={edgeContextMenu.y}
           edge={edgeContextMenu.edge}
           onEdit={() => {
-            // TODO: Implement edge editing dialog
-            console.log('Edit edge:', edgeContextMenu.edge);
+            setEdgeToEdit(edgeContextMenu.edge);
+            setEdgeEditorOpen(true);
             setEdgeContextMenu(null);
           }}
           onDelete={async () => {
