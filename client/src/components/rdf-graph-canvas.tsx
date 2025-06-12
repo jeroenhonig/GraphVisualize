@@ -1060,6 +1060,20 @@ const RDFGraphCanvas = React.memo(({
           </button>
         </div>
       )}
+
+      {/* Edge Editor Dialog */}
+      {edgeToEdit && (
+        <EdgeEditor
+          edge={edgeToEdit}
+          sourceNodeLabel={graph?.nodes.find(n => n.id === edgeToEdit.source)?.label}
+          targetNodeLabel={graph?.nodes.find(n => n.id === edgeToEdit.target)?.label}
+          isOpen={edgeEditorOpen}
+          onClose={() => {
+            setEdgeEditorOpen(false);
+            setEdgeToEdit(null);
+          }}
+        />
+      )}
     </div>
   );
 });

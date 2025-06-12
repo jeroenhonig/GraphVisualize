@@ -61,7 +61,7 @@ export default function GraphCreator({ onGraphCreated }: GraphCreatorProps) {
   const [edgeSource, setEdgeSource] = useState("");
   const [edgeTarget, setEdgeTarget] = useState("");
   const [edgeLabel, setEdgeLabel] = useState("");
-  const [edgeType, setEdgeType] = useState("default");
+  const [edgeType, setEdgeType] = useState("https://example.org/infrastructure/relationship/relatedTo");
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -124,7 +124,7 @@ export default function GraphCreator({ onGraphCreated }: GraphCreatorProps) {
     setEdgeSource("");
     setEdgeTarget("");
     setEdgeLabel("");
-    setEdgeType("default");
+    setEdgeType("https://example.org/infrastructure/relationship/relatedTo");
   };
 
   const addProperty = () => {
@@ -518,10 +518,30 @@ export default function GraphCreator({ onGraphCreated }: GraphCreatorProps) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="default">Standaard</SelectItem>
-                            <SelectItem value="reference">Referentie</SelectItem>
-                            <SelectItem value="dependency">Afhankelijkheid</SelectItem>
-                            <SelectItem value="hierarchy">Hiërarchie</SelectItem>
+                            <SelectItem value="https://example.org/infrastructure/relationship/relatedTo">
+                              <div className="flex flex-col">
+                                <span className="font-medium">Related To</span>
+                                <span className="text-xs text-gray-500 font-mono">infrastructure:relatedTo</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="https://example.org/infrastructure/relationship/connectsTo">
+                              <div className="flex flex-col">
+                                <span className="font-medium">Connects To</span>
+                                <span className="text-xs text-gray-500 font-mono">infrastructure:connectsTo</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="https://example.org/infrastructure/relationship/partOf">
+                              <div className="flex flex-col">
+                                <span className="font-medium">Part Of</span>
+                                <span className="text-xs text-gray-500 font-mono">infrastructure:partOf</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="https://example.org/infrastructure/relationship/hasComponent">
+                              <div className="flex flex-col">
+                                <span className="font-medium">Has Component</span>
+                                <span className="text-xs text-gray-500 font-mono">infrastructure:hasComponent</span>
+                              </div>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
