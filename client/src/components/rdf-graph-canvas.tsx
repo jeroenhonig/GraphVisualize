@@ -162,6 +162,64 @@ const RDFGraphCanvas = React.memo(({
     sourceNode?: VisualizationNode;
   }>({ active: false });
   
+  // Expose fitToScreen function globally
+  useEffect(() => {
+    (window as any).fitToScreenD3 = () => {
+      if (!svgRef.current || !nodesDataRef.current || nodesDataRef.current.length === 0) return;
+      
+      const svg = d3.select(svgRef.current);
+      const g = svg.select('.main-group');
+      
+      // Get the visible nodes bounds
+      const visibleNodesArray = nodesDataRef.current.filter(node => 
+        visibleNodes.has(node.id) && node.x !== undefined && node.y !== undefined
+      );
+      
+      if (visibleNodesArray.length === 0) return;
+      
+      // Calculate bounding box of all visible nodes
+      const padding = 100;
+      const minX = Math.min(...visibleNodesArray.map(n => n.x!)) - padding;
+      const maxX = Math.max(...visibleNodesArray.map(n => n.x!)) + padding;
+      const minY = Math.min(...visibleNodesArray.map(n => n.y!)) - padding;
+      const maxY = Math.max(...visibleNodesArray.map(n => n.y!)) + padding;
+      
+      const width = maxX - minX;
+      const height = maxY - minY;
+      
+      // Get SVG dimensions
+      const svgRect = svg.node()!.getBoundingClientRect();
+      const svgWidth = svgRect.width;
+      const svgHeight = svgRect.height;
+      
+      // Calculate scale to fit with some margin
+      const scaleX = svgWidth / width;
+      const scaleY = svgHeight / height;
+      const scale = Math.min(scaleX, scaleY, 3) * 0.8; // 80% of max scale for margin
+      
+      // Calculate center translation
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const translateX = svgWidth / 2 - centerX * scale;
+      const translateY = svgHeight / 2 - centerY * scale;
+      
+      // Apply the transform using D3 zoom
+      if (zoomRef.current) {
+        const transform = d3.zoomIdentity
+          .translate(translateX, translateY)
+          .scale(scale);
+        
+        svg.transition()
+          .duration(750)
+          .call(zoomRef.current.transform, transform);
+      }
+    };
+    
+    return () => {
+      delete (window as any).fitToScreenD3;
+    };
+  }, [visibleNodes]);
+  
   const [connectionMode, setConnectionMode] = useState<{
     active: boolean;
     sourceNode?: VisualizationNode;
@@ -212,6 +270,13 @@ const RDFGraphCanvas = React.memo(({
 
       svg.call(zoom);
       zoomRef.current = zoom;
+      
+      // Restore preserved viewport if available
+      if (preservedViewport.transform) {
+        svg.call(zoom.transform, preservedViewport.transform);
+        // Clear preserved viewport after restoring
+        setPreservedViewport({});
+      }
 
       // Add arrow marker for edges
       const defs = svg.append("defs");

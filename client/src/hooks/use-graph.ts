@@ -12,6 +12,8 @@ export function useGraph() {
     scale: 1,
     x: 0,
     y: 0,
+    translateX: 0,
+    translateY: 0,
   });
 
   // Fetch current graph
@@ -33,7 +35,7 @@ export function useGraph() {
     setCurrentGraphId(graphId);
     setSelectedNode(undefined);
     setVisibleNodes(new Set());
-    setTransform({ scale: 1, x: 0, y: 0 });
+    setTransform({ scale: 1, x: 0, y: 0, translateX: 0, translateY: 0 });
   }, []);
 
   // Auto-select the most recent graph if none is selected
@@ -124,7 +126,7 @@ export function useGraph() {
 
   const resetView = useCallback(() => {
     // Reset transform (zoom and pan)
-    setTransform({ scale: 1, x: 0, y: 0 });
+    setTransform({ scale: 1, x: 0, y: 0, translateX: 0, translateY: 0 });
     
     // Show all nodes and edges
     if (currentGraph && currentGraph.nodes) {
@@ -137,34 +139,40 @@ export function useGraph() {
   }, [currentGraph]);
 
   const fitToScreen = useCallback(() => {
-    if (!currentGraph || !currentGraph.nodes || visibleNodes.size === 0) return;
+    // Call the global D3 fit function if available
+    if ((window as any).fitToScreenD3) {
+      (window as any).fitToScreenD3();
+    } else {
+      // Fallback implementation
+      if (!currentGraph || !currentGraph.nodes || visibleNodes.size === 0) return;
 
-    const visibleNodesArray = currentGraph.nodes.filter((node: any) => visibleNodes.has(node.id));
-    
-    if (visibleNodesArray.length === 0) return;
+      const visibleNodesArray = currentGraph.nodes.filter((node: any) => visibleNodes.has(node.id));
+      
+      if (visibleNodesArray.length === 0) return;
 
-    // Calculate bounds
-    const padding = 100;
-    const minX = Math.min(...visibleNodesArray.map((n: any) => n.x)) - padding;
-    const maxX = Math.max(...visibleNodesArray.map((n: any) => n.x)) + padding;
-    const minY = Math.min(...visibleNodesArray.map((n: any) => n.y)) - padding;
-    const maxY = Math.max(...visibleNodesArray.map((n: any) => n.y)) + padding;
+      // Calculate bounds
+      const padding = 100;
+      const minX = Math.min(...visibleNodesArray.map((n: any) => n.x)) - padding;
+      const maxX = Math.max(...visibleNodesArray.map((n: any) => n.x)) + padding;
+      const minY = Math.min(...visibleNodesArray.map((n: any) => n.y)) - padding;
+      const maxY = Math.max(...visibleNodesArray.map((n: any) => n.y)) + padding;
 
-    const width = maxX - minX;
-    const height = maxY - minY;
+      const width = maxX - minX;
+      const height = maxY - minY;
 
-    // Calculate scale to fit
-    const scaleX = 1200 / width;
-    const scaleY = 800 / height;
-    const scale = Math.min(scaleX, scaleY, 2); // Max scale of 2
+      // Calculate scale to fit
+      const scaleX = 1200 / width;
+      const scaleY = 800 / height;
+      const scale = Math.min(scaleX, scaleY, 2); // Max scale of 2
 
-    // Calculate center offset
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
-    const translateX = 600 - centerX * scale;
-    const translateY = 400 - centerY * scale;
+      // Calculate center offset
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const translateX = 600 - centerX * scale;
+      const translateY = 400 - centerY * scale;
 
-    setTransform({ scale, x: translateX, y: translateY });
+      setTransform({ scale, x: translateX, y: translateY, translateX, translateY });
+    }
   }, [currentGraph, visibleNodes]);
 
   return {
