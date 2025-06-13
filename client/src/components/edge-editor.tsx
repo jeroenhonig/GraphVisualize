@@ -39,9 +39,42 @@ export default function EdgeEditor({
     label: edge.label || "",
     type: edge.type || "https://example.org/infrastructure/relationship/relatedTo"
   });
+  const [showCustomTypeInput, setShowCustomTypeInput] = useState(false);
+  const [customTypeName, setCustomTypeName] = useState("");
+  const [customTypeUri, setCustomTypeUri] = useState("");
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Mapping of relation types to their readable labels
+  const relationTypeLabels: Record<string, string> = {
+    "https://example.org/infrastructure/relationship/connectsTo": "verbindt met",
+    "https://example.org/infrastructure/relationship/partOf": "onderdeel van",
+    "https://example.org/infrastructure/relationship/hasComponent": "bevat component",
+    "https://example.org/infrastructure/relationship/adjacentTo": "grenst aan",
+    "https://example.org/infrastructure/relationship/relatedTo": "gerelateerd aan",
+    "https://example.org/building/relationship/supportedBy": "ondersteund door",
+    "https://example.org/building/relationship/contains": "bevat",
+    "https://example.org/building/relationship/locatedIn": "bevindt zich in",
+    "https://example.org/spatial/relationship/above": "boven",
+    "https://example.org/spatial/relationship/below": "onder",
+    "https://example.org/spatial/relationship/within": "binnen",
+    "https://example.org/spatial/relationship/crosses": "kruist",
+    "https://example.org/functional/relationship/controls": "bestuurt",
+    "https://example.org/functional/relationship/monitors": "bewaakt",
+    "https://example.org/functional/relationship/provides": "biedt",
+    "https://example.org/functional/relationship/requires": "vereist"
+  };
+
+  // Update label when relation type changes
+  const handleTypeChange = (newType: string) => {
+    const newLabel = relationTypeLabels[newType] || editedEdge.label;
+    setEditedEdge(prev => ({ 
+      ...prev, 
+      type: newType,
+      label: newLabel
+    }));
+  };
 
   const updateEdgeMutation = useMutation({
     mutationFn: async (updates: { label?: string; type?: string }) => {
@@ -64,6 +97,41 @@ export default function EdgeEditor({
       });
     },
   });
+
+  const handleCreateCustomType = () => {
+    if (!customTypeName.trim()) {
+      toast({
+        title: "Naam Vereist",
+        description: "Voer een naam in voor het nieuwe relatie type",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Create URI from name if not provided
+    const uri = customTypeUri.trim() || 
+      `https://example.org/custom/relationship/${customTypeName.toLowerCase().replace(/\s+/g, '')}`;
+    
+    // Add to local mapping
+    relationTypeLabels[uri] = customTypeName.toLowerCase();
+    
+    // Update the edge with the new custom type
+    setEditedEdge(prev => ({
+      ...prev,
+      type: uri,
+      label: customTypeName.toLowerCase()
+    }));
+    
+    // Reset custom type form
+    setCustomTypeName("");
+    setCustomTypeUri("");
+    setShowCustomTypeInput(false);
+    
+    toast({
+      title: "Aangepast Type Aangemaakt",
+      description: `Nieuw relatie type "${customTypeName}" is aangemaakt`,
+    });
+  };
 
   const handleSave = () => {
     updateEdgeMutation.mutate({
@@ -132,7 +200,7 @@ export default function EdgeEditor({
               <Label htmlFor="edge-type">Relatie Type</Label>
               <Select 
                 value={editedEdge.type} 
-                onValueChange={(value) => setEditedEdge(prev => ({ ...prev, type: value }))}
+                onValueChange={handleTypeChange}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -205,6 +273,52 @@ export default function EdgeEditor({
                   </SelectItem>
                 </SelectContent>
               </Select>
+              
+              {/* Custom Type Creation */}
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-sm font-medium">Aangepast relatie type</Label>
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowCustomTypeInput(!showCustomTypeInput)}
+                  >
+                    {showCustomTypeInput ? "Annuleren" : "Nieuw Type"}
+                  </Button>
+                </div>
+                
+                {showCustomTypeInput && (
+                  <div className="space-y-3 p-3 bg-gray-50 dark:bg-gray-800 rounded border">
+                    <div>
+                      <Label htmlFor="custom-type-name">Type Naam</Label>
+                      <Input
+                        id="custom-type-name"
+                        value={customTypeName}
+                        onChange={(e) => setCustomTypeName(e.target.value)}
+                        placeholder="bijv. 'ondersteunt', 'bevat', 'verbindt met'..."
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="custom-type-uri">URI (optioneel)</Label>
+                      <Input
+                        id="custom-type-uri"
+                        value={customTypeUri}
+                        onChange={(e) => setCustomTypeUri(e.target.value)}
+                        placeholder="Automatisch gegenereerd indien leeg"
+                      />
+                    </div>
+                    <Button 
+                      type="button"
+                      onClick={handleCreateCustomType}
+                      size="sm"
+                      className="w-full"
+                    >
+                      Type Aanmaken
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>
