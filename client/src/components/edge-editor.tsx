@@ -11,8 +11,17 @@ import { useToast } from "@/hooks/use-toast";
 import { Save, Edit3 } from "lucide-react";
 import type { VisualizationEdge } from "@shared/schema";
 
+interface EdgeData {
+  id: string;
+  source: string | { id: string };
+  target: string | { id: string };
+  label?: string;
+  type: string;
+  data?: Record<string, any>;
+}
+
 interface EdgeEditorProps {
-  edge: VisualizationEdge;
+  edge: EdgeData;
   sourceNodeLabel?: string;
   targetNodeLabel?: string;
   isOpen: boolean;
@@ -92,15 +101,19 @@ export default function EdgeEditor({
               <div>
                 <Label>Van</Label>
                 <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded border">
-                  <span className="text-sm font-medium">{sourceNodeLabel}</span>
-                  <div className="text-xs text-gray-500 font-mono break-all">{edge.source}</div>
+                  <span className="text-sm font-medium">{sourceNodeLabel || "Onbekende node"}</span>
+                  <div className="text-xs text-gray-500 font-mono break-all">
+                    {typeof edge.source === 'string' ? edge.source : edge.source.id}
+                  </div>
                 </div>
               </div>
               <div>
                 <Label>Naar</Label>
                 <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded border">
-                  <span className="text-sm font-medium">{targetNodeLabel}</span>
-                  <div className="text-xs text-gray-500 font-mono break-all">{edge.target}</div>
+                  <span className="text-sm font-medium">{targetNodeLabel || "Onbekende node"}</span>
+                  <div className="text-xs text-gray-500 font-mono break-all">
+                    {typeof edge.target === 'string' ? edge.target : edge.target.id}
+                  </div>
                 </div>
               </div>
             </div>
